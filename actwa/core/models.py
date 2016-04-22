@@ -1,0 +1,5 @@
+
+class Activity(dict):
+    pass
+
+
