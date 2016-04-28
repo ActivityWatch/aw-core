@@ -8,6 +8,6 @@ setup(name='aw-core',
       author='Erik Bjäreholt',
       author_email='erik@bjareho.lt',
       url='https://github.com/ActivityWatch/aw-core',
+      namespace_packages=['aw'],
       packages=['aw.core'],
-      namespace_packages=['aw']
      )
