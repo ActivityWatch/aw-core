@@ -6,17 +6,18 @@ from datetime import datetime, timedelta
 
 from typing import Iterable, List, Set, Tuple, Union, Sequence
 
+logger = logging.getLogger("aw.client.models")
 
 class BaseEvent(dict):
-    ALLOWED_FIELDS = [
+    ALLOWED_FIELDS = {
         # Required
-        "type",
+        "type": str,
 
         # Metadata
-        "_id",
-        "session",
-        "stored_at",
-    ]
+        "_id": str,
+        "session": str,
+        "stored_at": datetime,
+    }
 
     def __init__(self,
                  event_type: str,
@@ -25,15 +26,15 @@ class BaseEvent(dict):
         self["type"] = event_type   # type: str
         for k, v in kwargs.items():
             if k not in self.ALLOWED_FIELDS:
-                print("Field {} not allowed".format(k))
+                logger.warning("Field {} not allowed, event: {}".format(k, kwargs))
+            elif not isinstance(v, self.ALLOWED_FIELDS[k]):
+                logger.warning("Field {} was not of proper instance, event: {}".format(k, kwargs))
         self.update(kwargs)
 
-    def from_json_dict(self) -> dict:
-        data = self.copy()
-        for k, v in data.items():
-            if isinstance(v, datetime):
-                data[k] = v.isoformat()
-        return data
+    @classmethod
+    def from_json_dict(cls, d) -> dict:
+        # TODO: Is this needed, or should the constructor deal with this behavior?
+        raise NotImplementedError
 
     def to_json_dict(self) -> dict:
         """Useful when sending data over the wire.
@@ -51,7 +52,8 @@ class BaseEvent(dict):
         return json.dumps(data)
 
 
-class SubEvent(dict):
+class SubEvent(BaseEvent):
+    # Not sure if this will be used, will probably be removed for simplicity
     pass
 
 
@@ -61,22 +63,23 @@ class Event(BaseEvent):
     """
 
     def __init__(self,
-                 timestamp: Union[datetime, Sequence[datetime]],
+                 timestamp: Union[datetime, Sequence[datetime]]=None,
                  event_type="event",
                  **kwargs):
         # FIXME: tags and label have similar/same meaning, pick one
-        self.ALLOWED_FIELDS.extend([
-            "timestamp",
+        self.ALLOWED_FIELDS.update({
+            "timestamp": Union[datetime, Sequence[datetime]],
 
-            "tag",
-            "label",
-            "note",
-            "name",
+            "label": Union[str, Sequence[str]],
+            "note": str,
 
             # Used with session-initializer
-            "settings",
+            "settings": dict,
+        })
 
-        ])
+        if not timestamp:
+            logger.warning("Event did not have a timestamp, using now as timestamp.")
+            timestamp = datetime.now()
 
         BaseEvent.__init__(self, event_type, timestamp=timestamp, **kwargs)
 
@@ -86,23 +89,25 @@ class Activity(Event):
     Used to represents an activity, an event which always has a start and end-time.
     """
 
-    def __init__(self, timestamp: Tuple[datetime, datetime], **kwargs):
-        Event.__init__(self, timestamp=timestamp, **kwargs)
+    def __init__(self, timestamp: Tuple[datetime, datetime] = None, **kwargs):
+        if not timestamp or len(timestamp) != 2:
+            raise TypeError("Activities require start and end-times, cannot be inferred")
+        Event.__init__(self, **kwargs)
 
     @property
     def duration(self) -> timedelta:
-        return self["timestamps"][1] - self["timestamps"][0]
+        return self["timestamp"][1] - self["timestamp"][0]
 
 
 class Window(Activity):
-    def __init__(self, timestamp: Tuple[datetime, datetime], **kwargs):
-        self.ALLOWED_FIELDS.extend([
+    def __init__(self, timestamp: Tuple[datetime, datetime] = None, **kwargs):
+        self.ALLOWED_FIELDS.update({
             # Used for windows
-            "id",
-            "role",
-            "command",
-            "active",
-            "desktop",
-        ])
+            "id": str,
+            "role": str,
+            "command": str,
+            "active": bool,
+            "desktop": str,
+        })
 
         Activity.__init__(self, timestamp=timestamp, **kwargs)
