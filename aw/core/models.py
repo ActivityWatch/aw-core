@@ -27,8 +27,10 @@ class BaseEvent(dict):
         for k, v in kwargs.items():
             if k not in self.ALLOWED_FIELDS:
                 logger.warning("Field {} not allowed, event: {}".format(k, kwargs))
-            elif not isinstance(v, self.ALLOWED_FIELDS[k]):
-                logger.warning("Field {} was not of proper instance, event: {}".format(k, kwargs))
+            # Currently causes issues due to not being allowed on Unions
+            # https://github.com/python/typing/issues/62
+            #elif not issubclass(v, self.ALLOWED_FIELDS[k]):
+            #    logger.warning("Field {} was not of proper instance, event: {}".format(k, kwargs))
         self.update(kwargs)
 
     @classmethod
