@@ -1,0 +1,60 @@
+{
+	"$schema": "http://json-schema.org/draft-04/schema#",
+	"title": "Event",
+	"description": "Basic event for ActivityWatch",
+	"type": "object",
+	"properties": {
+		"timestamp": {
+			"type": "array",
+			"items": {
+				"oneOf": [{
+					"type": "string",
+					"format": "date-time"
+				}]
+			},
+			"minItems": 1
+		},
+		"duration": {
+			"type": "object",
+			"properties": {
+				"value": {
+					"type": "number"
+				},
+				"unit": {
+					"enum": ["seconds"]
+				}
+			},
+			"required": ["value", "unit"]
+		},
+		"distance": {
+			"type": "object",
+			"properties": {
+				"value": {
+					"type": "number"
+				},
+				"unit": {
+					"enum": ["meter", "kilometer", "miles", "feet", "inches", "lightyears", "au"]
+				}
+			},
+			"required": ["value", "unit"]
+		},
+		"temperature": {
+			"type": "object",
+			"properties": {
+				"value": {
+					"type": "number"
+				},
+				"unit": {
+					"enum": ["kelvin", "celcius", "fahrenheit"]
+				}
+			},
+			"required": ["value", "unit"]
+		},
+		"age": {
+			"description": "Age in years",
+			"type": "integer",
+			"minimum": 0
+		}
+	},
+	"required": ["timestamp"]
+}
