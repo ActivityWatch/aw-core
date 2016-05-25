@@ -10,4 +10,5 @@ setup(name='aw-core',
       url='https://github.com/ActivityWatch/aw-core',
       namespace_packages=['aw'],
       packages=['aw.core'],
+      install_requires=['jsonschema', 'strict-rfc3339']
      )
