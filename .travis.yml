@@ -10,4 +10,4 @@ install:
  - "python3 setup.py install"
 
 script:
- - true
+ - "python3 -c 'import aw.core'"
