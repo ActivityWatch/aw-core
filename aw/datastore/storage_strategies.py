@@ -10,7 +10,7 @@ from aw.core.models import Event
 try:
     import pymongo
 except ImportError:
-    logger.warning("Could not import pymongo, not available as a datastore backend")
+    logging.warning("Could not import pymongo, not available as a datastore backend")
 
 
 class StorageStrategy():
