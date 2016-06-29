@@ -11,3 +11,4 @@ install:
 
 script:
  - "python3 -c 'import aw.core'"
+ - "python3 tests/test_datastore.py"
