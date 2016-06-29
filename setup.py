@@ -10,5 +10,5 @@ setup(name='aw-core',
       url='https://github.com/ActivityWatch/aw-core',
       namespace_packages=['aw'],
       packages=['aw.core', 'aw.datastore'],
-      install_requires=['jsonschema', 'strict-rfc3339']
+      install_requires=['jsonschema', 'strict-rfc3339', 'appdirs==1.4.0']
      )
