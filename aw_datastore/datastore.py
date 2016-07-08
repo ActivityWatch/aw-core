@@ -3,11 +3,11 @@ from datetime import datetime
 from typing import Mapping, List, Union, Sequence
 import json
 
-from aw.core.models import Event
+from aw_core.models import Event
 
 from .storage_strategies import *
 
-logger = logging.getLogger("aw.server.datastore")
+logger = logging.getLogger("aw_datastore")
 
 
 MEMORY = MemoryStorageStrategy

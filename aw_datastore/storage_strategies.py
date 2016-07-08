@@ -5,7 +5,7 @@ from typing import Mapping, List, Union, Sequence
 
 import appdirs
 
-from aw.core.models import Event
+from aw_core.models import Event
 
 try:
     import pymongo

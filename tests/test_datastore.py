@@ -2,11 +2,10 @@ import logging
 import unittest
 from datetime import datetime
 
-#from aw.client import awclient
-from aw.core.models import Event
+#from aw_client import awclient
+from aw_core.models import Event
 
-import aw.datastore
-from aw.datastore import Datastore, get_storage_methods
+from aw_datastore import Datastore, get_storage_methods
 
 logging.basicConfig(level=logging.DEBUG)
 

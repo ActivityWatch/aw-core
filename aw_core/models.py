@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from typing import Iterable, List, Set, Tuple, Union, Sequence
 
-logger = logging.getLogger("aw.client.models")
+logger = logging.getLogger("aw_client.models")
 
 class BaseEvent(dict):
     ALLOWED_FIELDS = {

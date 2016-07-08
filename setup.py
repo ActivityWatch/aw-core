@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from setuptools import setup, find_packages
+from setuptools import setup
 
 setup(name='aw-core',
       version='0.1',
@@ -8,7 +8,6 @@ setup(name='aw-core',
       author='Erik Bjäreholt',
       author_email='erik@bjareho.lt',
       url='https://github.com/ActivityWatch/aw-core',
-      namespace_packages=['aw'],
-      packages=['aw.core', 'aw.datastore'],
+      packages=['aw_core', 'aw_datastore'],
       install_requires=['jsonschema', 'strict-rfc3339', 'appdirs==1.4.0']
      )
