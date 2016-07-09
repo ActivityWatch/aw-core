@@ -2,8 +2,15 @@ from .datastore import Datastore
 
 def get_storage_methods():
     from .storage_strategies import FileStorageStrategy, MemoryStorageStrategy, MongoDBStorageStrategy
+    methods = [FileStorageStrategy, MemoryStorageStrategy]
 
-    return [FileStorageStrategy, MemoryStorageStrategy, MongoDBStorageStrategy]
+    try:
+        import pymongo
+        methods.append(MongoDBStorageStrategy)
+    except:
+        pass
+
+    return methods
 
 def get_storage_method_names():
     methods = get_storage_methods()

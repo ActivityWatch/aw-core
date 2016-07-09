@@ -58,14 +58,14 @@ class MongoDBStorageStrategy(StorageStrategy):
         self.logger = logging.getLogger("datastore-mongodb")
 
         if 'pymongo' not in vars() and 'pymongo' not in globals():
-            logger.error("Cannot use the MongoDB backend without pymongo installed")
+            self.logger.error("Cannot use the MongoDB backend without pymongo installed")
             exit(1)
 
         try:
             self.client = pymongo.MongoClient(serverSelectionTimeoutMS=5000)
             self.client.server_info() # Try to connect to the server to make sure that it's available
         except pymongo.errors.ServerSelectionTimeoutError:
-            logger.error("Couldn't connect to MongoDB server at localhost")
+            self.logger.error("Couldn't connect to MongoDB server at localhost")
             exit(1)
 
         # TODO: Readd testing ability
