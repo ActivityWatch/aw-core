@@ -7,8 +7,7 @@ python:
  - "nightly" # currently points to 3.6-dev
 
 install:
- - "python3 setup.py develop"
+ - "python3 setup.py install"
 
 script:
- - "python3 -c 'import aw.core'"
- - "python3 tests/test_datastore.py"
+ - "nosetests -v"

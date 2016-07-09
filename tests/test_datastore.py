@@ -2,52 +2,36 @@ import logging
 import unittest
 from datetime import datetime
 
-#from aw_client import awclient
-from aw_core.models import Event
+from nose_parameterized import parameterized
 
+from aw_core.models import Event
 from aw_datastore import Datastore, get_storage_methods
 
 logging.basicConfig(level=logging.DEBUG)
 
-class ParametrizedTestCase(unittest.TestCase):
-    @classmethod
-    def parametrize(cls, *args, **kwargs):
-        """ Create a suite containing all tests taken from the given
-            subclass, passing them the parameter 'param'.
-        """
-        # From: http://eli.thegreenplace.net/2011/08/02/python-unit-testing-parametrized-test-cases
-        testloader = unittest.TestLoader()
-        testnames = testloader.getTestCaseNames(cls)
-        suite = unittest.TestSuite()
-        for name in testnames:
-            suite.addTest(cls(name, *args, **kwargs))
-        return suite
+def get_buckets(strategies=get_storage_methods()):
+    buckets = []
+    for strategy in strategies:
+        buckets.append(Datastore(storage_strategy=strategy)["test"])
+    return buckets
 
-class DatastoreTest(ParametrizedTestCase):
-    def __init__(self, name, storage_strategy, **kwargs):
-        ParametrizedTestCase.__init__(self, name, **kwargs)
-        self.storage_strategy = storage_strategy
+def get_param_args():
+    return [(bucket.ds.storage_strategy.__class__.__name__, bucket)
+            for bucket in get_buckets()]
 
-    def setUp(self):
-        self.ds = Datastore(storage_strategy=self.storage_strategy)
-        self.bucket = self.ds["test"]
+class DatastoreTest(unittest.TestCase):
+    @parameterized.expand(get_param_args())
+    def test_store_and_retrieve(self, _, bucket):
+        l = len(bucket.get())
+        bucket.insert(Event({"label": "test"}))
+        self.assertTrue(l+1 == len(bucket.get()))
 
-    def test_store_and_retrieve(self):
-        l = len(self.bucket.get())
-        self.bucket.insert(Event({"label": "test"}))
-        self.assertTrue(l+1 == len(self.bucket.get()))
+    @parameterized.expand(get_param_args())
+    def test_insert_many(self, _, bucket):
+        l = len(bucket.get())
+        bucket.insert([Event({"label": "test"}), Event({"label": "test2"})])
+        self.assertTrue(l+2 == len(bucket.get()))
 
-    def test_insert_many(self):
-        l = len(self.bucket.get())
-        self.bucket.insert([Event({"label": "test"}), Event({"label": "test2"})])
-        self.assertTrue(l+2 == len(self.bucket.get()))
 
-if __name__ == "__main__":
-    suite = unittest.TestSuite()
-
-    storage_methods = get_storage_methods()
-    datastore_tests = [DatastoreTest.parametrize(method) for method in storage_methods]
-    suite.addTests(datastore_tests)
-
-    runner = unittest.TextTestRunner()
-    runner.run(suite)
+#runner = unittest.TextTestRunner()
+#runner.run(suite)
