@@ -54,11 +54,6 @@ class BaseEvent(dict):
         return json.dumps(data)
 
 
-class SubEvent(BaseEvent):
-    # Not sure if this will be used, will probably be removed for simplicity
-    pass
-
-
 class Event(BaseEvent):
     """
     Used to represents an activity/event.
@@ -69,6 +64,7 @@ class Event(BaseEvent):
                  event_type="event",
                  **kwargs):
         # FIXME: tags and label have similar/same meaning, pick one
+        # FIXME: Some other databases (such as Zenobase) use tag instead of label, we should consider changing
         self.ALLOWED_FIELDS.update({
             "timestamp": Union[datetime, Sequence[datetime]],
 
@@ -85,23 +81,9 @@ class Event(BaseEvent):
 
         BaseEvent.__init__(self, event_type, timestamp=timestamp, **kwargs)
 
-
-class Activity(Event):
-    """
-    Used to represents an activity, an event which always has a start and end-time.
-    """
-
-    def __init__(self, timestamp: Tuple[datetime, datetime] = None, **kwargs):
-        if not timestamp or len(timestamp) != 2:
-            raise TypeError("Activities require start and end-times, cannot be inferred")
-        Event.__init__(self, **kwargs)
-
-    @property
-    def duration(self) -> timedelta:
-        return self["timestamp"][1] - self["timestamp"][0]
-
-
-class Window(Activity):
+# TODO: This will likely have to go, we need to solve the problem this tries to solve
+#       in some other way before we do however.
+class Window(Event):
     def __init__(self, timestamp: Tuple[datetime, datetime] = None, **kwargs):
         self.ALLOWED_FIELDS.update({
             # Used for windows
@@ -112,4 +94,4 @@ class Window(Activity):
             "desktop": str,
         })
 
-        Activity.__init__(self, timestamp=timestamp, **kwargs)
+        Event.__init__(self, timestamp=timestamp, **kwargs)
