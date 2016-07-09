@@ -25,6 +25,9 @@ class StorageStrategy():
      - insert_many
     """
 
+    def metadata(self, bucket: str):
+        raise NotImplementedError
+
     def get(self, bucket: str):
         raise NotImplementedError
 

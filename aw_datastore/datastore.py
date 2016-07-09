@@ -31,6 +31,9 @@ class Bucket:
         self.ds = datastore
         self.bucket_id = bucket_id
 
+    def metadata(self):
+        return self.ds.storage_strategy.metadata(self.bucket_id)
+
     def get(self):
         return self.ds.storage_strategy.get(self.bucket_id)
 
