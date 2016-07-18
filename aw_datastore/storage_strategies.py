@@ -104,11 +104,13 @@ class FileStorageStrategy(StorageStrategy):
     def __init__(self):
         self.logger = logging.getLogger("datastore-files")
 
-    def get_filename(self, bucket: str):
-        directory = appdirs.user_data_dir("aw-server", "activitywatch")
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        return "{directory}/{bucket}.json".format(directory=directory, bucket=bucket)
+    @staticmethod
+    def _get_filename(bucket: str):
+        bucket_dir = appdirs.user_data_dir("aw-server", "activitywatch")\
+                     + "/" + bucket
+        if not os.path.exists(bucket_dir):
+            os.makedirs(bucket_dir)
+        return "{bucket_dir}/events-0.json".format(bucket_dir=bucket_dir)
 
     def get(self, bucket: str):
         filename = self.get_filename(bucket)
@@ -117,6 +119,20 @@ class FileStorageStrategy(StorageStrategy):
         with open(filename) as f:
             data = json.load(f)
         return data
+
+    def buckets(self):
+        # TODO: Return actual buckets
+        return [
+            self.metadata("test_bucket1"),
+            self.metadata("test_bucket2"),
+        ]
+
+    def metadata(self, bucket: str):
+        return {
+            "id": bucket,
+            "hostname": "unknown",
+            "client": "unknown"
+        }
 
     def insert_one(self, bucket: str, event: Event):
         self.insert_many(bucket, [event])
