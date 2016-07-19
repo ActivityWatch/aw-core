@@ -162,6 +162,6 @@ class FileStorageStrategy(StorageStrategy):
         else:
             data = []
 
-        data.extend(events)
+        data.extend([event.to_json_dict() for event in events])
         with open(filename, "w") as f:
             json.dump(data, f)
