@@ -4,33 +4,45 @@ import logging
 import threading
 from datetime import datetime, timedelta
 
-from typing import Iterable, List, Set, Tuple, Union, Sequence
+from typing import Iterable, List, Set, Tuple, Union
 
 logger = logging.getLogger("aw_client.models")
 
-class BaseEvent(dict):
-    ALLOWED_FIELDS = {
-        # Required
-        "type": str,
 
-        # Metadata
-        "_id": str,
-        "session": str,
-        "stored_at": datetime,
+class Event(dict):
+    """
+    Used to represents an event.
+    """
+
+    # TODO: Use JSONSchema as specification
+    # FIXME: tags and label have similar/same meaning, pick one
+    # FIXME: Some other databases (such as Zenobase) use tag instead of label, we should consider changing
+    ALLOWED_FIELDS = {
+        "timestamp": datetime,
+        "label": str,
+        "note": str,
+
+        #"stored_at": datetime,
     }
 
-    def __init__(self,
-                 event_type: str,
-                 **kwargs):
+    def __init__(self, **kwargs):
         dict.__init__(self)
-        self["type"] = event_type   # type: str
+
+        if "timestamp" not in kwargs:
+            logger.warning("Event did not have a timestamp, using now as timestamp")
+            kwargs["timestamp"] = [datetime.now()]
+
         for k, v in kwargs.items():
             if k not in self.ALLOWED_FIELDS:
                 logger.warning("Field {} not allowed, event: {}".format(k, kwargs))
-            # Currently causes issues due to not being allowed on Unions
-            # https://github.com/python/typing/issues/62
-            #elif not issubclass(v, self.ALLOWED_FIELDS[k]):
-            #    logger.warning("Field {} was not of proper instance, event: {}".format(k, kwargs))
+
+            if not isinstance(v, List):
+                kwargs[k] = [v]
+
+            for value in kwargs[k]:
+                if not (k in self.ALLOWED_FIELDS) or not isinstance(value, self.ALLOWED_FIELDS[k]):
+                    logger.error("Found value '{}' in field {} that was not of proper instance, discarding (event: {})".format(value, k, kwargs))
+
         self.update(kwargs)
 
     @classmethod
@@ -44,54 +56,11 @@ class BaseEvent(dict):
         data = self.copy()
         for k, v in data.items():
             if isinstance(v, datetime):
-                data[k] = v.isoformat()
-            elif isinstance(v, Sequence) and isinstance(v[0], datetime):
+                data[k] = [v.isoformat()]
+            elif isinstance(v, List) and isinstance(v[0], datetime):
                 data[k] = list(map(lambda dt: dt.isoformat(), v))
         return data
 
     def to_json_str(self) -> str:
         data = self.to_json_dict()
         return json.dumps(data)
-
-
-class Event(BaseEvent):
-    """
-    Used to represents an activity/event.
-    """
-
-    def __init__(self,
-                 timestamp: Union[datetime, Sequence[datetime]]=None,
-                 event_type="event",
-                 **kwargs):
-        # FIXME: tags and label have similar/same meaning, pick one
-        # FIXME: Some other databases (such as Zenobase) use tag instead of label, we should consider changing
-        self.ALLOWED_FIELDS.update({
-            "timestamp": Union[datetime, Sequence[datetime]],
-
-            "label": Union[str, Sequence[str]],
-            "note": str,
-
-            # Used with session-initializer
-            "settings": dict,
-        })
-
-        if not timestamp:
-            logger.warning("Event did not have a timestamp, using now as timestamp.")
-            timestamp = datetime.now()
-
-        BaseEvent.__init__(self, event_type, timestamp=timestamp, **kwargs)
-
-# TODO: This will likely have to go, we need to solve the problem this tries to solve
-#       in some other way before we do however.
-class Window(Event):
-    def __init__(self, timestamp: Tuple[datetime, datetime] = None, **kwargs):
-        self.ALLOWED_FIELDS.update({
-            # Used for windows
-            "id": str,
-            "role": str,
-            "command": str,
-            "active": bool,
-            "desktop": str,
-        })
-
-        Event.__init__(self, timestamp=timestamp, **kwargs)
