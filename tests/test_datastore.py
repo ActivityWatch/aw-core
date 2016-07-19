@@ -23,13 +23,13 @@ class DatastoreTest(unittest.TestCase):
     @parameterized.expand(get_param_args())
     def test_store_and_retrieve(self, _, bucket):
         l = len(bucket.get())
-        bucket.insert(Event({"label": "test"}))
+        bucket.insert(Event(**{"label": "test"}))
         self.assertTrue(l+1 == len(bucket.get()))
 
     @parameterized.expand(get_param_args())
     def test_insert_many(self, _, bucket):
         l = len(bucket.get())
-        bucket.insert([Event({"label": "test"}), Event({"label": "test2"})])
+        bucket.insert([Event(**{"label": "test"}), Event(**{"label": "test2"})])
         self.assertTrue(l+2 == len(bucket.get()))
 
 
