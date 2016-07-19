@@ -113,7 +113,7 @@ class FileStorageStrategy(StorageStrategy):
         return "{bucket_dir}/events-0.json".format(bucket_dir=bucket_dir)
 
     def get(self, bucket: str):
-        filename = self.get_filename(bucket)
+        filename = self._get_filename(bucket)
         if not os.path.isfile(filename):
             return []
         with open(filename) as f:
@@ -138,7 +138,7 @@ class FileStorageStrategy(StorageStrategy):
         self.insert_many(bucket, [event])
 
     def insert_many(self, bucket: str, events: Sequence[Event]):
-        filename = self.get_filename(bucket)
+        filename = self._get_filename(bucket)
 
         if os.path.isfile(filename):
             with open(filename, "r") as f:
