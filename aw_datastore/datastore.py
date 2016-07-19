@@ -23,6 +23,9 @@ class Datastore:
 
         self.storage_strategy = storage_strategy()
 
+    def create_bucket(self):
+        return self.storage_strategy.create_bucket()
+
     def buckets(self):
         return self.storage_strategy.buckets()
 

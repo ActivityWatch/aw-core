@@ -25,12 +25,24 @@ class StorageStrategy():
      - insert_many
     """
 
+    def create_bucket(self):
+        raise NotImplementedError
+
+    def get_bucket(self, bucket: str):
+        return self.metadata(bucket)
+
+    # Deprecated, use self.get_bucket instead
     def metadata(self, bucket: str):
         raise NotImplementedError
 
+    def get_events(self, bucket: str):
+        return self.get(bucket)
+
+    # Deprecated, use self.get_events instead
     def get(self, bucket: str):
         raise NotImplementedError
 
+    # TODO: Rename to insert_event, or create self.event.insert somehow
     def insert(self, bucket: str, events: Union[Event, Sequence[Event]]):
         #if not (isinstance(events, Event) or isinstance(events, Sequence[Event])) \
         #    and isinstance(events, dict) or isinstance(events, Sequence[dict]):
@@ -105,9 +117,14 @@ class FileStorageStrategy(StorageStrategy):
         self.logger = logging.getLogger("datastore-files")
 
     @staticmethod
-    def _get_filename(bucket: str):
-        bucket_dir = appdirs.user_data_dir("aw-server", "activitywatch")\
-                     + "/" + bucket
+    def _get_bucketsdir():
+        buckets_dir = appdirs.user_data_dir("aw-server", "activitywatch") + "/" + "buckets"
+        if not os.path.exists(buckets_dir):
+            os.makedirs(buckets_dir)
+        return buckets_dir
+
+    def _get_filename(self, bucket: str):
+        bucket_dir = self._get_bucketsdir() + "/" + bucket
         if not os.path.exists(bucket_dir):
             os.makedirs(bucket_dir)
         return "{bucket_dir}/events-0.json".format(bucket_dir=bucket_dir)
@@ -120,12 +137,11 @@ class FileStorageStrategy(StorageStrategy):
             data = json.load(f)
         return data
 
+    def create_bucket(self):
+        raise NotImplementedError
+
     def buckets(self):
-        # TODO: Return actual buckets
-        return [
-            self.metadata("test_bucket1"),
-            self.metadata("test_bucket2"),
-        ]
+        return [self.metadata(bucket_id) for bucket_id in os.listdir(self._get_bucketsdir())]
 
     def metadata(self, bucket: str):
         return {
