@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 
 from typing import Iterable, List, Set, Tuple, Union
 
+import iso8601
+
 logger = logging.getLogger("aw_client.models")
 
 
@@ -39,6 +41,10 @@ class Event(dict):
             if not isinstance(v, List):
                 kwargs[k] = [v]
 
+        if "timestamp" in kwargs:
+            kwargs["timestamp"] = [iso8601.parse_date(ts) if isinstance(ts, str) else ts for ts in kwargs["timestamp"]]
+
+        for k, v in kwargs.items():
             for value in kwargs[k]:
                 if not (k in self.ALLOWED_FIELDS) or not isinstance(value, self.ALLOWED_FIELDS[k]):
                     logger.error("Found value '{}' in field {} that was not of proper instance, discarding (event: {})".format(value, k, kwargs))

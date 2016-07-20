@@ -9,5 +9,5 @@ setup(name='aw-core',
       author_email='erik@bjareho.lt',
       url='https://github.com/ActivityWatch/aw-core',
       packages=['aw_core', 'aw_datastore'],
-      install_requires=['jsonschema', 'strict-rfc3339', 'appdirs==1.4.0', 'nose-parameterized']
+      install_requires=['jsonschema', 'strict-rfc3339', 'appdirs==1.4.0', 'nose-parameterized', 'iso8601']
      )
