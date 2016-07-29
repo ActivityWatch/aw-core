@@ -40,8 +40,8 @@ class Bucket:
     def metadata(self):
         return self.ds.storage_strategy.metadata(self.bucket_id)
 
-    def get(self):
-        return self.ds.storage_strategy.get(self.bucket_id)
+    def get(self, limit: int = 10**4):
+        return self.ds.storage_strategy.get_events(self.bucket_id, limit)
 
     def insert(self, events: Union[Event, List[Event]]):
         return self.ds.storage_strategy.insert(self.bucket_id, events)

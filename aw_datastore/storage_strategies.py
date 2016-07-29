@@ -35,11 +35,12 @@ class StorageStrategy():
     def metadata(self, bucket: str):
         raise NotImplementedError
 
-    def get_events(self, bucket: str):
-        return self.get(bucket)
+    def get_events(self, bucket: str, limit: int):
+        print("limit at get_events: ", limit)
+        return self.get(bucket, limit)
 
     # Deprecated, use self.get_events instead
-    def get(self, bucket: str):
+    def get(self, bucket: str, limit: int):
         raise NotImplementedError
 
     # TODO: Rename to insert_event, or create self.event.insert somehow
@@ -58,9 +59,9 @@ class StorageStrategy():
     def insert_one(self, bucket: str, event: Event):
         raise NotImplementedError
 
-    def insert_many(self, bucket: str, events: Sequence[Event]):
-        for activity in events:
-            self.insert_one(bucket, activity)
+    def insert_many(self, bucket: str, events: List[Event]):
+        for event in events:
+            self.insert_one(bucket, event)
 
 
 class MongoDBStorageStrategy(StorageStrategy):
@@ -81,11 +82,11 @@ class MongoDBStorageStrategy(StorageStrategy):
             exit(1)
 
         # TODO: Readd testing ability
-        #self.db = self.client["activitywatch" if not testing else "activitywatch_testing"]
+        # self.db = self.client["activitywatch" if not testing else "activitywatch_testing"]
         self.db = self.client["activitywatch"]
 
-    def get(self, bucket: str):
-        return list(self.db[bucket].find())
+    def get(self, bucket: str, limit: int):
+        return list(self.db[bucket].find().sort([("timestamp", -1)]).limit(limit))
 
     def insert_one(self, bucket: str, event: Event):
         self.db[bucket].insert_one(event)
@@ -96,13 +97,13 @@ class MemoryStorageStrategy(StorageStrategy):
 
     def __init__(self):
         self.logger = logging.getLogger("datastore-memory")
-        #self.logger.warning("Using in-memory storage, any events stored will not be persistent and will be lost when server is shut down. Use the --storage parameter to set a different storage method.")
+        # self.logger.warning("Using in-memory storage, any events stored will not be persistent and will be lost when server is shut down. Use the --storage parameter to set a different storage method.")
         self.db = {}  # type: Mapping[str, Mapping[str, List[Event]]]
 
-    def get(self, bucket: str):
+    def get(self, bucket: str, limit: int):
         if bucket not in self.db:
             return []
-        return self.db[bucket]
+        return self.db[bucket][-limit:]
 
     def insert_one(self, bucket: str, event: Event):
         if bucket not in self.db:
@@ -113,28 +114,49 @@ class MemoryStorageStrategy(StorageStrategy):
 class FileStorageStrategy(StorageStrategy):
     """For storage of data in JSON files, useful as a zero-dependency/databaseless solution"""
 
-    def __init__(self):
+    def __init__(self, maxfilesize=10**5):
         self.logger = logging.getLogger("datastore-files")
+        self._fileno = 0
+        self._maxfilesize = maxfilesize
 
     @staticmethod
     def _get_bucketsdir():
-        buckets_dir = appdirs.user_data_dir("aw-server", "activitywatch") + "/" + "buckets"
+        # TODO: Separate testing buckets from production depending on if --testing is set
+        testing = True
+
+        user_data_dir = appdirs.user_data_dir("aw-server", "activitywatch")
+        buckets_dir = user_data_dir + ("/testing" if testing else "") + "/buckets"
         if not os.path.exists(buckets_dir):
             os.makedirs(buckets_dir)
         return buckets_dir
 
-    def _get_filename(self, bucket: str):
+    def _get_filename(self, bucket: str, fileno: int = None):
+        if fileno is None:
+            fileno = self._fileno
+
         bucket_dir = self._get_bucketsdir() + "/" + bucket
         if not os.path.exists(bucket_dir):
             os.makedirs(bucket_dir)
-        return "{bucket_dir}/events-0.json".format(bucket_dir=bucket_dir)
 
-    def get(self, bucket: str):
+        return "{bucket_dir}/events-{fileno}.json".format(bucket_dir=bucket_dir, fileno=self._fileno)
+
+    def _read_file(self, bucket, fileno):
+        filename = self._get_filename(bucket, fileno=fileno)
+        if not os.path.isfile(filename):
+            return []
+        with open(filename, 'r') as f:
+            data = json.load(f)
+        return data
+
+    def get(self, bucket: str, limit: int = 100):
         filename = self._get_filename(bucket)
         if not os.path.isfile(filename):
             return []
         with open(filename) as f:
-            data = json.load(f)
+            # FIXME: I'm slow and memory consuming with large files, see this:
+            # https://stackoverflow.com/questions/2301789/read-a-file-in-reverse-order-using-python
+            data = [json.loads(line) for line in f.readlines()[-limit:]]
+        assert limit >= len(data)
         return data
 
     def create_bucket(self):
@@ -144,6 +166,7 @@ class FileStorageStrategy(StorageStrategy):
         return [self.metadata(bucket_id) for bucket_id in os.listdir(self._get_bucketsdir())]
 
     def metadata(self, bucket: str):
+        # TODO: Implement properly (store metadata in <bucket>/metadata.json)
         return {
             "id": bucket,
             "hostname": "unknown",
@@ -156,12 +179,16 @@ class FileStorageStrategy(StorageStrategy):
     def insert_many(self, bucket: str, events: Sequence[Event]):
         filename = self._get_filename(bucket)
 
+        # Decide wether to append or create a new filei
         if os.path.isfile(filename):
-            with open(filename, "r") as f:
-                data = json.load(f)
-        else:
-            data = []
+            size = os.path.getsize(filename)
+            if size > self._maxfilesize:
+                print("Bucket larger than allowed")
+                print(size, self._maxfilesize)
 
-        data.extend([event.to_json_dict() for event in events])
-        with open(filename, "w") as f:
-            json.dump(data, f)
+        # Option: Limit on events per file instead of filesize
+        # num_lines = sum(1 for line in open(filename))
+
+        str_to_append = "\n".join([json.dumps(event.to_json_dict()) for event in events])
+        with open(filename, "a+") as f:
+            f.write(str_to_append + "\n")
