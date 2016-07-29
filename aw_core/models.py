@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import Iterable, List, Set, Tuple, Union
 
 import iso8601
+import pytz
 
 logger = logging.getLogger("aw_client.models")
 
@@ -32,7 +33,7 @@ class Event(dict):
 
         if "timestamp" not in kwargs:
             logger.warning("Event did not have a timestamp, using now as timestamp")
-            kwargs["timestamp"] = [datetime.now()]
+            kwargs["timestamp"] = [datetime.now(pytz.utc)]
 
         for k, v in kwargs.items():
             if k not in self.ALLOWED_FIELDS:
@@ -43,6 +44,13 @@ class Event(dict):
 
         if "timestamp" in kwargs:
             kwargs["timestamp"] = [iso8601.parse_date(ts) if isinstance(ts, str) else ts for ts in kwargs["timestamp"]]
+
+        for i, dt in enumerate(kwargs["timestamp"]):
+            if not dt.tzinfo:
+                logger.warning("timestamp without timezone found, using UTC: {}".format(dt))
+                kwargs["timestamp"][i] = dt.replace(tzinfo=pytz.utc)
+        # Needed? All timestamps should be iso8601 so ought to always contain timezone.
+        # kwargs["timestamp"] = [dt if dt.tzinfo else dt.replace(tzinfo=pytz.utc) for dt in kwargs["timestamp"]]
 
         for k, v in kwargs.items():
             for value in kwargs[k]:
@@ -62,9 +70,9 @@ class Event(dict):
         data = self.copy()
         for k, v in data.items():
             if isinstance(v, datetime):
-                data[k] = [v.isoformat()]
+                data[k] = [v.astimezone().isoformat()]
             elif isinstance(v, List) and isinstance(v[0], datetime):
-                data[k] = list(map(lambda dt: dt.isoformat(), v))
+                data[k] = list(map(lambda dt: dt.astimezone().isoformat(), v))
         return data
 
     def to_json_str(self) -> str:
