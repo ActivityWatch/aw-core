@@ -121,7 +121,7 @@ class FileStorageStrategy(StorageStrategy):
     @staticmethod
     def _get_bucketsdir():
         # TODO: Separate testing buckets from production depending on if --testing is set
-        testing = True
+        testing = False
 
         user_data_dir = appdirs.user_data_dir("aw-server", "activitywatch")
         buckets_dir = user_data_dir + ("/testing" if testing else "") + "/buckets"
