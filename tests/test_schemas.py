@@ -1,3 +1,4 @@
+import os
 import json
 
 from jsonschema import validate as _validate, FormatChecker
@@ -11,17 +12,25 @@ import unittest
 # The default FormatChecker, uses the date-time checker
 fc = FormatChecker(["date-time"])
 
-class ExampleTest(unittest.TestCase):
+class EventTest(unittest.TestCase):
     def setUp(self):
-        self.schema = json.load(open("example.json"))
+        testdir = os.path.dirname(os.path.realpath(__file__))
+        with open(testdir + "/../schemas/event.json") as f:
+            self.schema = json.load(f)
 
     def validate(self, obj):
         _validate(obj, self.schema, format_checker=fc)
 
+    def test_label(self):
+        self.validate({"label": ["test-label"]})
+        self.validate({
+            "timestamp": ["1937-01-01T12:00:27.87+00:20"],
+            "label": ["test", "test2"]
+        })
+
     def test_timestamp(self):
-        self.validate({"timestamp": "1937-01-01T12:00:27.87+00:20"})
-        self.validate({"timestamp": "1937-01-01T12:00:27.87+00:20"})
-        self.validate({"timestamp": ["1937-01-01T12:00:27.87+00:20"]*2})
+        self.validate({"timestamp": ["1937-01-01T12:00:27.87+00:20"]})
+        self.validate({"timestamp": 2 * ["1937-01-01T12:00:27.87+00:20"]})
 
     def test_timestamp_invalid_string(self):
         with self.assertRaises(ValidationError):
@@ -43,11 +52,8 @@ class ExampleTest(unittest.TestCase):
         with self.assertRaises(ValidationError):
             self.validate({"timestamp": []})
 
-    def test_label(self):
-        self.validate({"label": "test-label"})
-
     def test_duration(self):
-        self.validate({"duration": {"value": 1000, "unit": "seconds"}})
+        self.validate({"duration": [{"value": 1000, "unit": "s"}]})
 
     def test_duration_invalid_unit(self):
         with self.assertRaises(ValidationError):
