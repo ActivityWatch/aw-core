@@ -36,7 +36,6 @@ class StorageStrategy():
         raise NotImplementedError
 
     def get_events(self, bucket: str, limit: int):
-        print("limit at get_events: ", limit)
         return self.get(bucket, limit)
 
     # Deprecated, use self.get_events instead
@@ -156,7 +155,6 @@ class FileStorageStrategy(StorageStrategy):
             # FIXME: I'm slow and memory consuming with large files, see this:
             # https://stackoverflow.com/questions/2301789/read-a-file-in-reverse-order-using-python
             data = [json.loads(line) for line in f.readlines()[-limit:]]
-        assert limit >= len(data)
         return data
 
     def create_bucket(self):
@@ -179,15 +177,19 @@ class FileStorageStrategy(StorageStrategy):
     def insert_many(self, bucket: str, events: Sequence[Event]):
         filename = self._get_filename(bucket)
 
-        # Decide wether to append or create a new filei
+        # Decide wether to append or create a new file
+        """
         if os.path.isfile(filename):
             size = os.path.getsize(filename)
             if size > self._maxfilesize:
                 print("Bucket larger than allowed")
                 print(size, self._maxfilesize)
+        """
 
         # Option: Limit on events per file instead of filesize
-        # num_lines = sum(1 for line in open(filename))
+        """
+        num_lines = sum(1 for line in open(filename))
+        """
 
         str_to_append = "\n".join([json.dumps(event.to_json_dict()) for event in events])
         with open(filename, "a+") as f:
