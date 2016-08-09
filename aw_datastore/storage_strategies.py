@@ -84,6 +84,9 @@ class MongoDBStorageStrategy(StorageStrategy):
         # self.db = self.client["activitywatch" if not testing else "activitywatch_testing"]
         self.db = self.client["activitywatch"]
 
+    def buckets(self):
+        return [{"id": bucket_id} for bucket_id in self.db.collection_names()]
+
     def get(self, bucket: str, limit: int):
         return list(self.db[bucket].find().sort([("timestamp", -1)]).limit(limit))
 
@@ -98,6 +101,9 @@ class MemoryStorageStrategy(StorageStrategy):
         self.logger = logging.getLogger("datastore-memory")
         # self.logger.warning("Using in-memory storage, any events stored will not be persistent and will be lost when server is shut down. Use the --storage parameter to set a different storage method.")
         self.db = {}  # type: Mapping[str, Mapping[str, List[Event]]]
+
+    def buckets(self):
+        return [{"id": bucket_id} for bucket_id in self.db]
 
     def get(self, bucket: str, limit: int):
         if bucket not in self.db:
@@ -147,7 +153,7 @@ class FileStorageStrategy(StorageStrategy):
             data = json.load(f)
         return data
 
-    def get(self, bucket: str, limit: int = 100):
+    def get(self, bucket: str, limit: int):
         filename = self._get_filename(bucket)
         if not os.path.isfile(filename):
             return []
