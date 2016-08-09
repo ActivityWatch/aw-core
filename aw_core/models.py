@@ -22,6 +22,7 @@ class Event(dict):
     # FIXME: Some other databases (such as Zenobase) use tag instead of label, we should consider changing
     ALLOWED_FIELDS = {
         "timestamp": datetime,
+        "duration": dict,
         "label": str,
         "note": str,
 
