@@ -1,10 +1,9 @@
 import json
 import logging
 
-import threading
-from datetime import datetime, timedelta
+from datetime import datetime
 
-from typing import Iterable, List, Set, Tuple, Union
+from typing import List
 
 import iso8601
 import pytz
@@ -22,6 +21,7 @@ class Event(dict):
     # FIXME: Some other databases (such as Zenobase) use tag instead of label, we should consider changing
     ALLOWED_FIELDS = {
         "timestamp": datetime,
+        "count": int,
         "duration": dict,
         "label": str,
         "note": str,
