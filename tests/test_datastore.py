@@ -10,32 +10,41 @@ from aw_datastore import Datastore, get_storage_methods
 logging.basicConfig(level=logging.DEBUG)
 
 
-def get_buckets(strategies=get_storage_methods()):
+def testing_buckets(strategies=get_storage_methods()):
     buckets = []
     for strategy in strategies:
         buckets.append(Datastore(storage_strategy=strategy)["test"])
     return buckets
 
 
-def get_param_args():
+def param_testing_buckets():
     return [(bucket.ds.storage_strategy.__class__.__name__, bucket)
-            for bucket in get_buckets()]
+            for bucket in testing_buckets()]
+
+
+def param_datastore_objects():
+    return [(Datastore(storage_strategy=strategy), )
+            for strategy in get_storage_methods()[1:]]
 
 
 class DatastoreTest(unittest.TestCase):
-    @parameterized.expand(get_param_args())
+    @parameterized.expand(param_datastore_objects())
+    def test_get_buckets(self, datastore):
+        datastore.buckets()
+
+    @parameterized.expand(param_testing_buckets())
     def test_insert_one(self, _, bucket):
         l = len(bucket.get())
         bucket.insert(Event(**{"label": "test"}))
         self.assertEqual(l + 1, len(bucket.get()))
 
-    @parameterized.expand(get_param_args())
+    @parameterized.expand(param_testing_buckets())
     def test_insert_many(self, _, bucket):
         l = len(bucket.get())
         bucket.insert([Event(**{"label": "test"}), Event(**{"label": "test2"})])
         self.assertEqual(l + 2, len(bucket.get()))
 
-    @parameterized.expand(get_param_args())
+    @parameterized.expand(param_testing_buckets())
     def test_limit(self, _, bucket):
         for i in range(5):
             bucket.insert(Event(**{"label": "test"}))
