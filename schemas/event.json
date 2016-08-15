@@ -33,6 +33,9 @@
                     },
                     "unit": {
                         "enum": ["s", "ms", "h", "seconds", "minutes", "hours"]
+                    },
+                    "label": {
+                        "type": "string"
                     }
                 },
 			    "required": ["value", "unit"]
