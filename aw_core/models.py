@@ -40,7 +40,7 @@ class Event(dict):
             if k not in self.ALLOWED_FIELDS:
                 logger.warning("Field {} not allowed, event: {}".format(k, kwargs))
 
-            if not isinstance(v, List):
+            if not isinstance(v, list):
                 kwargs[k] = [v]
 
         if "timestamp" in kwargs:
@@ -55,8 +55,8 @@ class Event(dict):
 
         for k, v in kwargs.items():
             for value in kwargs[k]:
-                if not (k in self.ALLOWED_FIELDS) or not isinstance(value, self.ALLOWED_FIELDS[k]):
-                    logger.error("Found value '{}' in field {} that was not of proper instance, discarding (event: {})".format(value, k, kwargs))
+                if not isinstance(value, self.ALLOWED_FIELDS[k]):
+                    logger.error("Found value {} in field {} that was not of proper instance ({}). Event: {}".format(value, k, self.ALLOWED_FIELDS[k], kwargs))
 
         self.update(kwargs)
 
@@ -69,11 +69,7 @@ class Event(dict):
         """Useful when sending data over the wire.
         Any mongodb interop should not use do this as it accepts datetimes."""
         data = self.copy()
-        for k, v in data.items():
-            if isinstance(v, datetime):
-                data[k] = [v.astimezone().isoformat()]
-            elif isinstance(v, List) and isinstance(v[0], datetime):
-                data[k] = list(map(lambda dt: dt.astimezone().isoformat(), v))
+        data["timestamp"] = [dt.astimezone().isoformat() for dt in data["timestamp"]]
         return data
 
     def to_json_str(self) -> str:
