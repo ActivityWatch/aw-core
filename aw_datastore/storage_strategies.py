@@ -4,6 +4,7 @@ import logging
 from typing import Mapping, List, Union, Sequence
 
 import appdirs
+from shutil import rmtree
 
 from aw_core.models import Event
 
@@ -25,14 +26,16 @@ class StorageStrategy():
      - insert_many
     """
 
-    def create_bucket(self):
+    def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
         raise NotImplementedError
 
-    def get_bucket(self, bucket: str):
-        return self.metadata(bucket)
+    def drop_bucket(self, bucket_id):
+        raise NotImplementedError
 
-    # Deprecated, use self.get_bucket instead
-    def metadata(self, bucket: str):
+    def get_metadata(self, bucket: str):
+        raise NotImplementedError
+
+    def buckets(self):
         raise NotImplementedError
 
     def get_events(self, bucket: str, limit: int):
@@ -44,10 +47,6 @@ class StorageStrategy():
 
     # TODO: Rename to insert_event, or create self.event.insert somehow
     def insert(self, bucket: str, events: Union[Event, Sequence[Event]]):
-        #if not (isinstance(events, Event) or isinstance(events, Sequence[Event])) \
-        #    and isinstance(events, dict) or isinstance(events, Sequence[dict]):
-        #    logging.warning("Events are of type dict, please turn them into proper Events")
-
         if isinstance(events, Event) or isinstance(events, dict):
             self.insert_one(bucket, events)
         elif isinstance(events, Sequence):
@@ -81,17 +80,47 @@ class MongoDBStorageStrategy(StorageStrategy):
             exit(1)
 
         # TODO: Readd testing ability
-        # self.db = self.client["activitywatch" if not testing else "activitywatch_testing"]
-        self.db = self.client["activitywatch"]
+        testing = False
+        self.db = self.client["activitywatch" if not testing else "activitywatch_testing"]
 
+    def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
+        if not name:
+            name = "{}-{}".format(client, hostname)
+        metadata = {
+            "_id": "metadata",
+            "id": bucket_id,
+            "name": name,
+            "type": type_id,
+            "client": client,
+            "hostname": hostname,
+            "created": created,
+        }
+        self.db[bucket_id]["metadata"].insert_one(metadata)
+   
+    def drop_bucket(self, bucket_id):
+        self.db[bucket_id]["events"].drop()
+        self.db[bucket_id]["metadata"].drop()
+    
     def buckets(self):
-        return [{"id": bucket_id} for bucket_id in self.db.collection_names()]
+        bucketnames = set()
+        for bucket_coll in self.db.collection_names():
+            bucketnames.add(bucket_coll.split('.')[0])
+        buckets = {}
+        for bucket_id in bucketnames:
+            buckets[bucket_id] = self.get_metadata(bucket_id)
+        return buckets
+
+    def get_metadata(self, bucket_id: str):
+        metadata = self.db[bucket_id]["metadata"].find_one({"_id": "metadata"})
+        if metadata:
+            del metadata["_id"]
+        return metadata
 
     def get(self, bucket: str, limit: int):
-        return list(self.db[bucket].find().sort([("timestamp", -1)]).limit(limit))
+        return list(self.db[bucket]["events"].find().sort([("timestamp", -1)]).limit(limit))
 
     def insert_one(self, bucket: str, event: Event):
-        self.db[bucket].insert_one(event)
+        self.db[bucket]["events"].insert_one(event)
 
 
 class MemoryStorageStrategy(StorageStrategy):
@@ -101,14 +130,38 @@ class MemoryStorageStrategy(StorageStrategy):
         self.logger = logging.getLogger("datastore-memory")
         # self.logger.warning("Using in-memory storage, any events stored will not be persistent and will be lost when server is shut down. Use the --storage parameter to set a different storage method.")
         self.db = {}  # type: Mapping[str, Mapping[str, List[Event]]]
+        self._metadata = {}
+
+    def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
+        if not name:
+            name = "{}-{}".format(client, hostname)
+        self._metadata[bucket_id] = {
+            "id": bucket_id,
+            "name": name,
+            "type": type_id,
+            "client": client,
+            "hostname": hostname,
+            "created": created
+        }
+        self.db[bucket_id] = []
+   
+    def drop_bucket(self, bucket_id):
+        del self.db[bucket_id]
+        del self._metadata[bucket_id]
 
     def buckets(self):
-        return [{"id": bucket_id} for bucket_id in self.db]
+        buckets = {}
+        for bucket_id in self.db:
+            buckets[bucket_id] = self.get_metadata(bucket_id)
+        return buckets
 
     def get(self, bucket: str, limit: int):
         if bucket not in self.db:
             return []
         return self.db[bucket][-limit:]
+
+    def get_metadata(self, bucket_id: str):
+        return self._metadata[bucket_id]
 
     def insert_one(self, bucket: str, event: Event):
         if bucket not in self.db:
@@ -123,26 +176,40 @@ class FileStorageStrategy(StorageStrategy):
         self.logger = logging.getLogger("datastore-files")
         self._fileno = 0
         self._maxfilesize = maxfilesize
-
-    @staticmethod
-    def _get_bucketsdir():
+       
+        # Create dirs
         # TODO: Separate testing buckets from production depending on if --testing is set
-        testing = False
+        testing = True
+        self.user_data_dir = appdirs.user_data_dir("aw-server", "activitywatch")
+        self.buckets_dir = self.user_data_dir + ("/testing" if testing else "") + "/buckets"
+        if not os.path.exists(self.buckets_dir):
+            os.makedirs(self.buckets_dir)
 
-        user_data_dir = appdirs.user_data_dir("aw-server", "activitywatch")
-        buckets_dir = user_data_dir + ("/testing" if testing else "") + "/buckets"
-        if not os.path.exists(buckets_dir):
-            os.makedirs(buckets_dir)
-        return buckets_dir
-
-    def _get_filename(self, bucket: str, fileno: int = None):
-        if fileno is None:
-            fileno = self._fileno
-
-        bucket_dir = self._get_bucketsdir() + "/" + bucket
+    def _get_bucket_dir(self, bucket_id):
+        return self.buckets_dir + "/" + bucket_id
+    
+    def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
+        bucket_dir = self._get_bucket_dir(bucket_id)
         if not os.path.exists(bucket_dir):
             os.makedirs(bucket_dir)
+        if not name:
+            name = "{}-{}".format(client, hostname)
+        metadata = {
+            "id": bucket_id,
+            "name": name,
+            "type": type_id,
+            "client": client,
+            "hostname": hostname,
+            "created": created
+        }
+        with open(bucket_dir+"/metadata.json", "w") as f:
+            f.write(json.dumps(metadata))
+        
+    def drop_bucket(self, bucket_id):
+        rmtree(self._get_bucket_dir())
 
+    def _get_filename(self, bucket_id: str, fileno: int = None):
+        bucket_dir = self._get_bucket_dir(bucket_id)
         return "{bucket_dir}/events-{fileno}.json".format(bucket_dir=bucket_dir, fileno=self._fileno)
 
     def _read_file(self, bucket, fileno):
@@ -163,19 +230,18 @@ class FileStorageStrategy(StorageStrategy):
             data = [json.loads(line) for line in f.readlines()[-limit:]]
         return data
 
-    def create_bucket(self):
-        raise NotImplementedError
 
     def buckets(self):
-        return [self.metadata(bucket_id) for bucket_id in os.listdir(self._get_bucketsdir())]
+        buckets = {}
+        for bucket_id in os.listdir(self.buckets_dir):
+            buckets[bucket_id] = self.get_metadata(bucket_id)
+        return buckets
 
-    def metadata(self, bucket: str):
-        # TODO: Implement properly (store metadata in <bucket>/metadata.json)
-        return {
-            "id": bucket,
-            "hostname": "unknown",
-            "client": "unknown"
-        }
+    def get_metadata(self, bucket_id: str):
+        metafile = self._get_bucket_dir(bucket_id) + "/metadata.json"
+        with open(metafile, 'r') as f:
+            metadata = json.load(f)
+        return metadata
 
     def insert_one(self, bucket: str, event: Event):
         self.insert_many(bucket, [event])

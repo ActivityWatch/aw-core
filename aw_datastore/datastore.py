@@ -16,20 +16,35 @@ MONGODB = MongoDBStorageStrategy
 class Datastore:
     def __init__(self, storage_strategy: StorageStrategy = MEMORY, testing=False):
         self.logger = logging.getLogger("datastore")
+        self.bucket_instances = {}
 
         if storage_strategy not in [MEMORY, MONGODB, FILES]:
             raise Exception("Unsupported storage strategy: {}".format(storage_strategy))
 
         self.storage_strategy = storage_strategy()
 
-    def create_bucket(self):
-        return self.storage_strategy.create_bucket()
+    def create_bucket(self, bucket_id, type, client, hostname, created, name=None):
+        logging.info("Creating bucket '{}'".format(bucket_id))
+        return self.storage_strategy.create_bucket(bucket_id, type, client, hostname, created)
+
+    def drop_bucket(self, bucket_id):
+        logging.info("Dropping bucket '{}'".format(bucket_id))
+        del self.bucket_instances[bucket_id]
+        return self.storage_strategy.drop_bucket(bucket_id)
 
     def buckets(self):
         return self.storage_strategy.buckets()
 
     def __getitem__(self, bucket_id: str):
-        return Bucket(self, bucket_id)
+        # If this bucket doesn't have a initialized object, create it
+        if bucket_id not in self.bucket_instances:
+            # If the bucket exists in the database, create an object representation of it
+            if bucket_id in self.buckets():
+                bucket = Bucket(self, bucket_id) 
+                self.bucket_instances[bucket_id] = bucket
+            else:
+                logging.error("Cannot create a Bucket object for {} because it doesn't exist in the database".format(bucket_id))
+        return self.bucket_instances[bucket_id]
 
 
 class Bucket:
@@ -38,7 +53,7 @@ class Bucket:
         self.bucket_id = bucket_id
 
     def metadata(self):
-        return self.ds.storage_strategy.metadata(self.bucket_id)
+        return self.ds.storage_strategy.get_metadata(self.bucket_id)
 
     def get(self, limit: int = 10**4):
         return self.ds.storage_strategy.get_events(self.bucket_id, limit)

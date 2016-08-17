@@ -13,7 +13,9 @@ logging.basicConfig(level=logging.DEBUG)
 def testing_buckets(strategies=get_storage_methods()):
     buckets = []
     for strategy in strategies:
-        buckets.append(Datastore(storage_strategy=strategy)["test"])
+        datastore = Datastore(storage_strategy=strategy)
+        datastore.create_bucket(bucket_id="test", type="test", client="test", hostname="test", created="testdate")
+        buckets.append(datastore["test"])
     return buckets
 
 
@@ -37,6 +39,11 @@ class DatastoreTest(unittest.TestCase):
         l = len(bucket.get())
         bucket.insert(Event(**{"label": "test"}))
         self.assertEqual(l + 1, len(bucket.get()))
+
+
+    @parameterized.expand(param_testing_buckets())
+    def test_get_metadata(self, _, bucket):
+        bucket.metadata()
 
     @parameterized.expand(param_testing_buckets())
     def test_insert_many(self, _, bucket):
