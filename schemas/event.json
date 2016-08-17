@@ -4,7 +4,6 @@
 	"description": "Basic event for ActivityWatch",
 	"type": "object",
 	"properties": {
-        "note": {"type": "string"},
 		"timestamp": {
             "type": "array",
             "items": {
@@ -19,6 +18,12 @@
                 "type": "string"
             }
 		},
+        "note": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
 		"duration": {
 			"type": "array",
             "items": {
@@ -28,11 +33,20 @@
                     },
                     "unit": {
                         "enum": ["s", "ms", "h", "seconds", "minutes", "hours"]
+                    },
+                    "label": {
+                        "type": "string"
                     }
                 },
 			    "required": ["value", "unit"]
             }
 		},
+        "count": {
+            "type": "array",
+            "items": {
+                "type": "number"
+            }
+        },
 		"distance": {
 			"type": "array",
             "items": {

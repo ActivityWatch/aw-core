@@ -12,6 +12,9 @@ import unittest
 # The default FormatChecker, uses the date-time checker
 fc = FormatChecker(["date-time"])
 
+valid_timestamp="1937-01-01T12:00:27.87+00:20"
+
+
 class EventTest(unittest.TestCase):
     def setUp(self):
         testdir = os.path.dirname(os.path.realpath(__file__))
@@ -28,9 +31,12 @@ class EventTest(unittest.TestCase):
             "label": ["test", "test2"]
         })
 
+    def test_count(self):
+        self.validate({"timestamp": [valid_timestamp], "count": [10]})
+
     def test_timestamp(self):
-        self.validate({"timestamp": ["1937-01-01T12:00:27.87+00:20"]})
-        self.validate({"timestamp": 2 * ["1937-01-01T12:00:27.87+00:20"]})
+        self.validate({"timestamp": [valid_timestamp]})
+        self.validate({"timestamp": 2 * [valid_timestamp]})
 
     def test_timestamp_invalid_string(self):
         with self.assertRaises(ValidationError):
