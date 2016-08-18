@@ -24,18 +24,8 @@ class Datastore:
 
         self.storage_strategy = storage_strategy(testing=testing)
 
-    def create_bucket(self, bucket_id: str, type: str, client: str, hostname: str,
-                      created: datetime = datetime.now(timezone.utc), name: str = None):
-        logging.info("Creating bucket '{}'".format(bucket_id))
-        return self.storage_strategy.create_bucket(bucket_id, type, client, hostname, created.isoformat())
-
-    def delete_bucket(self, bucket_id):
-        logging.info("Deleting bucket '{}'".format(bucket_id))
-        del self.bucket_instances[bucket_id]
-        return self.storage_strategy.delete_bucket(bucket_id)
-
-    def buckets(self):
-        return self.storage_strategy.buckets()
+    def __repr__(self):
+        return "<Datastore object using {}>".format(self.storage_strategy.__class__.__name__)
 
     def __getitem__(self, bucket_id: str):
         # If this bucket doesn't have a initialized object, create it
@@ -49,8 +39,18 @@ class Datastore:
 
         return self.bucket_instances[bucket_id]
 
-    def __repr__(self):
-        return "<Datastore object using {}>".format(self.storage_strategy.__class__.__name__)
+    def create_bucket(self, bucket_id: str, type: str, client: str, hostname: str,
+                      created: datetime = datetime.now(timezone.utc), name: str = None):
+        self.logger.info("Creating bucket '{}'".format(bucket_id))
+        return self.storage_strategy.create_bucket(bucket_id, type, client, hostname, created.isoformat())
+
+    def delete_bucket(self, bucket_id):
+        self.logger.info("Deleting bucket '{}'".format(bucket_id))
+        del self.bucket_instances[bucket_id]
+        return self.storage_strategy.delete_bucket(bucket_id)
+
+    def buckets(self):
+        return self.storage_strategy.buckets()
 
 
 class Bucket:
