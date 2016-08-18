@@ -3,7 +3,7 @@
 from setuptools import setup
 
 setup(name='aw-core',
-      version='0.1',
+      version='0.2',
       description='Core library for ActivityWatch',
       author='Erik Bjäreholt',
       author_email='erik@bjareho.lt',
