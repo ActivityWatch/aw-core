@@ -87,7 +87,7 @@ class MongoDBStorageStrategy(StorageStrategy):
 
     def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
         if not name:
-            name = "{}-{}".format(client, hostname)
+            name = bucket_id
         metadata = {
             "_id": "metadata",
             "id": bucket_id,
@@ -136,7 +136,7 @@ class MemoryStorageStrategy(StorageStrategy):
 
     def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
         if not name:
-            name = "{}-{}".format(client, hostname)
+            name = bucket_id
         self._metadata[bucket_id] = {
             "id": bucket_id,
             "name": name,
@@ -193,7 +193,7 @@ class FileStorageStrategy(StorageStrategy):
         if not os.path.exists(bucket_dir):
             os.makedirs(bucket_dir)
         if not name:
-            name = "{}-{}".format(client, hostname)
+            name = bucket_id
         metadata = {
             "id": bucket_id,
             "name": name,
