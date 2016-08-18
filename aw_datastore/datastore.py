@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from typing import List, Union
 
 from aw_core.models import Event
@@ -21,16 +22,17 @@ class Datastore:
         if storage_strategy not in [MEMORY, MONGODB, FILES]:
             raise Exception("Unsupported storage strategy: {}".format(storage_strategy))
 
-        self.storage_strategy = storage_strategy()
+        self.storage_strategy = storage_strategy(testing=testing)
 
-    def create_bucket(self, bucket_id, type, client, hostname, created, name=None):
+    def create_bucket(self, bucket_id: str, type: str, client: str, hostname: str,
+                      created: datetime = datetime.now(timezone.utc), name: str = None):
         logging.info("Creating bucket '{}'".format(bucket_id))
-        return self.storage_strategy.create_bucket(bucket_id, type, client, hostname, created)
+        return self.storage_strategy.create_bucket(bucket_id, type, client, hostname, created.isoformat())
 
-    def drop_bucket(self, bucket_id):
-        logging.info("Dropping bucket '{}'".format(bucket_id))
+    def delete_bucket(self, bucket_id):
+        logging.info("Deleting bucket '{}'".format(bucket_id))
         del self.bucket_instances[bucket_id]
-        return self.storage_strategy.drop_bucket(bucket_id)
+        return self.storage_strategy.delete_bucket(bucket_id)
 
     def buckets(self):
         return self.storage_strategy.buckets()
@@ -40,11 +42,15 @@ class Datastore:
         if bucket_id not in self.bucket_instances:
             # If the bucket exists in the database, create an object representation of it
             if bucket_id in self.buckets():
-                bucket = Bucket(self, bucket_id) 
+                bucket = Bucket(self, bucket_id)
                 self.bucket_instances[bucket_id] = bucket
             else:
                 logging.error("Cannot create a Bucket object for {} because it doesn't exist in the database".format(bucket_id))
+
         return self.bucket_instances[bucket_id]
+
+    def __repr__(self):
+        return "<Datastore object using {}>".format(self.storage_strategy.__class__.__name__)
 
 
 class Bucket:

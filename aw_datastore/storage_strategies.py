@@ -1,7 +1,7 @@
 import json
 import os
 import logging
-from typing import Mapping, List, Union, Sequence
+from typing import List, Union, Sequence
 
 import appdirs
 from shutil import rmtree
@@ -26,10 +26,13 @@ class StorageStrategy():
      - insert_many
     """
 
+    def __init__(self, testing):
+        self.testing = testing
+
     def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
         raise NotImplementedError
 
-    def drop_bucket(self, bucket_id):
+    def delete_bucket(self, bucket_id):
         raise NotImplementedError
 
     def get_metadata(self, bucket: str):
@@ -65,7 +68,7 @@ class StorageStrategy():
 class MongoDBStorageStrategy(StorageStrategy):
     """Uses a MongoDB server as backend"""
 
-    def __init__(self):
+    def __init__(self, testing):
         self.logger = logging.getLogger("datastore-mongodb")
 
         if 'pymongo' not in vars() and 'pymongo' not in globals():
@@ -74,14 +77,13 @@ class MongoDBStorageStrategy(StorageStrategy):
 
         try:
             self.client = pymongo.MongoClient(serverSelectionTimeoutMS=5000)
-            self.client.server_info() # Try to connect to the server to make sure that it's available
+            # Try to connect to the server to make sure that it's available
+            self.client.server_info()
         except pymongo.errors.ServerSelectionTimeoutError:
             self.logger.error("Couldn't connect to MongoDB server at localhost")
             exit(1)
 
-        # TODO: Readd testing ability
-        testing = False
-        self.db = self.client["activitywatch" if not testing else "activitywatch_testing"]
+        self.db = self.client["activitywatch" if not testing else "activitywatch-testing"]
 
     def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
         if not name:
@@ -96,11 +98,11 @@ class MongoDBStorageStrategy(StorageStrategy):
             "created": created,
         }
         self.db[bucket_id]["metadata"].insert_one(metadata)
-   
-    def drop_bucket(self, bucket_id):
+
+    def delete_bucket(self, bucket_id):
         self.db[bucket_id]["events"].drop()
         self.db[bucket_id]["metadata"].drop()
-    
+
     def buckets(self):
         bucketnames = set()
         for bucket_coll in self.db.collection_names():
@@ -126,7 +128,7 @@ class MongoDBStorageStrategy(StorageStrategy):
 class MemoryStorageStrategy(StorageStrategy):
     """For storage of data in-memory, useful primarily in testing"""
 
-    def __init__(self):
+    def __init__(self, testing):
         self.logger = logging.getLogger("datastore-memory")
         # self.logger.warning("Using in-memory storage, any events stored will not be persistent and will be lost when server is shut down. Use the --storage parameter to set a different storage method.")
         self.db = {}  # type: Mapping[str, Mapping[str, List[Event]]]
@@ -144,8 +146,8 @@ class MemoryStorageStrategy(StorageStrategy):
             "created": created
         }
         self.db[bucket_id] = []
-   
-    def drop_bucket(self, bucket_id):
+
+    def delete_bucket(self, bucket_id):
         del self.db[bucket_id]
         del self._metadata[bucket_id]
 
@@ -172,14 +174,12 @@ class MemoryStorageStrategy(StorageStrategy):
 class FileStorageStrategy(StorageStrategy):
     """For storage of data in JSON files, useful as a zero-dependency/databaseless solution"""
 
-    def __init__(self, maxfilesize=10**5):
+    def __init__(self, testing, maxfilesize=10**5):
         self.logger = logging.getLogger("datastore-files")
         self._fileno = 0
         self._maxfilesize = maxfilesize
-       
+
         # Create dirs
-        # TODO: Separate testing buckets from production depending on if --testing is set
-        testing = True
         self.user_data_dir = appdirs.user_data_dir("aw-server", "activitywatch")
         self.buckets_dir = self.user_data_dir + ("/testing" if testing else "") + "/buckets"
         if not os.path.exists(self.buckets_dir):
@@ -187,7 +187,7 @@ class FileStorageStrategy(StorageStrategy):
 
     def _get_bucket_dir(self, bucket_id):
         return self.buckets_dir + "/" + bucket_id
-    
+
     def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
         bucket_dir = self._get_bucket_dir(bucket_id)
         if not os.path.exists(bucket_dir):
@@ -202,11 +202,11 @@ class FileStorageStrategy(StorageStrategy):
             "hostname": hostname,
             "created": created
         }
-        with open(bucket_dir+"/metadata.json", "w") as f:
+        with open(bucket_dir + "/metadata.json", "w") as f:
             f.write(json.dumps(metadata))
-        
-    def drop_bucket(self, bucket_id):
-        rmtree(self._get_bucket_dir())
+
+    def delete_bucket(self, bucket_id):
+        rmtree(self._get_bucket_dir(bucket_id))
 
     def _get_filename(self, bucket_id: str, fileno: int = None):
         bucket_dir = self._get_bucket_dir(bucket_id)
@@ -229,7 +229,6 @@ class FileStorageStrategy(StorageStrategy):
             # https://stackoverflow.com/questions/2301789/read-a-file-in-reverse-order-using-python
             data = [json.loads(line) for line in f.readlines()[-limit:]]
         return data
-
 
     def buckets(self):
         buckets = {}
