@@ -6,6 +6,9 @@ python:
  - "3.5"
  - "nightly" # currently points to 3.6-dev
 
+services:
+ - mongodb
+
 install:
  - "python3 setup.py install"
 
