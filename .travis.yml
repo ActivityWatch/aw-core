@@ -10,7 +10,8 @@ services:
  - mongodb
 
 install:
- - "python3 setup.py install"
+ - "pip install pymongo"
+ - "python setup.py install"
 
 script:
  - "nosetests -v"
