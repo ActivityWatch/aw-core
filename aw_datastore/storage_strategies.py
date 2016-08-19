@@ -13,6 +13,8 @@ try:
 except ImportError:
     logging.warning("Could not import pymongo, not available as a datastore backend")
 
+logger = logging.getLogger("aw.datastore.strategies")
+
 
 class StorageStrategy():
     """
@@ -69,7 +71,7 @@ class MongoDBStorageStrategy(StorageStrategy):
     """Uses a MongoDB server as backend"""
 
     def __init__(self, testing):
-        self.logger = logging.getLogger("datastore-mongodb")
+        self.logger = logger.getChild("mongodb")
 
         if 'pymongo' not in vars() and 'pymongo' not in globals():
             self.logger.error("Cannot use the MongoDB backend without pymongo installed")
@@ -129,7 +131,7 @@ class MemoryStorageStrategy(StorageStrategy):
     """For storage of data in-memory, useful primarily in testing"""
 
     def __init__(self, testing):
-        self.logger = logging.getLogger("datastore-memory")
+        self.logger = logger.getChild("memory")
         # self.logger.warning("Using in-memory storage, any events stored will not be persistent and will be lost when server is shut down. Use the --storage parameter to set a different storage method.")
         self.db = {}  # type: Mapping[str, Mapping[str, List[Event]]]
         self._metadata = {}
@@ -175,18 +177,18 @@ class FileStorageStrategy(StorageStrategy):
     """For storage of data in JSON files, useful as a zero-dependency/databaseless solution"""
 
     def __init__(self, testing, maxfilesize=10**5):
-        self.logger = logging.getLogger("datastore-files")
+        self.logger = logger.getChild("file")
         self._fileno = 0
         self._maxfilesize = maxfilesize
 
         # Create dirs
         self.user_data_dir = appdirs.user_data_dir("aw-server", "activitywatch")
-        self.buckets_dir = self.user_data_dir + ("/testing" if testing else "") + "/buckets"
+        self.buckets_dir = os.path.join(self.user_data_dir, "testing" if testing else "", "buckets")
         if not os.path.exists(self.buckets_dir):
             os.makedirs(self.buckets_dir)
 
     def _get_bucket_dir(self, bucket_id):
-        return self.buckets_dir + "/" + bucket_id
+        return os.path.join(self.buckets_dir, bucket_id)
 
     def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
         bucket_dir = self._get_bucket_dir(bucket_id)
@@ -202,7 +204,7 @@ class FileStorageStrategy(StorageStrategy):
             "hostname": hostname,
             "created": created
         }
-        with open(bucket_dir + "/metadata.json", "w") as f:
+        with open(os.path.join(bucket_dir, "metadata.json"), "w") as f:
             f.write(json.dumps(metadata))
 
     def delete_bucket(self, bucket_id):
@@ -210,7 +212,7 @@ class FileStorageStrategy(StorageStrategy):
 
     def _get_filename(self, bucket_id: str, fileno: int = None):
         bucket_dir = self._get_bucket_dir(bucket_id)
-        return "{bucket_dir}/events-{fileno}.json".format(bucket_dir=bucket_dir, fileno=self._fileno)
+        return os.path.join(bucket_dir, str(self._fileno))
 
     def _read_file(self, bucket, fileno):
         filename = self._get_filename(bucket, fileno=fileno)
@@ -237,7 +239,7 @@ class FileStorageStrategy(StorageStrategy):
         return buckets
 
     def get_metadata(self, bucket_id: str):
-        metafile = self._get_bucket_dir(bucket_id) + "/metadata.json"
+        metafile = os.path.join(self._get_bucket_dir(bucket_id), "metadata.json")
         with open(metafile, 'r') as f:
             metadata = json.load(f)
         return metadata
