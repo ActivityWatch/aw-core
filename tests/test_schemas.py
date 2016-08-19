@@ -60,6 +60,7 @@ class EventTest(unittest.TestCase):
 
     def test_duration(self):
         self.validate({"duration": [{"value": 1000, "unit": "s"}]})
+        self.validate({"duration": [{"value": 3.13, "unit": "s", "label": "Bad approximation of pi"}]})
 
     def test_duration_invalid_unit(self):
         with self.assertRaises(ValidationError):
