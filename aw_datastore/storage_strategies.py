@@ -287,10 +287,10 @@ class FileStorageStrategy(StorageStrategy):
         with open(filename, "a+") as f:
             f.write(str_to_append + "\n")
     
-    def replace_last(self, bucket, event):
+    def replace_last(self, bucket, newevent):
         events = self.get(bucket, -1)
         filename = self._get_filename(bucket)
         with open(filename, "w") as f:
-            events[0] = event
-            newfiledata = "\n".join([json.dumps(event.to_json_dict()) for event in events])
+            events[0] = newevent.to_json_dict()
+            newfiledata = "\n".join([json.dumps(event) for event in events])
             f.write(newfiledata)
