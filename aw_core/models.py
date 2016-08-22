@@ -1,14 +1,14 @@
 import json
 import logging
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from typing import List
 
 import iso8601
 import pytz
 
-logger = logging.getLogger("aw_client.models")
+logger = logging.getLogger("aw.client.models")
 
 
 class Event(dict):
@@ -44,7 +44,14 @@ class Event(dict):
                 kwargs[k] = [v]
 
         if "timestamp" in kwargs:
-            kwargs["timestamp"] = [iso8601.parse_date(ts) if isinstance(ts, str) else ts for ts in kwargs["timestamp"]]
+            kwargs["timestamp"] = [iso8601.parse_date(ts)
+                                   if isinstance(ts, str) else ts
+                                   for ts in kwargs["timestamp"]]
+
+        if "duration" in kwargs:
+            kwargs["duration"] = [{"value": td.total_seconds(), "unit": "s"}
+                                  if isinstance(td, timedelta) else td
+                                  for td in kwargs["duration"]]
 
         for i, dt in enumerate(kwargs["timestamp"]):
             if not dt.tzinfo:
