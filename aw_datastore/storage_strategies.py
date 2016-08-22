@@ -1,6 +1,7 @@
 import json
 import os
 import logging
+import sys
 from typing import List, Union, Sequence
 
 import appdirs
@@ -66,6 +67,9 @@ class StorageStrategy():
         for event in events:
             self.insert_one(bucket, event)
 
+    def replace_last(self, bucket_id, event):
+        raise NotImplementedError
+
 
 class MongoDBStorageStrategy(StorageStrategy):
     """Uses a MongoDB server as backend"""
@@ -120,11 +124,19 @@ class MongoDBStorageStrategy(StorageStrategy):
             del metadata["_id"]
         return metadata
 
-    def get(self, bucket: str, limit: int):
-        return list(self.db[bucket]["events"].find().sort([("timestamp", -1)]).limit(limit))
+    def get(self, bucket_id: str, limit: int):
+        if limit == -1:
+            limit = sys.maxsize
+        return list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(limit))
 
     def insert_one(self, bucket: str, event: Event):
         self.db[bucket]["events"].insert_one(event)
+
+    def replace_last(self, bucket_id, event):
+        last_event = list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(1))[0]
+        print(last_event)
+        self.db[bucket_id]["events"].replace_one({"_id": last_event["_id"]}, event.to_json_dict())
+
 
 
 class MemoryStorageStrategy(StorageStrategy):
@@ -160,6 +172,8 @@ class MemoryStorageStrategy(StorageStrategy):
         return buckets
 
     def get(self, bucket: str, limit: int):
+        if limit == -1:
+            limit = sys.maxsize
         if bucket not in self.db:
             return []
         return self.db[bucket][-limit:]
@@ -171,6 +185,9 @@ class MemoryStorageStrategy(StorageStrategy):
         if bucket not in self.db:
             self.db[bucket] = []
         self.db[bucket].append(event)
+
+    def replace_last(self, bucket_id, event):
+        self.db[bucket_id][-1] = event
 
 
 class FileStorageStrategy(StorageStrategy):
@@ -223,6 +240,8 @@ class FileStorageStrategy(StorageStrategy):
         return data
 
     def get(self, bucket: str, limit: int):
+        if limit == -1:
+            limit = sys.maxsize
         filename = self._get_filename(bucket)
         if not os.path.isfile(filename):
             return []
@@ -267,3 +286,11 @@ class FileStorageStrategy(StorageStrategy):
         str_to_append = "\n".join([json.dumps(event.to_json_dict()) for event in events])
         with open(filename, "a+") as f:
             f.write(str_to_append + "\n")
+    
+    def replace_last(self, bucket, event):
+        events = self.get(bucket, -1)
+        filename = self._get_filename(bucket)
+        with open(filename, "w") as f:
+            events[0] = event
+            newfiledata = "\n".join([json.dumps(event.to_json_dict()) for event in events])
+            f.write(newfiledata)

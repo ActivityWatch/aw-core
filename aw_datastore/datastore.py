@@ -52,6 +52,9 @@ class Datastore:
     def buckets(self):
         return self.storage_strategy.buckets()
 
+    def replace_last(self, bucket_id, event):
+        return self.storage_strategy.replace_last(bucket_id, event)
+
 
 class Bucket:
     def __init__(self, datastore: Datastore, bucket_id: str):
@@ -72,3 +75,6 @@ class Bucket:
 
     def insert_many(self, events: List[Event]):
         return self.ds.storage_strategy.insert_many(self.bucket_id, events)
+
+    def replace_last(self, event):
+        return self.ds.replace_last(self.bucket_id, event)
