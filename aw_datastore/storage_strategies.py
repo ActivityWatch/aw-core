@@ -291,6 +291,6 @@ class FileStorageStrategy(StorageStrategy):
         events = self.get(bucket, -1)
         filename = self._get_filename(bucket)
         with open(filename, "w") as f:
-            events[0] = newevent.to_json_dict()
-            newfiledata = "\n".join([json.dumps(event) for event in events[::-1]]) + "\n"
+            events[-1] = newevent.to_json_dict()
+            newfiledata = "\n".join([json.dumps(event) for event in events]) + "\n"
             f.write(newfiledata)
