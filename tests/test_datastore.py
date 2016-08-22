@@ -1,5 +1,6 @@
 import logging
 import random
+import datetime
 
 from nose.tools import assert_equal
 from nose_parameterized import parameterized
@@ -51,6 +52,19 @@ def test_insert_one(bucket_cm):
         bucket.insert(Event(**{"label": "test"}))
         assert_equal(l + 1, len(bucket.get()))
 
+@parameterized(param_testing_buckets_cm())
+def test_replace_last(bucket_cm):
+    with bucket_cm as bucket:
+        # Create first event
+        event1 = Event(**{"label": "test1", "timestamp": datetime.datetime.now()})
+        bucket.insert(event1)
+        l = len(bucket.get(-1))
+        # Create second event to replace with the first one
+        event2 = Event(**{"label": "test2", "timestamp": datetime.datetime.now()})
+        bucket.replace_last(event2)
+        # Assert length and content 
+        assert_equal(l, len(bucket.get(-1)))
+        assert_equal(event2, Event(**bucket.get(-1)[-1]))
 
 @parameterized(param_testing_buckets_cm())
 def test_get_metadata(bucket_cm):
