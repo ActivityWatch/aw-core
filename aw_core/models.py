@@ -35,13 +35,16 @@ class Event(dict):
         if "timestamp" not in kwargs:
             logger.warning("Event did not have a timestamp, using now as timestamp")
             kwargs["timestamp"] = [datetime.now(pytz.utc)]
-
+        invalid_keys = []
         for k, v in kwargs.items():
             if k not in self.ALLOWED_FIELDS:
                 logger.warning("Field {} not allowed, event: {}".format(k, kwargs))
+                invalid_keys.append(k)
 
-            if not isinstance(v, list):
+            elif not isinstance(v, list):
                 kwargs[k] = [v]
+        for k in invalid_keys:
+            del kwargs[k]
 
         if "timestamp" in kwargs:
             kwargs["timestamp"] = [iso8601.parse_date(ts) if isinstance(ts, str) else ts for ts in kwargs["timestamp"]]
