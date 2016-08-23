@@ -1,8 +1,8 @@
 import logging
 import random
-import datetime
+from datetime import datetime, timedelta, timezone
 
-from nose.tools import assert_equal
+from nose.tools import assert_equal, assert_dict_equal
 from nose_parameterized import parameterized
 
 from aw_core.models import Event
@@ -48,37 +48,40 @@ def test_get_buckets(datastore):
 @parameterized(param_testing_buckets_cm())
 def test_insert_one(bucket_cm):
     with bucket_cm as bucket:
-        l = len(bucket.get())
-        bucket.insert(Event(**{"label": "test"}))
-        assert_equal(l + 1, len(bucket.get()))
+        eventcount = len(bucket.get())
+        event = Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)})
+        bucket.insert(event)
+        assert_equal(eventcount + 1, len(bucket.get()))
+        fetched_event = Event(**bucket.get(-1)[-1])
+        assert_dict_equal(event, fetched_event)
 
 @parameterized(param_testing_buckets_cm())
 def test_replace_last(bucket_cm):
     with bucket_cm as bucket:
         # Create first event
-        event1 = Event(**{"label": "test1", "timestamp": datetime.datetime.now()})
+        event1 = Event(**{"label": "test1", "timestamp": datetime.now(timezone.utc)})
         bucket.insert(event1)
-        l = len(bucket.get(-1))
+        eventcount = len(bucket.get(-1))
         # Create second event to replace with the first one
-        event2 = Event(**{"label": "test2", "timestamp": datetime.datetime.now()})
+        event2 = Event(**{"label": "test2", "timestamp": datetime.now(timezone.utc)})
         bucket.replace_last(event2)
         # Assert length and content 
-        assert_equal(l, len(bucket.get(-1)))
-        assert_equal(event2, Event(**bucket.get(-1)[-1]))
-
-@parameterized(param_testing_buckets_cm())
-def test_get_metadata(bucket_cm):
-    with bucket_cm as bucket:
-        bucket.metadata()
-
+        assert_equal(eventcount, len(bucket.get(-1)))
+        assert_dict_equal(event2, Event(**bucket.get(-1)[-1]))
 
 @parameterized(param_testing_buckets_cm())
 def test_insert_many(bucket_cm):
     with bucket_cm as bucket:
-        l = len(bucket.get())
-        bucket.insert([Event(**{"label": "test"}), Event(**{"label": "test2"})])
-        assert_equal(l + 2, len(bucket.get()))
-
+        eventcount = len(bucket.get())
+        events = [
+            Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)}),
+            Event(**{"label": "test2", "timestamp": datetime.now(timezone.utc)})
+        ]
+        bucket.insert(events)
+        assert_equal(eventcount + len(events), len(bucket.get()))
+        fetched_events = bucket.get(eventcount)
+        for i in range(eventcount):
+            assert_dict_equal(events[i], Event(**fetched_events[i]))
 
 @parameterized(param_testing_buckets_cm())
 def test_limit(bucket_cm):
@@ -89,3 +92,8 @@ def test_limit(bucket_cm):
         print(len(bucket.get(limit=1)))
         assert_equal(1, len(bucket.get(limit=1)))
         assert_equal(5, len(bucket.get(limit=5)))
+
+@parameterized(param_testing_buckets_cm())
+def test_get_metadata(bucket_cm):
+    with bucket_cm as bucket:
+        bucket.metadata()

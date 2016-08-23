@@ -115,7 +115,8 @@ class MongoDBStorageStrategy(StorageStrategy):
         return list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(limit))
 
     def insert_one(self, bucket: str, event: Event):
-        self.db[bucket]["events"].insert_one(event)
+        # .copy is needed because otherwise mongodb inserts a _id field into the event
+        self.db[bucket]["events"].insert_one(event.copy())
 
     def replace_last(self, bucket_id, event):
         last_event = list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(1))[0]
