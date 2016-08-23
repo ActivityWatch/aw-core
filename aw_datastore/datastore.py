@@ -65,13 +65,12 @@ class Bucket:
         return self.ds.storage_strategy.get_events(self.bucket_id, limit)
 
     def insert(self, events: Union[Event, List[Event]]):
-        return self.ds.storage_strategy.insert(self.bucket_id, events)
-
-    def insert_one(self, event: Event):
-        return self.ds.storage_strategy.insert_one(self.bucket_id, event)
-
-    def insert_many(self, events: List[Event]):
-        return self.ds.storage_strategy.insert_many(self.bucket_id, events)
+        if isinstance(events, Event):
+            return self.ds.storage_strategy.insert_one(self.bucket_id, events)
+        elif isinstance(events, List[Event]):
+            return self.ds.storage_strategy.insert_many(self.bucket_id, events)
+        else:
+            raise TypeError
 
     def replace_last(self, event):
         return self.ds.replace_last(self.bucket_id, event)

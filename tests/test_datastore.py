@@ -53,16 +53,23 @@ def test_get_buckets(datastore):
 def test_insert_one(bucket_cm):
     with bucket_cm as bucket:
         l = len(bucket.get())
-        bucket.insert_one(Event(**{"label": "test"}))
+        event = Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)})
+        bucket.insert(event)
         assert_equal(l + 1, len(bucket.get()))
+        assert_dict_equal(event, Event(**bucket.get(1)[0]))
 
 
 @parameterized(param_testing_buckets_cm())
 def test_insert_many(bucket_cm):
     with bucket_cm as bucket:
         l = len(bucket.get())
-        bucket.insert_one(2 * [Event(**{"label": "test"})])
+        events = (2 * [Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)})])
+        bucket.insert(events)
         assert_equal(l + 2, len(bucket.get()))
+        fetched_events = bucket.get(2)
+        for i in range(2):
+            assert_dict_equal(events[i], fetched_events[i])
+            
 
 
 @parameterized(param_testing_buckets_cm())
