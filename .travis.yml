@@ -9,6 +9,9 @@ python:
 services:
  - mongodb
 
+before_install:
+ - "pip install coverage"
+
 install:
  - "pip install pymongo"
  - "python setup.py install"
