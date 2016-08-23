@@ -12,14 +12,17 @@ import unittest
 # The default FormatChecker, uses the date-time checker
 fc = FormatChecker(["date-time"])
 
-valid_timestamp="1937-01-01T12:00:27.87+00:20"
+valid_timestamp = "1937-01-01T12:00:27.87+00:20"
 
 
-class EventTest(unittest.TestCase):
+testdir = os.path.dirname(os.path.realpath(__file__))
+with open(os.path.join(testdir, "../schemas/event.json")) as f:
+    event_schema = json.load(f)
+
+
+class EventSchemaTest(unittest.TestCase):
     def setUp(self):
-        testdir = os.path.dirname(os.path.realpath(__file__))
-        with open(testdir + "/../schemas/event.json") as f:
-            self.schema = json.load(f)
+        self.schema = event_schema
 
     def validate(self, obj):
         _validate(obj, self.schema, format_checker=fc)
@@ -27,7 +30,7 @@ class EventTest(unittest.TestCase):
     def test_label(self):
         self.validate({"label": ["test-label"]})
         self.validate({
-            "timestamp": ["1937-01-01T12:00:27.87+00:20"],
+            "timestamp": [valid_timestamp],
             "label": ["test", "test2"]
         })
 

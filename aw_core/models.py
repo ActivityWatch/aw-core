@@ -69,11 +69,6 @@ class Event(dict):
 
         self.update(kwargs)
 
-    @classmethod
-    def from_json_dict(cls, d) -> dict:
-        # TODO: Is this needed, or should the constructor deal with this behavior?
-        raise NotImplementedError
-
     def to_json_dict(self) -> dict:
         """Useful when sending data over the wire.
         Any mongodb interop should not use do this as it accepts datetimes."""
