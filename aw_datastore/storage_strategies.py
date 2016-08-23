@@ -126,7 +126,7 @@ class MongoDBStorageStrategy(StorageStrategy):
 
     def get(self, bucket_id: str, limit: int):
         if limit == -1:
-            limit = sys.maxsize
+            limit = 10**9
         return list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(limit))
 
     def insert_one(self, bucket: str, event: Event):
@@ -286,7 +286,7 @@ class FileStorageStrategy(StorageStrategy):
         str_to_append = "\n".join([json.dumps(event.to_json_dict()) for event in events])
         with open(filename, "a+") as f:
             f.write(str_to_append + "\n")
-    
+
     def replace_last(self, bucket, event):
         events = self.get(bucket, -1)
         filename = self._get_filename(bucket)
