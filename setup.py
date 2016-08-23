@@ -15,5 +15,4 @@ setup(name='aw-core',
           'appdirs==1.4.0',
           'nose-parameterized',
           'iso8601',
-          'pytz'
       ])

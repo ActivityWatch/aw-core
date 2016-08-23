@@ -1,12 +1,11 @@
 import json
 import logging
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from typing import List
 
 import iso8601
-import pytz
 
 logger = logging.getLogger("aw.client.models")
 
@@ -34,7 +33,7 @@ class Event(dict):
 
         if "timestamp" not in kwargs:
             logger.warning("Event did not have a timestamp, using now as timestamp")
-            kwargs["timestamp"] = [datetime.now(pytz.utc)]
+            kwargs["timestamp"] = [datetime.now(timezone.utc)]
         invalid_keys = []
         for k, v in kwargs.items():
             if k not in self.ALLOWED_FIELDS:
@@ -59,9 +58,9 @@ class Event(dict):
         for i, dt in enumerate(kwargs["timestamp"]):
             if not dt.tzinfo:
                 logger.warning("timestamp without timezone found, using UTC: {}".format(dt))
-                kwargs["timestamp"][i] = dt.replace(tzinfo=pytz.utc)
+                kwargs["timestamp"][i] = dt.replace(tzinfo=timezone.utc)
         # Needed? All timestamps should be iso8601 so ought to always contain timezone.
-        # kwargs["timestamp"] = [dt if dt.tzinfo else dt.replace(tzinfo=pytz.utc) for dt in kwargs["timestamp"]]
+        # kwargs["timestamp"] = [dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc) for dt in kwargs["timestamp"]]
 
         for k, v in kwargs.items():
             for value in kwargs[k]:
