@@ -2,7 +2,7 @@ import logging
 import random
 from datetime import datetime, timedelta, timezone
 
-from nose.tools import assert_equal, assert_dict_equal
+from nose.tools import assert_equal, assert_dict_equal, assert_raises
 from nose_parameterized import parameterized
 
 from aw_core.models import Event
@@ -49,6 +49,12 @@ def test_get_buckets(datastore):
     datastore.buckets()
 
 
+@parameterized(param_datastore_objects())
+def test_nonexistant_bucket(datastore):
+    with assert_raises(KeyError):
+        datastore["I-do-not-exist"]
+
+
 @parameterized(param_testing_buckets_cm())
 def test_insert_one(bucket_cm):
     with bucket_cm as bucket:
@@ -69,7 +75,7 @@ def test_insert_many(bucket_cm):
         fetched_events = bucket.get(2)
         for i in range(2):
             assert_dict_equal(events[i], fetched_events[i])
-            
+
 
 
 @parameterized(param_testing_buckets_cm())
@@ -82,7 +88,7 @@ def test_replace_last(bucket_cm):
         # Create second event to replace with the first one
         event2 = Event(**{"label": "test2", "timestamp": datetime.now(timezone.utc)})
         bucket.replace_last(event2)
-        # Assert length and content 
+        # Assert length and content
         assert_equal(eventcount, len(bucket.get(-1)))
         assert_dict_equal(event2, Event(**bucket.get(-1)[-1]))
 

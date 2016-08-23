@@ -6,7 +6,7 @@ from aw_core.models import Event
 
 from .storage_strategies import StorageStrategy, MemoryStorageStrategy, FileStorageStrategy, MongoDBStorageStrategy
 
-logger = logging.getLogger("aw_datastore")
+logger = logging.getLogger("aw.datastore")
 
 
 MEMORY = MemoryStorageStrategy
@@ -16,7 +16,7 @@ MONGODB = MongoDBStorageStrategy
 
 class Datastore:
     def __init__(self, storage_strategy: StorageStrategy = MEMORY, testing=False):
-        self.logger = logging.getLogger("datastore")
+        self.logger = logger.getChild("Datastore")
         self.bucket_instances = {}
 
         self.storage_strategy = storage_strategy(testing=testing)
@@ -32,7 +32,8 @@ class Datastore:
                 bucket = Bucket(self, bucket_id)
                 self.bucket_instances[bucket_id] = bucket
             else:
-                logging.error("Cannot create a Bucket object for {} because it doesn't exist in the database".format(bucket_id))
+                self.logger.error("Cannot create a Bucket object for {} because it doesn't exist in the database".format(bucket_id))
+                raise KeyError
 
         return self.bucket_instances[bucket_id]
 
@@ -48,9 +49,6 @@ class Datastore:
 
     def buckets(self):
         return self.storage_strategy.buckets()
-
-    def replace_last(self, bucket_id, event):
-        return self.storage_strategy.replace_last(bucket_id, event)
 
 
 class Bucket:
@@ -73,4 +71,4 @@ class Bucket:
             raise TypeError
 
     def replace_last(self, event):
-        return self.ds.replace_last(self.bucket_id, event)
+        return self.ds.storage_strategy.replace_last(self.bucket_id, event)
