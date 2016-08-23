@@ -11,7 +11,7 @@ from aw_core.models import Event
 
 try:
     import pymongo
-except ImportError:
+except ImportError:  # pragma: no cover
     logging.warning("Could not import pymongo, not available as a datastore backend")
 
 logger = logging.getLogger("aw.datastore.strategies")
@@ -20,13 +20,6 @@ logger = logging.getLogger("aw.datastore.strategies")
 class StorageStrategy():
     """
     Interface for storage methods.
-
-    Implementations require:
-     - insert_one
-     - get
-
-    Optional:
-     - insert_many
     """
 
     def __init__(self, testing):
@@ -45,20 +38,19 @@ class StorageStrategy():
         raise NotImplementedError
 
     def get_events(self, bucket: str, limit: int):
-        return self.get(bucket, limit)
+        raise NotImplementedError
 
     # Deprecated, use self.get_events instead
     def get(self, bucket: str, limit: int):
-        raise NotImplementedError
+        return self.get_events(bucket, limit)
 
-    # TODO: Rename to insert_event, or create self.event.insert somehow
     def insert(self, bucket: str, events: Union[Event, Sequence[Event]]):
         if isinstance(events, Event) or isinstance(events, dict):
             self.insert_one(bucket, events)
         elif isinstance(events, Sequence):
             self.insert_many(bucket, events)
         else:
-            print("Argument events wasn't a valid type")
+            raise TypeError("Unexpected type of argument events, was: {}".format(type(events)))
 
     def insert_one(self, bucket: str, event: Event):
         raise NotImplementedError
@@ -77,19 +69,12 @@ class MongoDBStorageStrategy(StorageStrategy):
     def __init__(self, testing):
         self.logger = logger.getChild("mongodb")
 
-        if 'pymongo' not in vars() and 'pymongo' not in globals():
-            self.logger.error("Cannot use the MongoDB backend without pymongo installed")
-            exit(1)
+        self.client = pymongo.MongoClient(serverSelectionTimeoutMS=5000)
+        # Try to connect to the server to make sure that it's available
+        # If it isn't, it will raise pymongo.errors.ServerSelectionTimeoutError
+        self.client.server_info()
 
-        try:
-            self.client = pymongo.MongoClient(serverSelectionTimeoutMS=5000)
-            # Try to connect to the server to make sure that it's available
-            self.client.server_info()
-        except pymongo.errors.ServerSelectionTimeoutError:
-            self.logger.error("Couldn't connect to MongoDB server at localhost")
-            exit(1)
-
-        self.db = self.client["activitywatch" if not testing else "activitywatch-testing"]
+        self.db = self.client["activitywatch" + ("-testing" if testing else "")]
 
     def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
         if not name:
@@ -124,7 +109,7 @@ class MongoDBStorageStrategy(StorageStrategy):
             del metadata["_id"]
         return metadata
 
-    def get(self, bucket_id: str, limit: int):
+    def get_events(self, bucket_id: str, limit: int):
         if limit == -1:
             limit = 10**9
         return list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(limit))
@@ -136,7 +121,6 @@ class MongoDBStorageStrategy(StorageStrategy):
         last_event = list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(1))[0]
         print(last_event)
         self.db[bucket_id]["events"].replace_one({"_id": last_event["_id"]}, event.to_json_dict())
-
 
 
 class MemoryStorageStrategy(StorageStrategy):
@@ -171,19 +155,15 @@ class MemoryStorageStrategy(StorageStrategy):
             buckets[bucket_id] = self.get_metadata(bucket_id)
         return buckets
 
-    def get(self, bucket: str, limit: int):
+    def get_events(self, bucket: str, limit: int):
         if limit == -1:
             limit = sys.maxsize
-        if bucket not in self.db:
-            return []
         return self.db[bucket][-limit:]
 
     def get_metadata(self, bucket_id: str):
         return self._metadata[bucket_id]
 
     def insert_one(self, bucket: str, event: Event):
-        if bucket not in self.db:
-            self.db[bucket] = []
         self.db[bucket].append(event)
 
     def replace_last(self, bucket_id, event):
@@ -207,6 +187,10 @@ class FileStorageStrategy(StorageStrategy):
     def _get_bucket_dir(self, bucket_id):
         return os.path.join(self.buckets_dir, bucket_id)
 
+    def _get_filename(self, bucket_id: str, fileno: int = None):
+        bucket_dir = self._get_bucket_dir(bucket_id)
+        return os.path.join(bucket_dir, str(self._fileno))
+
     def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
         bucket_dir = self._get_bucket_dir(bucket_id)
         if not os.path.exists(bucket_dir):
@@ -227,19 +211,7 @@ class FileStorageStrategy(StorageStrategy):
     def delete_bucket(self, bucket_id):
         rmtree(self._get_bucket_dir(bucket_id))
 
-    def _get_filename(self, bucket_id: str, fileno: int = None):
-        bucket_dir = self._get_bucket_dir(bucket_id)
-        return os.path.join(bucket_dir, str(self._fileno))
-
-    def _read_file(self, bucket, fileno):
-        filename = self._get_filename(bucket, fileno=fileno)
-        if not os.path.isfile(filename):
-            return []
-        with open(filename, 'r') as f:
-            data = json.load(f)
-        return data
-
-    def get(self, bucket: str, limit: int):
+    def get_events(self, bucket: str, limit: int):
         if limit == -1:
             limit = sys.maxsize
         filename = self._get_filename(bucket)
@@ -288,7 +260,7 @@ class FileStorageStrategy(StorageStrategy):
             f.write(str_to_append + "\n")
 
     def replace_last(self, bucket, newevent):
-        events = self.get(bucket, -1)
+        events = self.get_events(bucket, -1)
         filename = self._get_filename(bucket)
         with open(filename, "w") as f:
             events[-1] = newevent.to_json_dict()
