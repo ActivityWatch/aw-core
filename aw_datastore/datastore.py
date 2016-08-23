@@ -19,9 +19,6 @@ class Datastore:
         self.logger = logging.getLogger("datastore")
         self.bucket_instances = {}
 
-        if storage_strategy not in [MEMORY, MONGODB, FILES]:
-            raise Exception("Unsupported storage strategy: {}".format(storage_strategy))
-
         self.storage_strategy = storage_strategy(testing=testing)
 
     def __repr__(self):

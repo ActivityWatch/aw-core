@@ -6,7 +6,7 @@ from nose.tools import assert_equal, assert_dict_equal
 from nose_parameterized import parameterized
 
 from aw_core.models import Event
-from aw_datastore import Datastore, get_storage_methods
+from aw_datastore import Datastore, get_storage_methods, get_storage_method_names
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -40,6 +40,10 @@ def param_testing_buckets_cm():
     return [[TempTestBucket(ds)] for ds in datastores]
 
 
+def test_get_storage_method_names():
+    assert get_storage_method_names()
+
+
 @parameterized(param_datastore_objects())
 def test_get_buckets(datastore):
     datastore.buckets()
@@ -48,12 +52,18 @@ def test_get_buckets(datastore):
 @parameterized(param_testing_buckets_cm())
 def test_insert_one(bucket_cm):
     with bucket_cm as bucket:
-        eventcount = len(bucket.get())
-        event = Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)})
-        bucket.insert(event)
-        assert_equal(eventcount + 1, len(bucket.get()))
-        fetched_event = Event(**bucket.get(-1)[-1])
-        assert_dict_equal(event, fetched_event)
+        l = len(bucket.get())
+        bucket.insert_one(Event(**{"label": "test"}))
+        assert_equal(l + 1, len(bucket.get()))
+
+
+@parameterized(param_testing_buckets_cm())
+def test_insert_many(bucket_cm):
+    with bucket_cm as bucket:
+        l = len(bucket.get())
+        bucket.insert_one(2 * [Event(**{"label": "test"})])
+        assert_equal(l + 2, len(bucket.get()))
+
 
 @parameterized(param_testing_buckets_cm())
 def test_replace_last(bucket_cm):
