@@ -68,14 +68,12 @@ def test_insert_one(bucket_cm):
 @parameterized(param_testing_buckets_cm())
 def test_insert_many(bucket_cm):
     with bucket_cm as bucket:
-        l = len(bucket.get())
         events = (2 * [Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)})])
         bucket.insert(events)
-        assert_equal(l + 2, len(bucket.get()))
+        assert_equal(2, len(bucket.get()))
         fetched_events = bucket.get(2)
         for i in range(2):
-            assert_dict_equal(events[i], fetched_events[i])
-
+            assert_dict_equal(events[i], Event(**fetched_events[i]))
 
 
 @parameterized(param_testing_buckets_cm())
@@ -92,19 +90,7 @@ def test_replace_last(bucket_cm):
         assert_equal(eventcount, len(bucket.get(-1)))
         assert_dict_equal(event2, Event(**bucket.get(-1)[-1]))
 
-@parameterized(param_testing_buckets_cm())
-def test_insert_many(bucket_cm):
-    with bucket_cm as bucket:
-        eventcount = len(bucket.get())
-        events = [
-            Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)}),
-            Event(**{"label": "test2", "timestamp": datetime.now(timezone.utc)})
-        ]
-        bucket.insert(events)
-        assert_equal(eventcount + len(events), len(bucket.get()))
-        fetched_events = bucket.get(eventcount)
-        for i in range(eventcount):
-            assert_dict_equal(events[i], Event(**fetched_events[i]))
+
 
 @parameterized(param_testing_buckets_cm())
 def test_limit(bucket_cm):
@@ -115,6 +101,7 @@ def test_limit(bucket_cm):
         print(len(bucket.get(limit=1)))
         assert_equal(1, len(bucket.get(limit=1)))
         assert_equal(5, len(bucket.get(limit=5)))
+
 
 @parameterized(param_testing_buckets_cm())
 def test_get_metadata(bucket_cm):
