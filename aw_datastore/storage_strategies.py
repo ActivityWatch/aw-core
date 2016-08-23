@@ -23,7 +23,7 @@ class StorageStrategy():
     """
 
     def __init__(self, testing):
-        self.testing = testing
+        raise NotImplementedError
 
     def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
         raise NotImplementedError
@@ -34,23 +34,11 @@ class StorageStrategy():
     def get_metadata(self, bucket: str):
         raise NotImplementedError
 
-    def buckets(self):
-        raise NotImplementedError
-
     def get_events(self, bucket: str, limit: int):
         raise NotImplementedError
 
-    # Deprecated, use self.get_events instead
-    def get(self, bucket: str, limit: int):
-        return self.get_events(bucket, limit)
-
-    def insert(self, bucket: str, events: Union[Event, Sequence[Event]]):
-        if isinstance(events, Event) or isinstance(events, dict):
-            self.insert_one(bucket, events)
-        elif isinstance(events, Sequence):
-            self.insert_many(bucket, events)
-        else:
-            raise TypeError("Unexpected type of argument events, was: {}".format(type(events)))
+    def buckets(self):
+        raise NotImplementedError
 
     def insert_one(self, bucket: str, event: Event):
         raise NotImplementedError
@@ -115,7 +103,8 @@ class MongoDBStorageStrategy(StorageStrategy):
         return list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(limit))
 
     def insert_one(self, bucket: str, event: Event):
-        self.db[bucket]["events"].insert_one(event)
+        # .copy is needed because otherwise mongodb inserts a _id field into the event
+        self.db[bucket]["events"].insert_one(event.copy())
 
     def replace_last(self, bucket_id, event):
         last_event = list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(1))[0]
