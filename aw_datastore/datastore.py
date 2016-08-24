@@ -75,7 +75,7 @@ class Bucket:
             oldest_event = events
             return self.ds.storage_strategy.insert_one(self.bucket_id, events)
         elif isinstance(events, List[Event]):
-            oldest_event = sorted(list_to_be_sorted, key=lambda k: k['timestamp'])[0]
+            oldest_event = sorted(events, key=lambda k: k['timestamp'])[0]
             return self.ds.storage_strategy.insert_many(self.bucket_id, events)
         else:
             raise TypeError
