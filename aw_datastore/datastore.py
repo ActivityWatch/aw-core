@@ -59,8 +59,9 @@ class Bucket:
     def metadata(self):
         return self.ds.storage_strategy.get_metadata(self.bucket_id)
 
-    def get(self, limit: int = 10**4):
-        return self.ds.storage_strategy.get_events(self.bucket_id, limit)
+    def get(self, limit: int = 10**4,
+            starttime: datetime=None, endtime: datetime=None):
+        return self.ds.storage_strategy.get_events(self.bucket_id, limit, starttime, endtime)
 
     def insert(self, events: Union[Event, List[Event]]):
         # NOTE: Should we keep the timestamp checking?

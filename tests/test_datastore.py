@@ -77,6 +77,22 @@ def test_insert_many(bucket_cm):
 
 
 @parameterized(param_testing_buckets_cm())
+def test_get_datefilter(bucket_cm):
+    with bucket_cm as bucket:
+        eventcount = 10
+        events = []
+        for i in range(10):
+            events.append(Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)+timedelta(seconds=i)}))
+        bucket.insert(events)
+        for i in range(eventcount):
+            fetched_events = bucket.get(-1, starttime=events[i]["timestamp"])
+            assert_equal(eventcount-i-1, len(fetched_events))
+        for i in range(eventcount):
+            fetched_events = bucket.get(-1, endtime=events[i]["timestamp"])
+            assert_equal(i, len(fetched_events))
+
+
+@parameterized(param_testing_buckets_cm())
 def test_replace_last(bucket_cm):
     with bucket_cm as bucket:
         # Create first event

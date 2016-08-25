@@ -1,8 +1,11 @@
 import json
+import iso8601
 import os
 import logging
 import sys
+import copy
 from typing import List, Union, Sequence
+from datetime import datetime
 
 import appdirs
 from shutil import rmtree
@@ -13,6 +16,13 @@ try:
     import pymongo
 except ImportError:  # pragma: no cover
     logging.warning("Could not import pymongo, not available as a datastore backend")
+
+try:
+    from tinydb import TinyDB, Query, where
+    from tinydb.storages import JSONStorage
+    from tinydb_serialization import Serializer, SerializationMiddleware
+except ImportError: # pragma: no cover
+    logging.warning("Could not import tinydb, not available as a datastore backend")
 
 logger = logging.getLogger("aw.datastore.strategies")
 
@@ -34,7 +44,8 @@ class StorageStrategy():
     def get_metadata(self, bucket: str):
         raise NotImplementedError
 
-    def get_events(self, bucket: str, limit: int):
+    def get_events(self, bucket: str, limit: int,
+                   starttime: datetime=None, endtime: datetime=None):
         raise NotImplementedError
 
     def buckets(self):
@@ -50,6 +61,123 @@ class StorageStrategy():
     def replace_last(self, bucket_id, event):
         raise NotImplementedError
 
+
+class TinyDbStorage():
+    """
+    TinyDB storage method
+    """
+
+    class DateTimeSerializer(Serializer):
+        OBJ_CLASS = datetime  # The class this serializer handles
+
+        def encode(self, obj):
+            return obj.isoformat()
+
+        def decode(self, s):
+            return iso8601.parse_date(s)
+    
+    def __init__(self, testing):
+        # Create dirs
+        self.user_data_dir = appdirs.user_data_dir("aw-server", "activitywatch")
+        self.buckets_dir = os.path.join(self.user_data_dir, "testing" if testing else "", "buckets")
+        if not os.path.exists(self.buckets_dir):
+            os.makedirs(self.buckets_dir)
+
+        self.serializer = SerializationMiddleware(JSONStorage)
+        self.serializer.register_serializer(self.DateTimeSerializer(), 'DateTime')
+        self.tinydb_kwargs = {"storage": self.serializer}
+
+        self.db = {}
+        for bucket_id in os.listdir(self.buckets_dir):
+            self._add_bucket(bucket_id)
+   
+    def _add_bucket(self, bucket_id: str):
+        dbfile = "{}/{}.json".format(self._get_bucket_dir(bucket_id), bucket_id)
+        self.db[bucket_id] = TinyDB(dbfile, **self.tinydb_kwargs)
+
+    def _get_bucket_dir(self, bucket_id):
+        return os.path.join(self.buckets_dir, bucket_id)
+
+    def get_events(self, bucket_id: str, limit: int,
+                   starttime: datetime=None, endtime: datetime=None):
+        if limit <= 0:
+            limit = sys.maxsize
+        # Get all events
+        events = []
+        for e in self.db[bucket_id].all()[::-1]:
+            events.append(Event(**e))
+        #events = [Event(**e) for e in self.db[bucket_id].all()][::-1]
+        # Sort by timestamp
+        sorted(events, key=lambda k: k['timestamp'])
+        for event in events:
+            print(type(event['timestamp'][0]))
+            if not isinstance(event['timestamp'][0], datetime):
+                raise BaseException(event['timestamp'])
+        # Filter endtime
+        if endtime:
+            e = []
+            for event in events:
+                if event['timestamp'] < endtime:
+                    e.append(event)
+            events = e
+        # Limit
+        events = events[:limit]
+        # Filter starttime
+        if starttime:
+            e = []
+            for event in events:
+                if event['timestamp'] > starttime:
+                    e.append(event)
+            events = e
+        # Return
+        return events
+
+    def buckets(self):
+        buckets = {}
+        for bucket in self.db:
+            buckets[bucket] = self.get_metadata(bucket)
+        return buckets
+
+    def get_metadata(self, bucket_id: str):
+        metafile = os.path.join(self._get_bucket_dir(bucket_id), "metadata.json")
+        with open(metafile, 'r') as f:
+            metadata = json.load(f)
+        return metadata
+    
+    def insert_one(self, bucket_id: str, event: Event):
+        self.db[bucket_id].insert(copy.deepcopy(event))
+
+    def insert_many(self, bucket_id: str, events: List[Event]):
+        self.db[bucket_id].insert_multiple(copy.deepcopy(events))
+
+    def replace_last(self, bucket_id, event):
+        e = self.db[bucket_id].get(where('timestamp') == self.get_events(bucket_id, 1)[0]["timestamp"])
+        self.db[bucket_id].remove(eids=[e.eid])
+        self.insert_one(bucket_id, event)
+
+    def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
+        bucket_dir = self._get_bucket_dir(bucket_id)
+        if not os.path.exists(bucket_dir):
+            os.makedirs(bucket_dir)
+        if not name:
+            name = bucket_id
+        metadata = {
+            "id": bucket_id,
+            "name": name,
+            "type": type_id,
+            "client": client,
+            "hostname": hostname,
+            "created": created
+        }
+        with open(os.path.join(bucket_dir, "metadata.json"), "w") as f:
+            f.write(json.dumps(metadata))
+        self._add_bucket(bucket_id)
+
+    def delete_bucket(self, bucket_id):
+        self.db.pop(bucket_id)
+        rmtree(self._get_bucket_dir(bucket_id))
+
+    
 
 class MongoDBStorageStrategy(StorageStrategy):
     """Uses a MongoDB server as backend"""
@@ -97,10 +225,20 @@ class MongoDBStorageStrategy(StorageStrategy):
             del metadata["_id"]
         return metadata
 
-    def get_events(self, bucket_id: str, limit: int):
-        if limit == -1:
+    def get_events(self, bucket_id: str, limit: int,
+                   starttime: datetime=None, endtime: datetime=None):
+        query_filter = {}
+        if starttime:
+            query_filter["timestamp"] = {}
+            query_filter["timestamp"]["$gt"] = starttime
+        if endtime:
+            if "timestamp" not in query_filter:
+                query_filter["timestamp"] = {}
+            query_filter["timestamp"]["$lt"] = endtime
+        if limit <= 0:
             limit = 10**9
-        return list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(limit))
+        print(query_filter)
+        return list(self.db[bucket_id]["events"].find(query_filter).sort([("timestamp", -1)]).limit(limit))
 
     def insert_one(self, bucket: str, event: Event):
         # .copy is needed because otherwise mongodb inserts a _id field into the event
@@ -144,7 +282,12 @@ class MemoryStorageStrategy(StorageStrategy):
             buckets[bucket_id] = self.get_metadata(bucket_id)
         return buckets
 
-    def get_events(self, bucket: str, limit: int):
+    def get_events(self, bucket: str, limit: int,
+                   starttime: datetime=None, endtime: datetime=None):
+        for event in self.db[bucket]:
+            pass
+        if starttime or endtime:
+            raise NotImplementedError
         if limit == -1:
             limit = sys.maxsize
         return self.db[bucket][-limit:]
@@ -200,7 +343,10 @@ class FileStorageStrategy(StorageStrategy):
     def delete_bucket(self, bucket_id):
         rmtree(self._get_bucket_dir(bucket_id))
 
-    def get_events(self, bucket: str, limit: int):
+    def get_events(self, bucket: str, limit: int,
+                   starttime: datetime=None, endtime: datetime=None):
+        if starttime or endtime:
+            raise NotImplementedError
         if limit == -1:
             limit = sys.maxsize
         filename = self._get_filename(bucket)
