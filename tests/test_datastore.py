@@ -84,11 +84,13 @@ def test_get_datefilter(bucket_cm):
         for i in range(10):
             events.append(Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)+timedelta(seconds=i)}))
         bucket.insert(events)
+        # Starttime
         for i in range(eventcount):
-            fetched_events = bucket.get(-1, starttime=events[i]["timestamp"])
+            fetched_events = bucket.get(-1, starttime=events[i]["timestamp"][0])
             assert_equal(eventcount-i-1, len(fetched_events))
+        # Endtime
         for i in range(eventcount):
-            fetched_events = bucket.get(-1, endtime=events[i]["timestamp"])
+            fetched_events = bucket.get(-1, endtime=events[i]["timestamp"][0])
             assert_equal(i, len(fetched_events))
 
 

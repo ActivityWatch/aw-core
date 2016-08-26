@@ -12,17 +12,17 @@ from shutil import rmtree
 
 from aw_core.models import Event
 
+# MongoDB
 try:
     import pymongo
 except ImportError:  # pragma: no cover
     logging.warning("Could not import pymongo, not available as a datastore backend")
 
-try:
-    from tinydb import TinyDB, Query, where
-    from tinydb.storages import JSONStorage
-    from tinydb_serialization import Serializer, SerializationMiddleware
-except ImportError: # pragma: no cover
-    logging.warning("Could not import tinydb, not available as a datastore backend")
+# TinyDB
+from tinydb import TinyDB, Query, where
+from tinydb.storages import JSONStorage
+from tinydb_serialization import Serializer, SerializationMiddleware
+
 
 logger = logging.getLogger("aw.datastore.strategies")
 
@@ -106,18 +106,20 @@ class TinyDBStorage():
         events = [Event(**e) for e in self.db[bucket_id].all()][::-1]
         # Sort by timestamp
         sorted(events, key=lambda k: k['timestamp'])
-        # Filter endtime
-        if endtime:
-            e = []
-            for event in events:
-                if event['timestamp'] < endtime:
-                    e.append(event)
-            events = e
         # Filter starttime
         if starttime:
             e = []
             for event in events:
-                if event['timestamp'] > starttime:
+                print(event['timestamp'])
+                print(starttime)
+                if event['timestamp'][0] > starttime:
+                    e.append(event)
+            events = e
+        # Filter endtime
+        if endtime:
+            e = []
+            for event in events:
+                if event['timestamp'][0] < endtime:
                     e.append(event)
             events = e
         # Limit
@@ -283,13 +285,13 @@ class MemoryStorageStrategy(StorageStrategy):
         if starttime:
             e = []
             for event in events:
-                if event['timestamp'] > starttime:
+                if event['timestamp'][0] > starttime:
                     e.append(event)
             events = e
         if endtime:
             e = []
             for event in events:
-                if event['timestamp'] < endtime:
+                if event['timestamp'][0] < endtime:
                     e.append(event)
             events = e
         # Limit
@@ -297,7 +299,7 @@ class MemoryStorageStrategy(StorageStrategy):
             limit = sys.maxsize
         events = events[:limit]
         # Return
-        return events
+        return copy.deepcopy(events)
 
     def get_metadata(self, bucket_id: str):
         return self._metadata[bucket_id]
