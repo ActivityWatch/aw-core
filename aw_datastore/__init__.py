@@ -2,8 +2,8 @@ from .datastore import Datastore
 
 
 def get_storage_methods():
-    from .storage_strategies import FileStorageStrategy, MemoryStorageStrategy, MongoDBStorageStrategy, TinyDbStorage
-    methods = [FileStorageStrategy, MemoryStorageStrategy, TinyDbStorage]
+    from .storage_strategies import MemoryStorageStrategy, MongoDBStorageStrategy, TinyDBStorage
+    methods = [MemoryStorageStrategy, TinyDBStorage]
 
     try:
         import pymongo

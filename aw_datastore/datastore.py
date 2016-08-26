@@ -4,18 +4,13 @@ from typing import List, Union
 
 from aw_core.models import Event
 
-from .storage_strategies import StorageStrategy, MemoryStorageStrategy, FileStorageStrategy, MongoDBStorageStrategy
+from .storage_strategies import StorageStrategy
 
 logger = logging.getLogger("aw.datastore")
 
 
-MEMORY = MemoryStorageStrategy
-FILES = FileStorageStrategy
-MONGODB = MongoDBStorageStrategy
-
-
 class Datastore:
-    def __init__(self, storage_strategy: StorageStrategy = MEMORY, testing=False):
+    def __init__(self, storage_strategy: StorageStrategy, testing=False):
         self.logger = logger.getChild("Datastore")
         self.bucket_instances = {}
 

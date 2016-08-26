@@ -62,7 +62,7 @@ class StorageStrategy():
         raise NotImplementedError
 
 
-class TinyDbStorage():
+class TinyDBStorage():
     """
     TinyDB storage method
     """
@@ -82,7 +82,7 @@ class TinyDbStorage():
         self.buckets_dir = os.path.join(self.user_data_dir, "testing" if testing else "", "buckets")
         if not os.path.exists(self.buckets_dir):
             os.makedirs(self.buckets_dir)
-
+       
         self.serializer = SerializationMiddleware(JSONStorage)
         self.serializer.register_serializer(self.DateTimeSerializer(), 'DateTime')
         self.tinydb_kwargs = {"storage": self.serializer}
@@ -103,16 +103,9 @@ class TinyDbStorage():
         if limit <= 0:
             limit = sys.maxsize
         # Get all events
-        events = []
-        for e in self.db[bucket_id].all()[::-1]:
-            events.append(Event(**e))
-        #events = [Event(**e) for e in self.db[bucket_id].all()][::-1]
+        events = [Event(**e) for e in self.db[bucket_id].all()][::-1]
         # Sort by timestamp
         sorted(events, key=lambda k: k['timestamp'])
-        for event in events:
-            print(type(event['timestamp'][0]))
-            if not isinstance(event['timestamp'][0], datetime):
-                raise BaseException(event['timestamp'])
         # Filter endtime
         if endtime:
             e = []
@@ -120,8 +113,6 @@ class TinyDbStorage():
                 if event['timestamp'] < endtime:
                     e.append(event)
             events = e
-        # Limit
-        events = events[:limit]
         # Filter starttime
         if starttime:
             e = []
@@ -129,6 +120,8 @@ class TinyDbStorage():
                 if event['timestamp'] > starttime:
                     e.append(event)
             events = e
+        # Limit
+        events = events[:limit]
         # Return
         return events
 
@@ -177,7 +170,6 @@ class TinyDbStorage():
         self.db.pop(bucket_id)
         rmtree(self._get_bucket_dir(bucket_id))
 
-    
 
 class MongoDBStorageStrategy(StorageStrategy):
     """Uses a MongoDB server as backend"""
@@ -284,13 +276,28 @@ class MemoryStorageStrategy(StorageStrategy):
 
     def get_events(self, bucket: str, limit: int,
                    starttime: datetime=None, endtime: datetime=None):
-        for event in self.db[bucket]:
-            pass
-        if starttime or endtime:
-            raise NotImplementedError
+        events = self.db[bucket]
+        # Sort by timestamp
+        sorted(events, key=lambda k: k['timestamp'])
+        # Filter by date
+        if starttime:
+            e = []
+            for event in events:
+                if event['timestamp'] > starttime:
+                    e.append(event)
+            events = e
+        if endtime:
+            e = []
+            for event in events:
+                if event['timestamp'] < endtime:
+                    e.append(event)
+            events = e
+        # Limit
         if limit == -1:
             limit = sys.maxsize
-        return self.db[bucket][-limit:]
+        events = events[:limit]
+        # Return
+        return events
 
     def get_metadata(self, bucket_id: str):
         return self._metadata[bucket_id]
@@ -300,104 +307,3 @@ class MemoryStorageStrategy(StorageStrategy):
 
     def replace_last(self, bucket_id, event):
         self.db[bucket_id][-1] = event
-
-
-class FileStorageStrategy(StorageStrategy):
-    """For storage of data in JSON files, useful as a zero-dependency/databaseless solution"""
-
-    def __init__(self, testing, maxfilesize=10**5):
-        self.logger = logger.getChild("file")
-        self._fileno = 0
-        self._maxfilesize = maxfilesize
-
-        # Create dirs
-        self.user_data_dir = appdirs.user_data_dir("aw-server", "activitywatch")
-        self.buckets_dir = os.path.join(self.user_data_dir, "testing" if testing else "", "buckets")
-        if not os.path.exists(self.buckets_dir):
-            os.makedirs(self.buckets_dir)
-
-    def _get_bucket_dir(self, bucket_id):
-        return os.path.join(self.buckets_dir, bucket_id)
-
-    def _get_filename(self, bucket_id: str, fileno: int = None):
-        bucket_dir = self._get_bucket_dir(bucket_id)
-        return os.path.join(bucket_dir, str(self._fileno))
-
-    def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
-        bucket_dir = self._get_bucket_dir(bucket_id)
-        if not os.path.exists(bucket_dir):
-            os.makedirs(bucket_dir)
-        if not name:
-            name = bucket_id
-        metadata = {
-            "id": bucket_id,
-            "name": name,
-            "type": type_id,
-            "client": client,
-            "hostname": hostname,
-            "created": created
-        }
-        with open(os.path.join(bucket_dir, "metadata.json"), "w") as f:
-            f.write(json.dumps(metadata))
-
-    def delete_bucket(self, bucket_id):
-        rmtree(self._get_bucket_dir(bucket_id))
-
-    def get_events(self, bucket: str, limit: int,
-                   starttime: datetime=None, endtime: datetime=None):
-        if starttime or endtime:
-            raise NotImplementedError
-        if limit == -1:
-            limit = sys.maxsize
-        filename = self._get_filename(bucket)
-        if not os.path.isfile(filename):
-            return []
-        with open(filename) as f:
-            # FIXME: I'm slow and memory consuming with large files, see this:
-            # https://stackoverflow.com/questions/2301789/read-a-file-in-reverse-order-using-python
-            data = [json.loads(line) for line in f.readlines()[-limit:]]
-        return data
-
-    def buckets(self):
-        buckets = {}
-        for bucket_id in os.listdir(self.buckets_dir):
-            buckets[bucket_id] = self.get_metadata(bucket_id)
-        return buckets
-
-    def get_metadata(self, bucket_id: str):
-        metafile = os.path.join(self._get_bucket_dir(bucket_id), "metadata.json")
-        with open(metafile, 'r') as f:
-            metadata = json.load(f)
-        return metadata
-
-    def insert_one(self, bucket: str, event: Event):
-        self.insert_many(bucket, [event])
-
-    def insert_many(self, bucket: str, events: Sequence[Event]):
-        filename = self._get_filename(bucket)
-
-        # Decide wether to append or create a new file
-        """
-        if os.path.isfile(filename):
-            size = os.path.getsize(filename)
-            if size > self._maxfilesize:
-                print("Bucket larger than allowed")
-                print(size, self._maxfilesize)
-        """
-
-        # Option: Limit on events per file instead of filesize
-        """
-        num_lines = sum(1 for line in open(filename))
-        """
-
-        str_to_append = "\n".join([json.dumps(event.to_json_dict()) for event in events])
-        with open(filename, "a+") as f:
-            f.write(str_to_append + "\n")
-
-    def replace_last(self, bucket, newevent):
-        events = self.get_events(bucket, -1)
-        filename = self._get_filename(bucket)
-        with open(filename, "w") as f:
-            events[-1] = newevent.to_json_dict()
-            newfiledata = "\n".join([json.dumps(event) for event in events]) + "\n"
-            f.write(newfiledata)
