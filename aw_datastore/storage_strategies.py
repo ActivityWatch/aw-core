@@ -84,24 +84,29 @@ class TinyDBStorage():
             os.makedirs(self.buckets_dir)
 
         self.db = {}
+        self.events = {}
+        self.metadata = {}
         for bucket_id in os.listdir(self.buckets_dir):
             self._add_bucket(bucket_id)
    
     def _add_bucket(self, bucket_id: str):
-        dbfile = "{}/events.json".format(self._get_bucket_dir(bucket_id))
+        dbfile = self._get_bucket_db_path(bucket_id)
         serializer = SerializationMiddleware(JSONStorage)
         serializer.register_serializer(self.DateTimeSerializer(), 'DateTime')
+        
         self.db[bucket_id] = TinyDB(dbfile, storage=serializer)
+        self.events[bucket_id] = self.db[bucket_id].table('events')
+        self.metadata[bucket_id] = self.db[bucket_id].table('metadata')
 
-    def _get_bucket_dir(self, bucket_id):
-        return os.path.join(self.buckets_dir, bucket_id)
+    def _get_bucket_db_path(self, bucket_id):
+        return "{}/{}.json".format(self.buckets_dir, bucket_id)
 
     def get_events(self, bucket_id: str, limit: int,
                    starttime: datetime=None, endtime: datetime=None):
         if limit <= 0:
             limit = sys.maxsize
         # Get all events
-        events = [Event(**e) for e in self.db[bucket_id].all()]
+        events = [Event(**e) for e in self.events[bucket_id].all()]
         # Sort by timestamp
         sorted(events, key=lambda k: k['timestamp'])
         # Filter starttime
@@ -132,26 +137,21 @@ class TinyDBStorage():
         return buckets
 
     def get_metadata(self, bucket_id: str):
-        metafile = os.path.join(self._get_bucket_dir(bucket_id), "metadata.json")
-        with open(metafile, 'r') as f:
-            metadata = json.load(f)
+        metadata = self.metadata[bucket_id].get(eid=0)
         return metadata
     
     def insert_one(self, bucket_id: str, event: Event):
-        self.db[bucket_id].insert(copy.deepcopy(event))
+        self.events[bucket_id].insert(copy.deepcopy(event))
 
     def insert_many(self, bucket_id: str, events: List[Event]):
-        self.db[bucket_id].insert_multiple(copy.deepcopy(events))
+        self.events[bucket_id].insert_multiple(copy.deepcopy(events))
 
     def replace_last(self, bucket_id, event):
-        e = self.db[bucket_id].get(where('timestamp') == self.get_events(bucket_id, 1)[0]["timestamp"])
-        self.db[bucket_id].remove(eids=[e.eid])
+        e = self.events[bucket_id].get(where('timestamp') == self.get_events(bucket_id, 1)[0]["timestamp"])
+        self.events[bucket_id].remove(eids=[e.eid])
         self.insert_one(bucket_id, event)
 
     def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
-        bucket_dir = self._get_bucket_dir(bucket_id)
-        if not os.path.exists(bucket_dir):
-            os.makedirs(bucket_dir)
         if not name:
             name = bucket_id
         metadata = {
@@ -162,13 +162,12 @@ class TinyDBStorage():
             "hostname": hostname,
             "created": created
         }
-        with open(os.path.join(bucket_dir, "metadata.json"), "w") as f:
-            f.write(json.dumps(metadata))
         self._add_bucket(bucket_id)
+        self.metadata[bucket_id].insert(metadata)
 
     def delete_bucket(self, bucket_id):
         self.db.pop(bucket_id)
-        rmtree(self._get_bucket_dir(bucket_id))
+        os.remove(self._get_bucket_db_path(bucket_id))
 
 
 class MongoDBStorageStrategy(StorageStrategy):
