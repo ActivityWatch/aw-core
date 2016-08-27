@@ -99,7 +99,7 @@ class TinyDBStorage():
         self.metadata[bucket_id] = self.db[bucket_id].table('metadata')
 
     def _get_bucket_db_path(self, bucket_id):
-        return "{}/{}.json".format(self.buckets_dir, bucket_id)
+        return "{}/{}".format(self.buckets_dir, bucket_id)
 
     def get_events(self, bucket_id: str, limit: int,
                    starttime: datetime=None, endtime: datetime=None):
@@ -113,8 +113,6 @@ class TinyDBStorage():
         if starttime:
             e = []
             for event in events:
-                print(event['timestamp'])
-                print(starttime)
                 if event['timestamp'][0] > starttime:
                     e.append(event)
             events = e
@@ -228,7 +226,6 @@ class MongoDBStorageStrategy(StorageStrategy):
             query_filter["timestamp"]["$lt"] = endtime
         if limit <= 0:
             limit = 10**9
-        print(query_filter)
         return list(self.db[bucket_id]["events"].find(query_filter).sort([("timestamp", -1)]).limit(limit))
 
     def insert_one(self, bucket: str, event: Event):
@@ -237,7 +234,6 @@ class MongoDBStorageStrategy(StorageStrategy):
 
     def replace_last(self, bucket_id, event):
         last_event = list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(1))[0]
-        print(last_event)
         self.db[bucket_id]["events"].replace_one({"_id": last_event["_id"]}, event.to_json_dict())
 
 

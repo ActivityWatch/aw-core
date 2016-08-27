@@ -95,6 +95,21 @@ def test_get_datefilter(bucket_cm):
 
 
 @parameterized(param_testing_buckets_cm())
+def test_chunking(bucket_cm):
+    with bucket_cm as bucket:
+        eventcount = 10
+        events = []
+        for i in range(eventcount):
+            events.append(Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)+timedelta(seconds=i)}))
+        bucket.insert(events)
+        # Assert
+        res = bucket.chunk()
+        print(res)
+        assert_equal(res['eventcount'], eventcount)
+        assert_equal(res['chunks']['test']['other_labels'], [])
+
+
+@parameterized(param_testing_buckets_cm())
 def test_replace_last(bucket_cm):
     with bucket_cm as bucket:
         # Create first event

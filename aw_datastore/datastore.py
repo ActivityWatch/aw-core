@@ -85,10 +85,10 @@ class Bucket:
                                 "\nInserted:"+str(event))
 
     def chunk(self, starttime=None, endtime=None):
-        events = self.ds.storage_strategy.get_events(self.bucket_id, -1, starttime=starttime, endtime=endtime)
+        events = self.ds.storage_strategy.get_events(self.bucket_id, limit=-1, starttime=starttime, endtime=endtime)
 
         eventcount = 0
-        chunk = {"label": []}
+        chunk = {}
         for event in events:
             if "label" not in event:
                 self.logger.warning("Event did not have any labels: {}".format(event))
