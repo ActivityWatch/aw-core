@@ -108,7 +108,6 @@ def test_chunking(bucket_cm):
         assert_equal(res['eventcount'], eventcount)
         assert_equal(res['chunks']['test']['other_labels'], [])
         assert_equal(res['chunks']['test']['duration'], {"value": 10, "unit": "s"})
-        print(a)
 
 
 @parameterized(param_testing_buckets_cm())
