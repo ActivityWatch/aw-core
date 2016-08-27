@@ -48,6 +48,7 @@ class Datastore:
 
 class Bucket:
     def __init__(self, datastore: Datastore, bucket_id: str):
+        self.logger = logger.getChild("Bucket")
         self.ds = datastore
         self.bucket_id = bucket_id
 
@@ -79,9 +80,38 @@ class Bucket:
         # Warn if timestamp is older than last event
         if last_event:
             if oldest_event["timestamp"][0] < prev_event["timestamp"][0].replace(tzinfo=timezone.utc):
-                logging.warning("Inserting event that has a older timestamp than previous event!"+
+                self.logger.warning("Inserting event that has a older timestamp than previous event!"+
                                 "\nPrevious:"+str(prev_event)+
                                 "\nInserted:"+str(event))
+
+    def chunk(self, starttime=None, endtime=None):
+        events = self.ds.storage_strategy.get_events(self.bucket_id, -1, starttime=starttime, endtime=endtime)
+
+        eventcount = 0
+        chunk = {"label": []}
+        for event in events:
+            if "label" not in event:
+                self.logger.warning("Event did not have any labels: {}".format(event))
+            else:
+                for label in event["label"]:
+                    if label not in chunk:
+                        chunk[label] = {"other_labels":[]}
+                    for co_label in event["label"]:
+                        if co_label != label and co_label not in chunk[label]["other_labels"]:
+                            chunk[label]["other_labels"].append(co_label)
+                    if "duration" in event:
+                        if "duration" not in chunk[label]:
+                            chunk[label]["duration"] = event["duration"][0]
+                        else:
+                            chunk[label]["duration"]["value"] += event["duration"][0]["value"]
+
+            eventcount += 1
+
+        payload = {
+            "eventcount": eventcount,
+            "chunks": chunk,
+        }
+        return payload
 
     def replace_last(self, event):
         return self.ds.storage_strategy.replace_last(self.bucket_id, event)
