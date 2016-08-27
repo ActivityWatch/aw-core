@@ -77,6 +77,20 @@ def test_insert_many(bucket_cm):
 
 
 @parameterized(param_testing_buckets_cm())
+def test_insert_badtype(bucket_cm):
+    with bucket_cm as bucket:
+        l = len(bucket.get())
+        badevent = 1
+        handled = False
+        try:
+            bucket.insert(badevent)
+        except TypeError:
+            handled = True
+        assert_equal(handled, True)
+        assert_equal(l, len(bucket.get()))
+
+
+@parameterized(param_testing_buckets_cm())
 def test_get_datefilter(bucket_cm):
     with bucket_cm as bucket:
         eventcount = 10

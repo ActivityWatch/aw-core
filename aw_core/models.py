@@ -73,8 +73,6 @@ class Event(dict):
                 if not isinstance(value, self.ALLOWED_FIELDS[k]):
                     logger.error("Found value {} in field {} that was not of proper instance ({}). Event: {}".format(value, k, self.ALLOWED_FIELDS[k], self))
 
-        self.update(self)
-
     def to_json_dict(self) -> dict:
         """Useful when sending data over the wire.
         Any mongodb interop should not use do this as it accepts datetimes."""
