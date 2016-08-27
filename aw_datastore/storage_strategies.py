@@ -82,18 +82,16 @@ class TinyDBStorage():
         self.buckets_dir = os.path.join(self.user_data_dir, "testing" if testing else "", "buckets")
         if not os.path.exists(self.buckets_dir):
             os.makedirs(self.buckets_dir)
-       
-        self.serializer = SerializationMiddleware(JSONStorage)
-        self.serializer.register_serializer(self.DateTimeSerializer(), 'DateTime')
-        self.tinydb_kwargs = {"storage": self.serializer}
 
         self.db = {}
         for bucket_id in os.listdir(self.buckets_dir):
             self._add_bucket(bucket_id)
    
     def _add_bucket(self, bucket_id: str):
-        dbfile = "{}/{}.json".format(self._get_bucket_dir(bucket_id), bucket_id)
-        self.db[bucket_id] = TinyDB(dbfile, **self.tinydb_kwargs)
+        dbfile = "{}/events.json".format(self._get_bucket_dir(bucket_id))
+        serializer = SerializationMiddleware(JSONStorage)
+        serializer.register_serializer(self.DateTimeSerializer(), 'DateTime')
+        self.db[bucket_id] = TinyDB(dbfile, storage=serializer)
 
     def _get_bucket_dir(self, bucket_id):
         return os.path.join(self.buckets_dir, bucket_id)
@@ -103,7 +101,7 @@ class TinyDBStorage():
         if limit <= 0:
             limit = sys.maxsize
         # Get all events
-        events = [Event(**e) for e in self.db[bucket_id].all()][::-1]
+        events = [Event(**e) for e in self.db[bucket_id].all()]
         # Sort by timestamp
         sorted(events, key=lambda k: k['timestamp'])
         # Filter starttime
