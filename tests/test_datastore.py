@@ -62,6 +62,7 @@ def test_insert_one(bucket_cm):
         event = Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)})
         bucket.insert(event)
         assert_equal(l + 1, len(bucket.get()))
+        assert_equal(Event, type(bucket.get()[0]))
         assert_dict_equal(event, Event(**bucket.get(1)[0]))
 
 
@@ -73,7 +74,7 @@ def test_insert_many(bucket_cm):
         assert_equal(2, len(bucket.get()))
         fetched_events = bucket.get(2)
         for i in range(2):
-            assert_dict_equal(events[i], Event(**fetched_events[i]))
+            assert_dict_equal(events[i], fetched_events[i])
 
 
 @parameterized(param_testing_buckets_cm())
@@ -88,6 +89,23 @@ def test_insert_badtype(bucket_cm):
             handled = True
         assert_equal(handled, True)
         assert_equal(l, len(bucket.get()))
+
+
+@parameterized(param_testing_buckets_cm())
+def test_get_ordered(bucket_cm):
+    with bucket_cm as bucket:
+        eventcount = 10
+        events = []
+        for i in range(10):
+            events.append({"label": "test", "timestamp": datetime.now(timezone.utc)+timedelta(seconds=i)})
+        random.shuffle(events)
+        print(events)
+        bucket.insert(events)
+        fetched_events = bucket.get(-1)
+        for i in range(eventcount-1):
+            print("1:" + fetched_events[i].to_json_str())
+            print("2:" + fetched_events[i+1].to_json_str())
+            assert_equal(True, fetched_events[i]['timestamp'] > fetched_events[i+1]['timestamp'])
 
 
 @parameterized(param_testing_buckets_cm())
@@ -136,7 +154,7 @@ def test_replace_last(bucket_cm):
         bucket.replace_last(event2)
         # Assert length and content
         assert_equal(eventcount, len(bucket.get(-1)))
-        assert_dict_equal(event2, Event(**bucket.get(-1)[-1]))
+        assert_dict_equal(event2, bucket.get(-1)[-1])
 
 
 

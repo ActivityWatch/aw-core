@@ -108,7 +108,7 @@ class TinyDBStorage():
         # Get all events
         events = [Event(**e) for e in self.events[bucket_id].all()]
         # Sort by timestamp
-        sorted(events, key=lambda k: k['timestamp'])
+        events = sorted(events, key=lambda k: k['timestamp'])[::-1]
         # Filter starttime
         if starttime:
             e = []
@@ -281,7 +281,7 @@ class MemoryStorageStrategy(StorageStrategy):
                    starttime: datetime=None, endtime: datetime=None):
         events = self.db[bucket]
         # Sort by timestamp
-        sorted(events, key=lambda k: k['timestamp'])
+        events = sorted(events, key=lambda k: k['timestamp'])[::-1]
         # Filter by date
         if starttime:
             e = []
@@ -306,7 +306,7 @@ class MemoryStorageStrategy(StorageStrategy):
         return self._metadata[bucket_id]
 
     def insert_one(self, bucket: str, event: Event):
-        self.db[bucket].append(event)
+        self.db[bucket].append(Event(**event))
 
     def replace_last(self, bucket_id, event):
         self.db[bucket_id][-1] = event
