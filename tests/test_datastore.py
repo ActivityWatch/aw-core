@@ -46,17 +46,26 @@ def test_get_storage_method_names():
 
 @parameterized(param_datastore_objects())
 def test_get_buckets(datastore):
+    """
+    Tests fetching buckets
+    """
     datastore.buckets()
 
 
 @parameterized(param_datastore_objects())
 def test_nonexistant_bucket(datastore):
+    """
+    Tests that a KeyError is raised if you request a non-existant bucket
+    """
     with assert_raises(KeyError):
         datastore["I-do-not-exist"]
 
 
 @parameterized(param_testing_buckets_cm())
 def test_insert_one(bucket_cm):
+    """
+    Tests inserting one event into a bucket
+    """
     with bucket_cm as bucket:
         l = len(bucket.get())
         event = Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)})
@@ -68,6 +77,9 @@ def test_insert_one(bucket_cm):
 
 @parameterized(param_testing_buckets_cm())
 def test_insert_many(bucket_cm):
+    """
+    Tests that you can insert many events at the same time to a bucket
+    """
     with bucket_cm as bucket:
         events = (2 * [Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)})])
         bucket.insert(events)
@@ -79,6 +91,9 @@ def test_insert_many(bucket_cm):
 
 @parameterized(param_testing_buckets_cm())
 def test_insert_badtype(bucket_cm):
+    """
+    Tests that you cannot insert non-event types into a bucket
+    """
     with bucket_cm as bucket:
         l = len(bucket.get())
         badevent = 1
@@ -93,6 +108,9 @@ def test_insert_badtype(bucket_cm):
 
 @parameterized(param_testing_buckets_cm())
 def test_get_ordered(bucket_cm):
+    """
+    Makes sure that received events are ordered
+    """
     with bucket_cm as bucket:
         eventcount = 10
         events = []
@@ -105,11 +123,14 @@ def test_get_ordered(bucket_cm):
         for i in range(eventcount-1):
             print("1:" + fetched_events[i].to_json_str())
             print("2:" + fetched_events[i+1].to_json_str())
-            assert_equal(True, fetched_events[i]['timestamp'] > fetched_events[i+1]['timestamp'])
+            assert_equal(True, fetched_events[i]['timestamp'][0] > fetched_events[i+1]['timestamp'][0])
 
 
 @parameterized(param_testing_buckets_cm())
 def test_get_datefilter(bucket_cm):
+    """
+    Tests the datetimefilter when fetching events
+    """
     with bucket_cm as bucket:
         eventcount = 10
         events = []
@@ -128,6 +149,9 @@ def test_get_datefilter(bucket_cm):
 
 @parameterized(param_testing_buckets_cm())
 def test_chunking(bucket_cm):
+    """
+    Tests the chunking
+    """
     with bucket_cm as bucket:
         eventcount = 10
         events = []
@@ -144,13 +168,16 @@ def test_chunking(bucket_cm):
 
 @parameterized(param_testing_buckets_cm())
 def test_replace_last(bucket_cm):
+    """
+    Tests the replace last event in bucket functionality
+    """
     with bucket_cm as bucket:
         # Create first event
         event1 = Event(**{"label": "test1", "timestamp": datetime.now(timezone.utc)})
         bucket.insert(event1)
         eventcount = len(bucket.get(-1))
         # Create second event to replace with the first one
-        event2 = Event(**{"label": "test2", "timestamp": datetime.now(timezone.utc)})
+        event2 = Event(**{"label": "test2", "timestamp": datetime.now(timezone.utc)+timedelta(seconds=1)})
         bucket.replace_last(event2)
         # Assert length and content
         assert_equal(eventcount, len(bucket.get(-1)))
@@ -160,6 +187,9 @@ def test_replace_last(bucket_cm):
 
 @parameterized(param_testing_buckets_cm())
 def test_limit(bucket_cm):
+    """
+    Tests setting the result limit when fetching events
+    """
     with bucket_cm as bucket:
         for i in range(5):
             bucket.insert(Event(**{"label": "test"}))
@@ -171,5 +201,8 @@ def test_limit(bucket_cm):
 
 @parameterized(param_testing_buckets_cm())
 def test_get_metadata(bucket_cm):
+    """
+    Tests the get_metadata function
+    """
     with bucket_cm as bucket:
         bucket.metadata()

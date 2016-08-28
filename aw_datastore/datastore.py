@@ -72,13 +72,16 @@ class Bucket:
             oldest_event = events
             return self.ds.storage_strategy.insert_one(self.bucket_id, events)
         elif isinstance(events, List[Event]):
-            oldest_event = sorted(events, key=lambda k: k['timestamp'])[0]
+            if len(events) > 0:
+                oldest_event = sorted(events, key=lambda k: k['timestamp'])[0]
+            else:
+                oldest_event = None
             return self.ds.storage_strategy.insert_many(self.bucket_id, events)
         else:
             raise TypeError
         
         # Warn if timestamp is older than last event
-        if last_event:
+        if last_event and oldest_event:
             if oldest_event["timestamp"][0] < prev_event["timestamp"][0].replace(tzinfo=timezone.utc):
                 self.logger.warning("Inserting event that has a older timestamp than previous event!"+
                                 "\nPrevious:"+str(prev_event)+
