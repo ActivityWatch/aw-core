@@ -137,7 +137,7 @@ class TinyDBStorage():
         return buckets
 
     def get_metadata(self, bucket_id: str):
-        metadata = self.metadata[bucket_id].get(eid=0)
+        metadata = self.metadata[bucket_id].all()[0]
         return metadata
     
     def insert_one(self, bucket_id: str, event: Event):

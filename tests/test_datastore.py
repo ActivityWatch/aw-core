@@ -205,4 +205,12 @@ def test_get_metadata(bucket_cm):
     Tests the get_metadata function
     """
     with bucket_cm as bucket:
-        bucket.metadata()
+        print(bucket.ds.storage_strategy)
+        metadata = bucket.metadata()
+        print(metadata)
+        assert_equal(True, 'created' in metadata)
+        assert_equal(True, 'client' in metadata)
+        assert_equal(True, 'hostname' in metadata)
+        assert_equal(True, 'id' in metadata)
+        assert_equal(True, 'name' in metadata)
+        assert_equal(True, 'type' in metadata)
