@@ -125,6 +125,8 @@ class TinyDBStorage():
             events = e
         # Limit
         events = events[:limit]
+        for event in events:
+            event = Event(**event)
         # Return
         return events
 
@@ -226,7 +228,13 @@ class MongoDBStorageStrategy(StorageStrategy):
             query_filter["timestamp"]["$lt"] = endtime
         if limit <= 0:
             limit = 10**9
-        return list(self.db[bucket_id]["events"].find(query_filter).sort([("timestamp", -1)]).limit(limit))
+        ds_events = list(self.db[bucket_id]["events"].find(query_filter).sort([("timestamp", -1)]).limit(limit))
+        events = []
+        for event in ds_events:
+            event.pop('_id')
+            events.append(Event(**event))
+        return events
+
 
     def insert_one(self, bucket: str, event: Event):
         # .copy is needed because otherwise mongodb inserts a _id field into the event
