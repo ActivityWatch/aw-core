@@ -105,7 +105,7 @@ class Bucket:
                             chunk[label]["other_labels"].append(co_label)
                     if "duration" in event:
                         if "duration" not in chunk[label]:
-                            chunk[label]["duration"] = event["duration"][0]
+                            chunk[label]["duration"] = event["duration"][0].copy()
                         else:
                             chunk[label]["duration"]["value"] += event["duration"][0]["value"]
 

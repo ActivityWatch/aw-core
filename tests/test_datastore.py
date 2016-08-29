@@ -156,14 +156,16 @@ def test_chunking(bucket_cm):
         eventcount = 10
         events = []
         for i in range(eventcount):
-            events.append(Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)+timedelta(seconds=i), "duration": {"value": 1, "unit": "s"}}))
+            events.append(Event(**{"label": ["test","test2"], "timestamp": datetime.now(timezone.utc)+timedelta(seconds=i), "duration": {"value": 1, "unit": "s"}}))
         bucket.insert(events)
         # Assert
         res = bucket.chunk()
         print(res)
         assert_equal(res['eventcount'], eventcount)
-        assert_equal(res['chunks']['test']['other_labels'], [])
-        assert_equal(res['chunks']['test']['duration'], {"value": 10, "unit": "s"})
+        assert_equal(res['chunks']['test']['other_labels'], ["test2"])
+        assert_equal(res['chunks']['test']['duration'], {"value": eventcount, "unit": "s"})
+        assert_equal(res['chunks']['test2']['other_labels'], ["test"])
+        assert_equal(res['chunks']['test2']['duration'], {"value": eventcount, "unit": "s"})
 
 
 @parameterized(param_testing_buckets_cm())
