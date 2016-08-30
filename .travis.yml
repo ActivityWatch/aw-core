@@ -20,7 +20,9 @@ install:
 script:
  - "nosetests -v --with-coverage"
  # Forgiving checking
- - "export MYPYPATH=$TRAVIS_BUILD_DIR/stubs && echo $MYPYPATH && mypy aw_core"
+ - "export MYPYPATH=$TRAVIS_BUILD_DIR/stubs"
+ - "mypy aw_core"
+ - "mypy aw_datastore"
  # Strict checking
  #- "mypy --check-untyped-defs --disallow-untyped-defs aw_core"
  # Super strict checking, not used due to lack of stubs
