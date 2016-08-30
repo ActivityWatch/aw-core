@@ -20,6 +20,7 @@ install:
 script:
  - "nosetests -v --with-coverage"
  # Forgiving checking
+ - "export MYPYPATH=${pwd}/stubs"
  - "mypy aw_core"
  # Strict checking
  - "mypy --check-untyped-defs --disallow-untyped-defs aw_core"
