@@ -3,7 +3,7 @@ import logging
 
 from datetime import datetime, timedelta, timezone
 
-from typing import List
+from typing import Any, List
 
 import iso8601
 
@@ -28,11 +28,11 @@ class Event(dict):
         #"stored_at": datetime,
     }
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         dict.__init__(self, **kwargs)
         self.validate()
 
-    def validate(self):
+    def validate(self) -> None:
         """ Remove invalid keys """
         invalid_keys = []
         for k, v in self.items():
