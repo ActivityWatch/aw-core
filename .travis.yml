@@ -11,7 +11,7 @@ services:
 
 before_install:
  - "pip install coverage"
- - "pip install mypy-lang"
+ - "pip install mypy-lang==0.4.4"
 
 install:
  - "pip install pymongo"
