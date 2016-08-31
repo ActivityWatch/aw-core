@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import List, Union, Callable
+from typing import List, Union, Callable, Optional
 
 from aw_core.models import Event
 
@@ -38,9 +38,10 @@ class Datastore:
         return self.bucket_instances[bucket_id]
 
     def create_bucket(self, bucket_id: str, type: str, client: str, hostname: str,
-                      created: datetime = datetime.now(timezone.utc), name: str = None):
+                      created: datetime = datetime.now(timezone.utc), name: Optional[str] = None) -> "Bucket":
         self.logger.info("Creating bucket '{}'".format(bucket_id))
-        return self.storage_strategy.create_bucket(bucket_id, type, client, hostname, created.isoformat())
+        self.storage_strategy.create_bucket(bucket_id, type, client, hostname, created.isoformat(), name=name)
+        return self[bucket_id]
 
     def delete_bucket(self, bucket_id: str):
         self.logger.info("Deleting bucket '{}'".format(bucket_id))

@@ -50,6 +50,17 @@ def test_get_buckets(datastore):
 
 
 @parameterized(param_datastore_objects())
+def test_create_bucket(datastore):
+    name = "A label/name for a test bucket"
+    bid = "test-identifier"
+    bucket = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name=name)
+    try:
+        assert_equal(name, bucket.metadata()["name"])
+    finally:
+        datastore.delete_bucket(bid)
+
+
+@parameterized(param_datastore_objects())
 def test_nonexistant_bucket(datastore):
     with assert_raises(KeyError):
         datastore["I-do-not-exist"]
@@ -74,6 +85,14 @@ def test_insert_many(bucket_cm):
         fetched_events = bucket.get(2)
         for i in range(2):
             assert_dict_equal(events[i], Event(**fetched_events[i]))
+
+
+@parameterized(param_testing_buckets_cm())
+def test_insert_invalid(bucket_cm):
+    with bucket_cm as bucket:
+        event = "not a real event"
+        with assert_raises(TypeError):
+            bucket.insert(event)
 
 
 @parameterized(param_testing_buckets_cm())
