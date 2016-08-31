@@ -3,7 +3,7 @@ import logging
 
 from datetime import datetime, timedelta, timezone
 
-from typing import Any, List
+from typing import Any
 
 import iso8601
 
@@ -24,8 +24,6 @@ class Event(dict):
         "duration": dict,
         "label": str,
         "note": str,
-
-        #"stored_at": datetime,
     }
 
     def __init__(self, **kwargs: Any) -> None:
@@ -33,7 +31,7 @@ class Event(dict):
         self.validate()
 
     def validate(self) -> None:
-        """ Remove invalid keys """
+        # Remove invalid keys
         for k, v in list(self.items()):
             if k not in self.ALLOWED_FIELDS:
                 self.pop(k)
@@ -44,7 +42,7 @@ class Event(dict):
             if not isinstance(v, list):
                 self[k] = [v]
 
-        """ Validate Timestamp """
+        # Validate timestamp
         if "timestamp" not in self:
             logger.warning("Event did not have a timestamp, using now as timestamp")
             self["timestamp"] = [datetime.now(timezone.utc)]
@@ -62,7 +60,7 @@ class Event(dict):
                 ts = ts.replace(tzinfo=timezone.utc)
             self["timestamp"][i] = ts
 
-        """ Validate Duration """
+        # Validate duration
         if "duration" in self:
             self["duration"] = [{"value": td.total_seconds(), "unit": "s"}
                                 if isinstance(td, timedelta) else td

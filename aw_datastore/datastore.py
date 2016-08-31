@@ -4,18 +4,13 @@ from typing import List, Union, Callable, Optional
 
 from aw_core.models import Event
 
-from .storage_strategies import StorageStrategy, MemoryStorageStrategy, FileStorageStrategy, MongoDBStorageStrategy
+from .storage_strategies import StorageStrategy
 
 logger = logging.getLogger("aw.datastore")
 
 
-MEMORY = MemoryStorageStrategy
-FILES = FileStorageStrategy
-MONGODB = MongoDBStorageStrategy
-
-
 class Datastore:
-    def __init__(self, storage_strategy: Callable[..., StorageStrategy] = StorageStrategy, testing=False) -> None:
+    def __init__(self, storage_strategy: Callable[..., StorageStrategy], testing=False) -> None:
         self.logger = logger.getChild("Datastore")
         self.bucket_instances = dict()  # type: Dict[str, Bucket]
 
@@ -54,14 +49,16 @@ class Datastore:
 
 class Bucket:
     def __init__(self, datastore: Datastore, bucket_id: str) -> None:
+        self.logger = logger.getChild("Bucket")
         self.ds = datastore
         self.bucket_id = bucket_id
 
     def metadata(self) -> dict:
         return self.ds.storage_strategy.get_metadata(self.bucket_id)
 
-    def get(self, limit: int = 10**4) -> List[dict]:
-        return self.ds.storage_strategy.get_events(self.bucket_id, limit)
+    def get(self, limit: int = 10**4,
+            starttime: datetime=None, endtime: datetime=None) -> List[Event]:
+        return self.ds.storage_strategy.get_events(self.bucket_id, limit, starttime, endtime)
 
     def insert(self, events: Union[Event, List[Event]]):
         # NOTE: Should we keep the timestamp checking?
@@ -74,20 +71,51 @@ class Bucket:
         # Call insert
         if isinstance(events, Event):
             oldest_event = events
-            return self.ds.storage_strategy.insert_one(self.bucket_id, events)
+            self.ds.storage_strategy.insert_one(self.bucket_id, events)
         elif isinstance(events, list):
-            oldest_event = sorted(events, key=lambda k: k['timestamp'])[0]
-            return self.ds.storage_strategy.insert_many(self.bucket_id, events)
+            if len(events) > 0:
+                oldest_event = sorted(events, key=lambda k: k['timestamp'])[0]
+            else:
+                oldest_event = None
+            self.ds.storage_strategy.insert_many(self.bucket_id, events)
         else:
             raise TypeError
 
         # Warn if timestamp is older than last event
-        # FIXME: Contains undefined names
-        # if last_event:
-        #     if oldest_event["timestamp"][0] < prev_event["timestamp"][0].replace(tzinfo=timezone.utc):
-        #         logging.warning("Inserting event that has a older timestamp than previous event!"+
-        #                         "\nPrevious:" + str(prev_event)+
-        #                         "\nInserted:" + str(event))
+        if last_event and oldest_event:
+            if oldest_event["timestamp"][0] < last_event["timestamp"][0]:
+                self.logger.warning("Inserting event that has a older timestamp than previous event!" +
+                                    "\nPrevious:" + str(last_event) +
+                                    "\nInserted:" + str(oldest_event))
+
+    def chunk(self, starttime=None, endtime=None):
+        events = self.ds.storage_strategy.get_events(self.bucket_id, limit=-1, starttime=starttime, endtime=endtime)
+
+        eventcount = 0
+        chunk = {}
+        for event in events:
+            if "label" not in event:
+                self.logger.warning("Event did not have any labels: {}".format(event))
+            else:
+                for label in event["label"]:
+                    if label not in chunk:
+                        chunk[label] = {"other_labels": []}
+                    for co_label in event["label"]:
+                        if co_label != label and co_label not in chunk[label]["other_labels"]:
+                            chunk[label]["other_labels"].append(co_label)
+                    if "duration" in event:
+                        if "duration" not in chunk[label]:
+                            chunk[label]["duration"] = event["duration"][0].copy()
+                        else:
+                            chunk[label]["duration"]["value"] += event["duration"][0]["value"]
+
+            eventcount += 1
+
+        payload = {
+            "eventcount": eventcount,
+            "chunks": chunk,
+        }
+        return payload
 
     def replace_last(self, event):
         return self.ds.storage_strategy.replace_last(self.bucket_id, event)

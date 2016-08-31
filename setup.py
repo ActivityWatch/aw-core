@@ -15,4 +15,6 @@ setup(name='aw-core',
           'appdirs==1.4.0',
           'nose-parameterized',
           'iso8601',
+          'tinydb>=3.2.1',
+          'tinydb-serialization>=1.0.3',
       ])

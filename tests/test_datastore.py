@@ -46,6 +46,9 @@ def test_get_storage_method_names():
 
 @parameterized(param_datastore_objects())
 def test_get_buckets(datastore):
+    """
+    Tests fetching buckets
+    """
     datastore.buckets()
 
 
@@ -62,29 +65,118 @@ def test_create_bucket(datastore):
 
 @parameterized(param_datastore_objects())
 def test_nonexistant_bucket(datastore):
+    """
+    Tests that a KeyError is raised if you request a non-existant bucket
+    """
     with assert_raises(KeyError):
         datastore["I-do-not-exist"]
 
 
 @parameterized(param_testing_buckets_cm())
 def test_insert_one(bucket_cm):
+    """
+    Tests inserting one event into a bucket
+    """
     with bucket_cm as bucket:
         l = len(bucket.get())
         event = Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)})
         bucket.insert(event)
         assert_equal(l + 1, len(bucket.get()))
+        assert_equal(Event, type(bucket.get()[0]))
         assert_dict_equal(event, Event(**bucket.get(1)[0]))
 
 
 @parameterized(param_testing_buckets_cm())
 def test_insert_many(bucket_cm):
+    """
+    Tests that you can insert many events at the same time to a bucket
+    """
     with bucket_cm as bucket:
         events = (2 * [Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)})])
         bucket.insert(events)
         assert_equal(2, len(bucket.get()))
         fetched_events = bucket.get(2)
         for i in range(2):
-            assert_dict_equal(events[i], Event(**fetched_events[i]))
+            assert_dict_equal(events[i], fetched_events[i])
+
+
+@parameterized(param_testing_buckets_cm())
+def test_insert_badtype(bucket_cm):
+    """
+    Tests that you cannot insert non-event types into a bucket
+    """
+    with bucket_cm as bucket:
+        l = len(bucket.get())
+        badevent = 1
+        handled = False
+        try:
+            bucket.insert(badevent)
+        except TypeError:
+            handled = True
+        assert_equal(handled, True)
+        assert_equal(l, len(bucket.get()))
+
+
+@parameterized(param_testing_buckets_cm())
+def test_get_ordered(bucket_cm):
+    """
+    Makes sure that received events are ordered
+    """
+    with bucket_cm as bucket:
+        eventcount = 10
+        events = []
+        for i in range(10):
+            events.append({"label": "test", "timestamp": datetime.now(timezone.utc)+timedelta(seconds=i)})
+        random.shuffle(events)
+        print(events)
+        bucket.insert(events)
+        fetched_events = bucket.get(-1)
+        for i in range(eventcount-1):
+            print("1:" + fetched_events[i].to_json_str())
+            print("2:" + fetched_events[i+1].to_json_str())
+            assert_equal(True, fetched_events[i]['timestamp'][0] > fetched_events[i+1]['timestamp'][0])
+
+
+@parameterized(param_testing_buckets_cm())
+def test_get_datefilter(bucket_cm):
+    """
+    Tests the datetimefilter when fetching events
+    """
+    with bucket_cm as bucket:
+        eventcount = 10
+        events = []
+        for i in range(10):
+            events.append(Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)+timedelta(seconds=i)}))
+        bucket.insert(events)
+        # Starttime
+        for i in range(eventcount):
+            fetched_events = bucket.get(-1, starttime=events[i]["timestamp"][0])
+            assert_equal(eventcount-i-1, len(fetched_events))
+        # Endtime
+        for i in range(eventcount):
+            fetched_events = bucket.get(-1, endtime=events[i]["timestamp"][0])
+            assert_equal(i, len(fetched_events))
+
+
+@parameterized(param_testing_buckets_cm())
+def test_chunking(bucket_cm):
+    """
+    Tests the chunking
+    """
+    with bucket_cm as bucket:
+        eventcount = 10
+        events = []
+        for i in range(eventcount):
+            events.append(Event(**{"label": ["test","test2"], "timestamp": datetime.now(timezone.utc)+timedelta(seconds=i), "duration": {"value": 1, "unit": "s"}}))
+        bucket.insert(events)
+        # Assert
+        res = bucket.chunk()
+        print(res)
+        assert_equal(res['eventcount'], eventcount)
+        assert_equal(res['chunks']['test']['other_labels'], ["test2"])
+        assert_equal(res['chunks']['test']['duration'], {"value": eventcount, "unit": "s"})
+        assert_equal(res['chunks']['test2']['other_labels'], ["test"])
+        assert_equal(res['chunks']['test2']['duration'], {"value": eventcount, "unit": "s"})
 
 
 @parameterized(param_testing_buckets_cm())
@@ -97,22 +189,28 @@ def test_insert_invalid(bucket_cm):
 
 @parameterized(param_testing_buckets_cm())
 def test_replace_last(bucket_cm):
+    """
+    Tests the replace last event in bucket functionality
+    """
     with bucket_cm as bucket:
         # Create first event
         event1 = Event(**{"label": "test1", "timestamp": datetime.now(timezone.utc)})
         bucket.insert(event1)
         eventcount = len(bucket.get(-1))
         # Create second event to replace with the first one
-        event2 = Event(**{"label": "test2", "timestamp": datetime.now(timezone.utc)})
+        event2 = Event(**{"label": "test2", "timestamp": datetime.now(timezone.utc)+timedelta(seconds=1)})
         bucket.replace_last(event2)
         # Assert length and content
         assert_equal(eventcount, len(bucket.get(-1)))
-        assert_dict_equal(event2, Event(**bucket.get(-1)[-1]))
+        assert_dict_equal(event2, bucket.get(-1)[-1])
 
 
 
 @parameterized(param_testing_buckets_cm())
 def test_limit(bucket_cm):
+    """
+    Tests setting the result limit when fetching events
+    """
     with bucket_cm as bucket:
         for i in range(5):
             bucket.insert(Event(**{"label": "test"}))
@@ -124,5 +222,16 @@ def test_limit(bucket_cm):
 
 @parameterized(param_testing_buckets_cm())
 def test_get_metadata(bucket_cm):
+    """
+    Tests the get_metadata function
+    """
     with bucket_cm as bucket:
-        bucket.metadata()
+        print(bucket.ds.storage_strategy)
+        metadata = bucket.metadata()
+        print(metadata)
+        assert_equal(True, 'created' in metadata)
+        assert_equal(True, 'client' in metadata)
+        assert_equal(True, 'hostname' in metadata)
+        assert_equal(True, 'id' in metadata)
+        assert_equal(True, 'name' in metadata)
+        assert_equal(True, 'type' in metadata)
