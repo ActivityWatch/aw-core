@@ -126,15 +126,16 @@ def test_get_ordered(bucket_cm):
         eventcount = 10
         events = []
         for i in range(10):
-            events.append({"label": "test", "timestamp": datetime.now(timezone.utc)+timedelta(seconds=i)})
+            events.append(Event(label="test",
+                                timestamp=datetime.now(timezone.utc) + timedelta(seconds=i)))
         random.shuffle(events)
         print(events)
         bucket.insert(events)
         fetched_events = bucket.get(-1)
-        for i in range(eventcount-1):
+        for i in range(eventcount - 1):
             print("1:" + fetched_events[i].to_json_str())
-            print("2:" + fetched_events[i+1].to_json_str())
-            assert_equal(True, fetched_events[i]['timestamp'][0] > fetched_events[i+1]['timestamp'][0])
+            print("2:" + fetched_events[i + 1].to_json_str())
+            assert_equal(True, fetched_events[i]['timestamp'][0] > fetched_events[i + 1]['timestamp'][0])
 
 
 @parameterized(param_testing_buckets_cm())
@@ -146,37 +147,17 @@ def test_get_datefilter(bucket_cm):
         eventcount = 10
         events = []
         for i in range(10):
-            events.append(Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)+timedelta(seconds=i)}))
+            events.append(Event(label="test",
+                                timestamp=datetime.now(timezone.utc) + timedelta(seconds=i)))
         bucket.insert(events)
         # Starttime
         for i in range(eventcount):
             fetched_events = bucket.get(-1, starttime=events[i]["timestamp"][0])
-            assert_equal(eventcount-i-1, len(fetched_events))
+            assert_equal(eventcount - i - 1, len(fetched_events))
         # Endtime
         for i in range(eventcount):
             fetched_events = bucket.get(-1, endtime=events[i]["timestamp"][0])
             assert_equal(i, len(fetched_events))
-
-
-@parameterized(param_testing_buckets_cm())
-def test_chunking(bucket_cm):
-    """
-    Tests the chunking
-    """
-    with bucket_cm as bucket:
-        eventcount = 10
-        events = []
-        for i in range(eventcount):
-            events.append(Event(**{"label": ["test","test2"], "timestamp": datetime.now(timezone.utc)+timedelta(seconds=i), "duration": {"value": 1, "unit": "s"}}))
-        bucket.insert(events)
-        # Assert
-        res = bucket.chunk()
-        print(res)
-        assert_equal(res['eventcount'], eventcount)
-        assert_equal(res['chunks']['test']['other_labels'], ["test2"])
-        assert_equal(res['chunks']['test']['duration'], {"value": eventcount, "unit": "s"})
-        assert_equal(res['chunks']['test2']['other_labels'], ["test"])
-        assert_equal(res['chunks']['test2']['duration'], {"value": eventcount, "unit": "s"})
 
 
 @parameterized(param_testing_buckets_cm())
@@ -198,12 +179,12 @@ def test_replace_last(bucket_cm):
         bucket.insert(event1)
         eventcount = len(bucket.get(-1))
         # Create second event to replace with the first one
-        event2 = Event(**{"label": "test2", "timestamp": datetime.now(timezone.utc)+timedelta(seconds=1)})
+        event2 = Event(label="test2",
+                       timestamp=datetime.now(timezone.utc) + timedelta(seconds=1))
         bucket.replace_last(event2)
         # Assert length and content
         assert_equal(eventcount, len(bucket.get(-1)))
         assert_dict_equal(event2, bucket.get(-1)[-1])
-
 
 
 @parameterized(param_testing_buckets_cm())
