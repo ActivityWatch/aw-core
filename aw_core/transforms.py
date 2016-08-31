@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, timedelta
 from typing import List, Any
+from copy import deepcopy
 
 from aw_core.models import Event
 from aw_core import TimePeriod
@@ -16,7 +17,7 @@ def _get_event_period(event: Event) -> TimePeriod:
 
 
 def _replace_event_period(event: Event, period: TimePeriod) -> Event:
-    e = event.copy()
+    e = deepcopy(event)
     e["timestamp"] = [period.start]
     e["duration"] = [period.duration]
     return e
@@ -67,23 +68,23 @@ def filter_period_intersect(events, filterevents):
 
 def chunk(events: List[Event]) -> dict:
     eventcount = 0
-    chunk = dict()  # type: Dict[str, Any]
+    chunks = dict()  # type: Dict[str, Any]
     for event in events:
         if "label" in event:
             eventcount += 1
             for label in event["label"]:
-                if label not in chunk:
-                    chunk[label] = {"other_labels": []}
+                if label not in chunks:
+                    chunks[label] = {"other_labels": []}
                 for co_label in event["label"]:
-                    if co_label != label and co_label not in chunk[label]["other_labels"]:
-                        chunk[label]["other_labels"].append(co_label)
+                    if co_label != label and co_label not in chunks[label]["other_labels"]:
+                        chunks[label]["other_labels"].append(co_label)
                 if "duration" in event:
-                    if "duration" not in chunk[label]:
-                        chunk[label]["duration"] = event["duration"][0].copy()
+                    if "duration" not in chunks[label]:
+                        chunks[label]["duration"] = event["duration"][0].copy()
                     else:
-                        chunk[label]["duration"]["value"] += event["duration"][0]["value"]
+                        chunks[label]["duration"]["value"] += event["duration"][0]["value"]
     payload = {
         "eventcount": eventcount,
-        "chunks": chunk,
+        "chunks": chunks,
     }
     return payload
