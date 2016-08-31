@@ -34,15 +34,15 @@ class Event(dict):
 
     def validate(self) -> None:
         """ Remove invalid keys """
-        invalid_keys = []
-        for k, v in self.items():
+        for k, v in list(self.items()):
             if k not in self.ALLOWED_FIELDS:
-                invalid_keys.append(k)
-            elif not isinstance(v, list):
+                self.pop(k)
+                logger.warning("Removed invalid field {} from event: {}".format(k, self))
+
+        # Listify all non-list items
+        for k, v in self.items():
+            if not isinstance(v, list):
                 self[k] = [v]
-        for k in invalid_keys:
-            self.pop(k)
-            logger.warning("Removed invalid field {} from event: {}".format(k, self))
 
         """ Validate Timestamp """
         if "timestamp" not in self:
@@ -53,7 +53,7 @@ class Event(dict):
                 ts = iso8601.parse_date(ts)
             # Set resolution to milliseconds instead of microseconds
             # (Fixes incompability with software based on unix time, for example mongodb)
-            ts = ts.replace(microsecond=int(ts.microsecond/1000)*1000)
+            ts = ts.replace(microsecond=int(ts.microsecond / 1000) * 1000)
             # Add timezone if not set
             if not ts.tzinfo:
                 # Needed? All timestamps should be iso8601 so ought to always contain timezone.
@@ -65,15 +65,20 @@ class Event(dict):
         """ Validate Duration """
         if "duration" in self:
             self["duration"] = [{"value": td.total_seconds(), "unit": "s"}
-                                  if isinstance(td, timedelta) else td
-                                  for td in self["duration"]]
+                                if isinstance(td, timedelta) else td
+                                for td in self["duration"]]
 
-        for k, v in self.items():
-            for value in self[k]:
-                if not isinstance(value, self.ALLOWED_FIELDS[k]):
-                    logger.error("Found value {} in field {} that was not of proper instance ({}). Event: {}".format(value, k, self.ALLOWED_FIELDS[k], self))
+        # Check for invalid types
+        for k in self.keys():
+            for i, v in reversed(list(enumerate(self[k]))):
+                if not isinstance(v, self.ALLOWED_FIELDS[k]):
+                    logger.error("Found value {} in field {} that was not of proper instance ({}, expected: {}). Event: {}".format(v, k, type(v), self.ALLOWED_FIELDS[k], self))
+                    self[k].pop(i)
 
-        self.update(self)
+        # Remove empty lists
+        for k in list(self.keys()):
+            if not self[k]:
+                del self[k]
 
     def to_json_dict(self) -> dict:
         """Useful when sending data over the wire.
