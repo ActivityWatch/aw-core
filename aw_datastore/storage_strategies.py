@@ -71,19 +71,21 @@ class StorageStrategy(metaclass=ABCMeta):
         raise NotImplementedError
 
 
+# For TinyDBStorage
+class DateTimeSerializer(Serializer):
+    OBJ_CLASS = datetime  # The class this serializer handles
+
+    def encode(self, obj):
+        return obj.isoformat()
+
+    def decode(self, s):
+        return iso8601.parse_date(s)
+
+
 class TinyDBStorage():
     """
     TinyDB storage method
     """
-
-    class DateTimeSerializer(Serializer):
-        OBJ_CLASS = datetime  # The class this serializer handles
-
-        def encode(self, obj):
-            return obj.isoformat()
-
-        def decode(self, s):
-            return iso8601.parse_date(s)
 
     def __init__(self, testing):
         # Create dirs
@@ -101,7 +103,7 @@ class TinyDBStorage():
     def _add_bucket(self, bucket_id: str):
         dbfile = self._get_bucket_db_path(bucket_id)
         serializer = SerializationMiddleware(JSONStorage)
-        serializer.register_serializer(self.DateTimeSerializer(), 'DateTime')
+        serializer.register_serializer(DateTimeSerializer(), 'DateTime')
 
         self.db[bucket_id] = TinyDB(dbfile, storage=serializer)
         self.events[bucket_id] = self.db[bucket_id].table('events')
@@ -227,7 +229,7 @@ class MongoDBStorageStrategy(StorageStrategy):
 
     def get_events(self, bucket_id: str, limit: int,
                    starttime: datetime=None, endtime: datetime=None) -> List[dict]:
-        query_filter = {}
+        query_filter = {}  # type: Dict[str, dict]
         if starttime:
             query_filter["timestamp"] = {}
             query_filter["timestamp"]["$gt"] = starttime
@@ -241,7 +243,7 @@ class MongoDBStorageStrategy(StorageStrategy):
         events = []
         for event in ds_events:
             event.pop('_id')
-            events.append(Event(**event))
+            events.append(event)
         return events
 
     def insert_one(self, bucket: str, event: Event):

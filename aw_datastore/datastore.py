@@ -71,13 +71,13 @@ class Bucket:
         # Call insert
         if isinstance(events, Event):
             oldest_event = events
-            result = self.ds.storage_strategy.insert_one(self.bucket_id, events)
-        elif isinstance(events, List[Event]):
+            self.ds.storage_strategy.insert_one(self.bucket_id, events)
+        elif isinstance(events, list):
             if len(events) > 0:
                 oldest_event = sorted(events, key=lambda k: k['timestamp'])[0]
             else:
                 oldest_event = None
-            result = self.ds.storage_strategy.insert_many(self.bucket_id, events)
+            self.ds.storage_strategy.insert_many(self.bucket_id, events)
         else:
             raise TypeError
 
@@ -87,7 +87,6 @@ class Bucket:
                 self.logger.warning("Inserting event that has a older timestamp than previous event!" +
                                     "\nPrevious:" + str(last_event) +
                                     "\nInserted:" + str(oldest_event))
-        return result
 
     def chunk(self, starttime=None, endtime=None):
         events = self.ds.storage_strategy.get_events(self.bucket_id, limit=-1, starttime=starttime, endtime=endtime)
