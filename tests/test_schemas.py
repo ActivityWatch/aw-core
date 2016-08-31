@@ -1,10 +1,9 @@
-import os
-import json
+import unittest
 
 from jsonschema import validate as _validate, FormatChecker
 from jsonschema.exceptions import ValidationError
 
-import unittest
+from aw_core import schema
 
 # TODO: Include date-time format
 # https://python-jsonschema.readthedocs.io/en/latest/validate/#jsonschema.FormatChecker
@@ -15,9 +14,7 @@ fc = FormatChecker(["date-time"])
 valid_timestamp = "1937-01-01T12:00:27.87+00:20"
 
 
-testdir = os.path.dirname(os.path.realpath(__file__))
-with open(os.path.join(testdir, "../schemas/event.json")) as f:
-    event_schema = json.load(f)
+event_schema = schema.get_json_schema("event")
 
 
 class EventSchemaTest(unittest.TestCase):
