@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import List, Union
+from typing import List, Union, Callable, Optional
 
 from aw_core.models import Event
 
@@ -10,16 +10,16 @@ logger = logging.getLogger("aw.datastore")
 
 
 class Datastore:
-    def __init__(self, storage_strategy: StorageStrategy, testing=False):
+    def __init__(self, storage_strategy: Callable[..., StorageStrategy], testing=False) -> None:
         self.logger = logger.getChild("Datastore")
-        self.bucket_instances = {}
+        self.bucket_instances = dict()  # type: Dict[str, Bucket]
 
         self.storage_strategy = storage_strategy(testing=testing)
 
     def __repr__(self):
         return "<Datastore object using {}>".format(self.storage_strategy.__class__.__name__)
 
-    def __getitem__(self, bucket_id: str):
+    def __getitem__(self, bucket_id: str) -> "Bucket":
         # If this bucket doesn't have a initialized object, create it
         if bucket_id not in self.bucket_instances:
             # If the bucket exists in the database, create an object representation of it
@@ -33,11 +33,12 @@ class Datastore:
         return self.bucket_instances[bucket_id]
 
     def create_bucket(self, bucket_id: str, type: str, client: str, hostname: str,
-                      created: datetime = datetime.now(timezone.utc), name: str = None):
+                      created: datetime = datetime.now(timezone.utc), name: Optional[str] = None) -> "Bucket":
         self.logger.info("Creating bucket '{}'".format(bucket_id))
-        return self.storage_strategy.create_bucket(bucket_id, type, client, hostname, created.isoformat())
+        self.storage_strategy.create_bucket(bucket_id, type, client, hostname, created.isoformat(), name=name)
+        return self[bucket_id]
 
-    def delete_bucket(self, bucket_id):
+    def delete_bucket(self, bucket_id: str):
         self.logger.info("Deleting bucket '{}'".format(bucket_id))
         del self.bucket_instances[bucket_id]
         return self.storage_strategy.delete_bucket(bucket_id)
@@ -47,16 +48,16 @@ class Datastore:
 
 
 class Bucket:
-    def __init__(self, datastore: Datastore, bucket_id: str):
+    def __init__(self, datastore: Datastore, bucket_id: str) -> None:
         self.logger = logger.getChild("Bucket")
         self.ds = datastore
         self.bucket_id = bucket_id
 
-    def metadata(self):
+    def metadata(self) -> dict:
         return self.ds.storage_strategy.get_metadata(self.bucket_id)
 
     def get(self, limit: int = 10**4,
-            starttime: datetime=None, endtime: datetime=None):
+            starttime: datetime=None, endtime: datetime=None) -> List[dict]:
         return self.ds.storage_strategy.get_events(self.bucket_id, limit, starttime, endtime)
 
     def insert(self, events: Union[Event, List[Event]]):
@@ -66,7 +67,7 @@ class Bucket:
         last_event = None
         if len(last_event_list) > 0:
             last_event = last_event_list[0]
-        
+
         # Call insert
         if isinstance(events, Event):
             oldest_event = events
@@ -79,13 +80,13 @@ class Bucket:
             result = self.ds.storage_strategy.insert_many(self.bucket_id, events)
         else:
             raise TypeError
-        
+
         # Warn if timestamp is older than last event
         if last_event and oldest_event:
             if oldest_event["timestamp"][0] < last_event["timestamp"][0]:
-                self.logger.warning("Inserting event that has a older timestamp than previous event!"+
-                                "\nPrevious:"+str(last_event)+
-                                "\nInserted:"+str(oldest_event))
+                self.logger.warning("Inserting event that has a older timestamp than previous event!" +
+                                    "\nPrevious:" + str(last_event) +
+                                    "\nInserted:" + str(oldest_event))
         return result
 
     def chunk(self, starttime=None, endtime=None):
@@ -99,7 +100,7 @@ class Bucket:
             else:
                 for label in event["label"]:
                     if label not in chunk:
-                        chunk[label] = {"other_labels":[]}
+                        chunk[label] = {"other_labels": []}
                     for co_label in event["label"]:
                         if co_label != label and co_label not in chunk[label]["other_labels"]:
                             chunk[label]["other_labels"].append(co_label)

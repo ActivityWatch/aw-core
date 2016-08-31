@@ -53,6 +53,17 @@ def test_get_buckets(datastore):
 
 
 @parameterized(param_datastore_objects())
+def test_create_bucket(datastore):
+    name = "A label/name for a test bucket"
+    bid = "test-identifier"
+    bucket = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name=name)
+    try:
+        assert_equal(name, bucket.metadata()["name"])
+    finally:
+        datastore.delete_bucket(bid)
+
+
+@parameterized(param_datastore_objects())
 def test_nonexistant_bucket(datastore):
     """
     Tests that a KeyError is raised if you request a non-existant bucket
@@ -166,6 +177,14 @@ def test_chunking(bucket_cm):
         assert_equal(res['chunks']['test']['duration'], {"value": eventcount, "unit": "s"})
         assert_equal(res['chunks']['test2']['other_labels'], ["test"])
         assert_equal(res['chunks']['test2']['duration'], {"value": eventcount, "unit": "s"})
+
+
+@parameterized(param_testing_buckets_cm())
+def test_insert_invalid(bucket_cm):
+    with bucket_cm as bucket:
+        event = "not a real event"
+        with assert_raises(TypeError):
+            bucket.insert(event)
 
 
 @parameterized(param_testing_buckets_cm())

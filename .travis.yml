@@ -11,13 +11,22 @@ services:
 
 before_install:
  - "pip install coverage"
+ - "pip install mypy-lang==0.4.4"
 
 install:
  - "pip install pymongo"
  - "python setup.py install"
 
 script:
- - "nosetests -v --with-coverage"
+ - "nosetests -v --with-coverage --cover-package='aw_core,aw_datastore'"
+ # Forgiving checking
+ - "export MYPYPATH=$TRAVIS_BUILD_DIR/stubs"
+ - "mypy aw_core"
+ - "mypy aw_datastore"
+ # Strict checking
+ #- "mypy --check-untyped-defs --disallow-untyped-defs aw_core"
+ # Super strict checking, not used due to lack of stubs
+ #- "mypy --check-untyped-defs --disallow-untyped-defs --disallow-untyped-calls aw_core"
 
 after_success:
  - "bash <(curl -s https://codecov.io/bash)"

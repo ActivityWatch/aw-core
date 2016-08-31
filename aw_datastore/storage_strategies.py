@@ -4,8 +4,9 @@ import os
 import logging
 import sys
 import copy
-from typing import List, Union, Sequence
+from typing import List, Union, Dict, Sequence
 from datetime import datetime
+from abc import ABCMeta, abstractmethod
 
 import appdirs
 from shutil import rmtree
@@ -27,38 +28,46 @@ from tinydb_serialization import Serializer, SerializationMiddleware
 logger = logging.getLogger("aw.datastore.strategies")
 
 
-class StorageStrategy():
+class StorageStrategy(metaclass=ABCMeta):
     """
     Interface for storage methods.
     """
 
-    def __init__(self, testing):
+    @abstractmethod
+    def __init__(self, testing: bool) -> None:
         raise NotImplementedError
 
-    def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
+    @abstractmethod
+    def create_bucket(self, bucket_id: str, type_id: str, client: str, hostname: str, created: str, name: str = None) -> None:
         raise NotImplementedError
 
-    def delete_bucket(self, bucket_id):
+    @abstractmethod
+    def delete_bucket(self, bucket_id: str) -> None:
         raise NotImplementedError
 
-    def get_metadata(self, bucket: str):
+    @abstractmethod
+    def get_metadata(self, bucket: str) -> dict:
         raise NotImplementedError
 
+    @abstractmethod
     def get_events(self, bucket: str, limit: int,
-                   starttime: datetime=None, endtime: datetime=None):
+                   starttime: datetime=None, endtime: datetime=None) -> List[dict]:
         raise NotImplementedError
 
-    def buckets(self):
+    @abstractmethod
+    def buckets(self) -> Dict[str, dict]:
         raise NotImplementedError
 
-    def insert_one(self, bucket: str, event: Event):
+    @abstractmethod
+    def insert_one(self, bucket: str, event: Event) -> None:
         raise NotImplementedError
 
-    def insert_many(self, bucket: str, events: List[Event]):
+    def insert_many(self, bucket: str, events: List[Event]) -> None:
         for event in events:
             self.insert_one(bucket, event)
 
-    def replace_last(self, bucket_id, event):
+    @abstractmethod
+    def replace_last(self, bucket_id: str, event: Event) -> None:
         raise NotImplementedError
 
 
@@ -75,7 +84,7 @@ class TinyDBStorage():
 
         def decode(self, s):
             return iso8601.parse_date(s)
-    
+
     def __init__(self, testing):
         # Create dirs
         self.user_data_dir = appdirs.user_data_dir("aw-server", "activitywatch")
@@ -88,12 +97,12 @@ class TinyDBStorage():
         self.metadata = {}
         for bucket_id in os.listdir(self.buckets_dir):
             self._add_bucket(bucket_id)
-   
+
     def _add_bucket(self, bucket_id: str):
         dbfile = self._get_bucket_db_path(bucket_id)
         serializer = SerializationMiddleware(JSONStorage)
         serializer.register_serializer(self.DateTimeSerializer(), 'DateTime')
-        
+
         self.db[bucket_id] = TinyDB(dbfile, storage=serializer)
         self.events[bucket_id] = self.db[bucket_id].table('events')
         self.metadata[bucket_id] = self.db[bucket_id].table('metadata')
@@ -139,7 +148,7 @@ class TinyDBStorage():
     def get_metadata(self, bucket_id: str):
         metadata = self.metadata[bucket_id].all()[0]
         return metadata
-    
+
     def insert_one(self, bucket_id: str, event: Event):
         self.events[bucket_id].insert(copy.deepcopy(event))
 
@@ -173,7 +182,7 @@ class TinyDBStorage():
 class MongoDBStorageStrategy(StorageStrategy):
     """Uses a MongoDB server as backend"""
 
-    def __init__(self, testing):
+    def __init__(self, testing) -> None:
         self.logger = logger.getChild("mongodb")
 
         self.client = pymongo.MongoClient(serverSelectionTimeoutMS=5000)
@@ -183,7 +192,7 @@ class MongoDBStorageStrategy(StorageStrategy):
 
         self.db = self.client["activitywatch" + ("-testing" if testing else "")]
 
-    def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
+    def create_bucket(self, bucket_id: str, type_id: str, client: str, hostname: str, created: str, name: str = None) -> None:
         if not name:
             name = bucket_id
         metadata = {
@@ -197,27 +206,27 @@ class MongoDBStorageStrategy(StorageStrategy):
         }
         self.db[bucket_id]["metadata"].insert_one(metadata)
 
-    def delete_bucket(self, bucket_id):
+    def delete_bucket(self, bucket_id: str) -> None:
         self.db[bucket_id]["events"].drop()
         self.db[bucket_id]["metadata"].drop()
 
-    def buckets(self):
+    def buckets(self) -> Dict[str, dict]:
         bucketnames = set()
         for bucket_coll in self.db.collection_names():
             bucketnames.add(bucket_coll.split('.')[0])
-        buckets = {}
+        buckets = dict()
         for bucket_id in bucketnames:
             buckets[bucket_id] = self.get_metadata(bucket_id)
         return buckets
 
-    def get_metadata(self, bucket_id: str):
+    def get_metadata(self, bucket_id: str) -> dict:
         metadata = self.db[bucket_id]["metadata"].find_one({"_id": "metadata"})
         if metadata:
             del metadata["_id"]
         return metadata
 
     def get_events(self, bucket_id: str, limit: int,
-                   starttime: datetime=None, endtime: datetime=None):
+                   starttime: datetime=None, endtime: datetime=None) -> List[dict]:
         query_filter = {}
         if starttime:
             query_filter["timestamp"] = {}
@@ -235,12 +244,11 @@ class MongoDBStorageStrategy(StorageStrategy):
             events.append(Event(**event))
         return events
 
-
     def insert_one(self, bucket: str, event: Event):
         # .copy is needed because otherwise mongodb inserts a _id field into the event
         self.db[bucket]["events"].insert_one(event.copy())
 
-    def replace_last(self, bucket_id, event):
+    def replace_last(self, bucket_id: str, event: Event):
         last_event = list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(1))[0]
         self.db[bucket_id]["events"].replace_one({"_id": last_event["_id"]}, event.to_json_dict())
 
@@ -251,10 +259,10 @@ class MemoryStorageStrategy(StorageStrategy):
     def __init__(self, testing):
         self.logger = logger.getChild("memory")
         # self.logger.warning("Using in-memory storage, any events stored will not be persistent and will be lost when server is shut down. Use the --storage parameter to set a different storage method.")
-        self.db = {}  # type: Mapping[str, Mapping[str, List[Event]]]
-        self._metadata = {}
+        self.db = {}  # type: Dict[str, List[Event]]
+        self._metadata = dict()  # type: Dict[str, dict]
 
-    def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
+    def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None) -> None:
         if not name:
             name = bucket_id
         self._metadata[bucket_id] = {
@@ -267,12 +275,12 @@ class MemoryStorageStrategy(StorageStrategy):
         }
         self.db[bucket_id] = []
 
-    def delete_bucket(self, bucket_id):
+    def delete_bucket(self, bucket_id: str) -> None:
         del self.db[bucket_id]
         del self._metadata[bucket_id]
 
     def buckets(self):
-        buckets = {}
+        buckets = dict()
         for bucket_id in self.db:
             buckets[bucket_id] = self.get_metadata(bucket_id)
         return buckets
