@@ -51,7 +51,7 @@ class StorageStrategy(metaclass=ABCMeta):
 
     @abstractmethod
     def get_events(self, bucket: str, limit: int,
-                   starttime: datetime=None, endtime: datetime=None) -> List[dict]:
+                   starttime: datetime=None, endtime: datetime=None) -> List[Event]:
         raise NotImplementedError
 
     @abstractmethod
@@ -135,10 +135,7 @@ class TinyDBStorage():
                     e.append(event)
             events = e
         # Limit
-        events = events[:limit]
-        for event in events:
-            event = Event(**event)
-        # Return
+        events = [Event(**e) for e in events[:limit]]
         return events
 
     def buckets(self):
@@ -228,7 +225,7 @@ class MongoDBStorageStrategy(StorageStrategy):
         return metadata
 
     def get_events(self, bucket_id: str, limit: int,
-                   starttime: datetime=None, endtime: datetime=None) -> List[dict]:
+                   starttime: datetime=None, endtime: datetime=None):
         query_filter = {}  # type: Dict[str, dict]
         if starttime:
             query_filter["timestamp"] = {}
@@ -243,7 +240,7 @@ class MongoDBStorageStrategy(StorageStrategy):
         events = []
         for event in ds_events:
             event.pop('_id')
-            events.append(event)
+            events.append(Event(**event))
         return events
 
     def insert_one(self, bucket: str, event: Event):
