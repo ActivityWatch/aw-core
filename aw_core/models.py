@@ -97,13 +97,29 @@ class Event(dict):
         data = self.to_json_dict()
         return json.dumps(data)
 
-    @property
-    def label(self) -> Optional[str]:
-        return self["label"][0] if self["label"] else None
+    """
+    def __getattr__(self, attr):
+        # NOTE: Major downside of using this solution is getting zero ability to typecheck
+        if attr in self.ALLOWED_FIELDS:
+            return self[attr][0] if attr in self and self[attr] else None
+        elif attr[:-1] in self.ALLOWED_FIELDS:
+            # For pluralized versions of properties
+            attr = attr[:-1]
+            return self[attr] if attr in self else []
+        else:
+            return dict.__getattr__(self, attr)
 
-    @label.setter
-    def label(self, label: str) -> None:
-        self["label"] = label
+    def __setattr__(self, attr, value):
+        # NOTE: Major downside of using this solution is getting zero ability to typecheck
+        if attr in self.ALLOWED_FIELDS:
+            self[attr] = [value]
+        elif attr[:-1] in self.ALLOWED_FIELDS:
+            # For pluralized versions of setters
+            attr = attr[:-1]
+            self[attr] = value
+        else:
+            raise AttributeError
+    """
 
     def _hasprop(self, propname):
         """Badly named, but basically checks if the underlying
@@ -111,14 +127,20 @@ class Event(dict):
         return propname in self and self[propname]
 
     @property
+    def label(self) -> Optional[str]:
+        return self["label"][0] if self._hasprop("label") else None
+
+    @label.setter
+    def label(self, label: str) -> None:
+        self["label"] = label
+
+    @property
     def timestamp(self) -> Optional[datetime]:
         return self["timestamp"][0] if self._hasprop("timestamp") else None
 
     @timestamp.setter
     def timestamp(self, timestamp: Union[str, datetime]) -> None:
-        print(timestamp)
         self["timestamp"] = [self._timestamp_parse(timestamp)]
-        print(self["timestamp"])
 
     @property
     def duration(self) -> Optional[timedelta]:
