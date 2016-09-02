@@ -89,7 +89,6 @@ class TimeDeltaSerializer(Serializer):
         return str(td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6)
 
     def decode(self, i):
-        print(i)
         return timedelta(microseconds=int(i))
 
 
