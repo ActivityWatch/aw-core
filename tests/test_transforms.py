@@ -37,7 +37,7 @@ class FilterPeriodIntersectTest(unittest.TestCase):
         to_filter = [Event(label="lala", timestamp=now, duration=td1h)]
         filter_with = [Event(timestamp=now + timedelta(minutes=30), duration=td1h)]
         filtered_events = filter_period_intersect(to_filter, filter_with)
-        assert_equal(filtered_events[0]["duration"][0], timedelta(minutes=30))
+        assert_equal(filtered_events[0].duration, timedelta(minutes=30))
 
         # Filter 2x 30min events with a 15min gap with another 45min event in between intersecting both
         to_filter = [
@@ -46,5 +46,5 @@ class FilterPeriodIntersectTest(unittest.TestCase):
         ]
         filter_with = [Event(timestamp=now + timedelta(minutes=15), duration=timedelta(minutes=45))]
         filtered_events = filter_period_intersect(to_filter, filter_with)
-        assert_equal(filtered_events[0]["duration"][0], timedelta(minutes=15))
-        assert_equal(filtered_events[1]["duration"][0], timedelta(minutes=15))
+        assert_equal(filtered_events[0].duration, timedelta(minutes=15))
+        assert_equal(filtered_events[1].duration, timedelta(minutes=15))

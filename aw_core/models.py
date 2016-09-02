@@ -32,10 +32,12 @@ class Event(dict):
                 kwargs.pop(k)
                 logger.warning("Removed invalid field {} from Event kwargs: {}".format(k, kwargs))
 
+        # FIXME: If I remove **kwargs here, tests start failing... Troubling.
         dict.__init__(self, **kwargs)
 
-        #
+        # Set all the kwargs
         for arg in kwargs:
+            # Use the pluralized setter when kwarg value is a list
             if isinstance(kwargs[arg], list):
                 setattr(self, arg + "s", kwargs[arg])
             else:
@@ -114,7 +116,9 @@ class Event(dict):
 
     @timestamp.setter
     def timestamp(self, timestamp: Union[str, datetime]) -> None:
+        print(timestamp)
         self["timestamp"] = [self._timestamp_parse(timestamp)]
+        print(self["timestamp"])
 
     @property
     def duration(self) -> Optional[timedelta]:

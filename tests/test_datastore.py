@@ -10,6 +10,9 @@ from aw_datastore import Datastore, get_storage_methods, get_storage_method_name
 
 logging.basicConfig(level=logging.DEBUG)
 
+# Useful when you just want some placeholder time in your events, saves typing
+now = datetime.now(timezone.utc)
+
 
 class TempTestBucket:
     """Context manager for creating a test bucket"""
@@ -79,11 +82,21 @@ def test_insert_one(bucket_cm):
     """
     with bucket_cm as bucket:
         l = len(bucket.get())
-        event = Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)})
+        event = Event(label="test", timestamp=now)
         bucket.insert(event)
-        assert_equal(l + 1, len(bucket.get()))
-        assert_equal(Event, type(bucket.get()[0]))
-        assert_dict_equal(event, Event(**bucket.get(1)[0]))
+        fetched_events = bucket.get()
+        assert_equal(l + 1, len(fetched_events))
+        assert_equal(Event, type(fetched_events[0]))
+        assert_dict_equal(event, Event(**fetched_events[0]))
+
+
+@parameterized(param_testing_buckets_cm())
+def test_empty_bucket(bucket_cm):
+    """
+    Ensures empty buckets are empty
+    """
+    with bucket_cm as bucket:
+        assert_equal(0, len(bucket.get()))
 
 
 @parameterized(param_testing_buckets_cm())
@@ -92,12 +105,12 @@ def test_insert_many(bucket_cm):
     Tests that you can insert many events at the same time to a bucket
     """
     with bucket_cm as bucket:
-        events = (2 * [Event(**{"label": "test", "timestamp": datetime.now(timezone.utc)})])
+        events = (2 * [Event(label="test", timestamp=now)])
         bucket.insert(events)
-        assert_equal(2, len(bucket.get()))
-        fetched_events = bucket.get(2)
-        for i in range(2):
-            assert_dict_equal(events[i], fetched_events[i])
+        fetched_events = bucket.get()
+        assert_equal(2, len(fetched_events))
+        for e, fe in zip(events, fetched_events):
+            assert_dict_equal(e, fe)
 
 
 @parameterized(param_testing_buckets_cm())
@@ -127,7 +140,7 @@ def test_get_ordered(bucket_cm):
         events = []
         for i in range(10):
             events.append(Event(label="test",
-                                timestamp=datetime.now(timezone.utc) + timedelta(seconds=i)))
+                                timestamp=now + timedelta(seconds=i)))
         random.shuffle(events)
         print(events)
         bucket.insert(events)
@@ -135,7 +148,7 @@ def test_get_ordered(bucket_cm):
         for i in range(eventcount - 1):
             print("1:" + fetched_events[i].to_json_str())
             print("2:" + fetched_events[i + 1].to_json_str())
-            assert_equal(True, fetched_events[i]['timestamp'][0] > fetched_events[i + 1]['timestamp'][0])
+            assert_equal(True, fetched_events[i].timestamp > fetched_events[i + 1].timestamp)
 
 
 @parameterized(param_testing_buckets_cm())
@@ -148,15 +161,15 @@ def test_get_datefilter(bucket_cm):
         events = []
         for i in range(10):
             events.append(Event(label="test",
-                                timestamp=datetime.now(timezone.utc) + timedelta(seconds=i)))
+                                timestamp=now + timedelta(seconds=i)))
         bucket.insert(events)
         # Starttime
         for i in range(eventcount):
-            fetched_events = bucket.get(-1, starttime=events[i]["timestamp"][0])
+            fetched_events = bucket.get(-1, starttime=events[i].timestamp)
             assert_equal(eventcount - i - 1, len(fetched_events))
         # Endtime
         for i in range(eventcount):
-            fetched_events = bucket.get(-1, endtime=events[i]["timestamp"][0])
+            fetched_events = bucket.get(-1, endtime=events[i].timestamp)
             assert_equal(i, len(fetched_events))
 
 
@@ -175,12 +188,12 @@ def test_replace_last(bucket_cm):
     """
     with bucket_cm as bucket:
         # Create first event
-        event1 = Event(**{"label": "test1", "timestamp": datetime.now(timezone.utc)})
+        event1 = Event(label="test1", timestamp=now)
         bucket.insert(event1)
         eventcount = len(bucket.get(-1))
         # Create second event to replace with the first one
         event2 = Event(label="test2",
-                       timestamp=datetime.now(timezone.utc) + timedelta(seconds=1))
+                       timestamp=now + timedelta(seconds=1))
         bucket.replace_last(event2)
         # Assert length and content
         assert_equal(eventcount, len(bucket.get(-1)))
@@ -194,7 +207,7 @@ def test_limit(bucket_cm):
     """
     with bucket_cm as bucket:
         for i in range(5):
-            bucket.insert(Event(**{"label": "test"}))
+            bucket.insert(Event(label="test", timestamp=now))
 
         print(len(bucket.get(limit=1)))
         assert_equal(1, len(bucket.get(limit=1)))

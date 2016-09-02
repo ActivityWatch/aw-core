@@ -35,8 +35,8 @@ def filter_period_intersect(events, filterevents):
       windowevents_notafk = filter_period_intersect(windowevents, notafkevents)
     """
 
-    events = sorted(events, key=lambda e: e["timestamp"][0])
-    filterevents = sorted(filterevents, key=lambda e: e["timestamp"][0])
+    events = sorted(events, key=lambda e: e.timestamp)
+    filterevents = sorted(filterevents, key=lambda e: e.timestamp)
     filtered_events = []
 
     e_i = 0
