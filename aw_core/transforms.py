@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timedelta
 from typing import List, Any
-from copy import deepcopy
+from copy import copy, deepcopy
 
 from aw_core.models import Event
 from aw_core import TimePeriod
@@ -11,15 +11,15 @@ logger = logging.getLogger("aw.core.transform")
 
 def _get_event_period(event: Event) -> TimePeriod:
     # TODO: Better parsing of event duration
-    start = event["timestamp"][0]
-    end = start + timedelta(seconds=event["duration"][0]["value"])
+    start = event.timestamp
+    end = start + event.duration
     return TimePeriod(start, end)
 
 
 def _replace_event_period(event: Event, period: TimePeriod) -> Event:
     e = deepcopy(event)
-    e["timestamp"] = [period.start]
-    e["duration"] = [period.duration]
+    e.timestamp = period.start
+    e.duration = period.duration
     return e
 
 
@@ -78,11 +78,14 @@ def chunk(events: List[Event]) -> dict:
                 for co_label in event["label"]:
                     if co_label != label and co_label not in chunks[label]["other_labels"]:
                         chunks[label]["other_labels"].append(co_label)
-                if "duration" in event:
+                if event.duration:
                     if "duration" not in chunks[label]:
-                        chunks[label]["duration"] = event["duration"][0].copy()
+                        chunks[label]["duration"] = copy(event.duration)
                     else:
-                        chunks[label]["duration"]["value"] += event["duration"][0]["value"]
+                        chunks[label]["duration"] += event.duration
+    # Turn all timedeltas into duration-dicts
+    for label in chunks:
+        chunks[label]["duration"] = {"value": chunks[label]["duration"].total_seconds(), "unit": "s"}
     payload = {
         "eventcount": eventcount,
         "chunks": chunks,

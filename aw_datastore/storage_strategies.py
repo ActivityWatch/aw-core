@@ -119,24 +119,23 @@ class TinyDBStorage():
         # Get all events
         events = [Event(**e) for e in self.events[bucket_id].all()]
         # Sort by timestamp
-        events = sorted(events, key=lambda k: k['timestamp'])[::-1]
+        events = sorted(events, key=lambda k: k.timestamp)[::-1]
         # Filter starttime
         if starttime:
             e = []
             for event in events:
-                if event['timestamp'][0] > starttime:
+                if event.timestamp > starttime:
                     e.append(event)
             events = e
         # Filter endtime
         if endtime:
             e = []
             for event in events:
-                if event['timestamp'][0] < endtime:
+                if event.timestamp < endtime:
                     e.append(event)
             events = e
         # Limit
-        events = [Event(**e) for e in events[:limit]]
-        return events
+        return events[:limit]
 
     def buckets(self):
         buckets = {}
@@ -155,7 +154,7 @@ class TinyDBStorage():
         self.events[bucket_id].insert_multiple(copy.deepcopy(events))
 
     def replace_last(self, bucket_id, event):
-        e = self.events[bucket_id].get(where('timestamp') == self.get_events(bucket_id, 1)[0]["timestamp"])
+        e = self.events[bucket_id].get(where('timestamp') == self.get_events(bucket_id, 1)[0].timestamps)
         self.events[bucket_id].remove(eids=[e.eid])
         self.insert_one(bucket_id, event)
 
