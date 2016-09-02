@@ -254,9 +254,21 @@ class MongoDBStorageStrategy(StorageStrategy):
             events.append(Event(**event))
         return events
 
+    def _transform_event(self, event: dict):
+        if "duration" in event:
+            event["duration"] = [{"value": td.total_seconds(), "unit": "s"} for td in event["duration"]]
+        return event
+
     def insert_one(self, bucket: str, event: Event):
         # .copy is needed because otherwise mongodb inserts a _id field into the event
-        self.db[bucket]["events"].insert_one(event.copy())
+        event = self._transform_event(event.copy())
+        self.db[bucket]["events"].insert_one(event)
+
+    def insert_many(self, bucket: str, events: List[Event]):
+        # .copy is needed because otherwise mongodb inserts a _id field into the event
+        events = [event.copy() for event in events]
+        events = list(map(self._transform_event, events))
+        self.db[bucket]["events"].insert_many(events)
 
     def replace_last(self, bucket_id: str, event: Event):
         last_event = list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(1))[0]
