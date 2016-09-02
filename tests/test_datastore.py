@@ -105,7 +105,7 @@ def test_insert_many(bucket_cm):
     Tests that you can insert many events at the same time to a bucket
     """
     with bucket_cm as bucket:
-        events = (2 * [Event(label="test", timestamp=now)])
+        events = (2 * [Event(label="test", timestamp=now, duration=timedelta(seconds=1))])
         bucket.insert(events)
         fetched_events = bucket.get()
         assert_equal(2, len(fetched_events))

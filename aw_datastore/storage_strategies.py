@@ -266,8 +266,7 @@ class MongoDBStorageStrategy(StorageStrategy):
 
     def insert_many(self, bucket: str, events: List[Event]):
         # .copy is needed because otherwise mongodb inserts a _id field into the event
-        dict_events = [event.copy() for event in events]  # type: List[dict]
-        dict_events = list(map(self._transform_event, events))
+        dict_events = [self._transform_event(event.copy()) for event in events]  # type: List[dict]
         self.db[bucket]["events"].insert_many(dict_events)
 
     def replace_last(self, bucket_id: str, event: Event):
