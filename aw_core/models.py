@@ -197,7 +197,7 @@ class Event(dict):
         return self["duration"] if "duration" in self else []
 
     @durations.setter
-    def durations(self, durations: List[Union[str, timedelta]]) -> None:
+    def durations(self, durations: List[Union[dict, timedelta]]) -> None:
         self["duration"] = list(map(_duration_parse, durations))
 
     @property
