@@ -10,6 +10,38 @@ import iso8601
 logger = logging.getLogger("aw.client.models")
 
 
+def _duration_parse(duration: Union[dict, timedelta]) -> timedelta:
+    """
+    Takes something representing a timestamp and
+    returns a timestamp in the representation we want.
+    """
+    if isinstance(duration, dict):
+        if duration["unit"] == "s":
+            duration = timedelta(seconds=duration["value"])
+        else:
+            raise Exception("Unknown unit '{}'".format(duration["unit"]))
+    return duration
+
+
+def _timestamp_parse(ts: Union[str, datetime]) -> datetime:
+    """
+    Takes something representing a timestamp and
+    returns a timestamp in the representation we want.
+    """
+    if isinstance(ts, str):
+        ts = iso8601.parse_date(ts)
+    # Set resolution to milliseconds instead of microseconds
+    # (Fixes incompability with software based on unix time, for example mongodb)
+    ts = ts.replace(microsecond=int(ts.microsecond / 1000) * 1000)
+    # Add timezone if not set
+    if not ts.tzinfo:
+        # Needed? All timestamps should be iso8601 so ought to always contain timezone.
+        # Yes, because it is optional in iso8601
+        logger.warning("timestamp without timezone found, using UTC: {}".format(ts))
+        ts = ts.replace(tzinfo=timezone.utc)
+    return ts
+
+
 class Event(dict):
     """
     Used to represents an event.
@@ -63,24 +95,6 @@ class Event(dict):
         for k in list(self.keys()):
             if not self[k]:
                 del self[k]
-
-    def _timestamp_parse(self, ts: Union[str, datetime]) -> datetime:
-        """
-        Takes something representing a timestamp and
-        returns a timestamp in the representation we want.
-        """
-        if isinstance(ts, str):
-            ts = iso8601.parse_date(ts)
-        # Set resolution to milliseconds instead of microseconds
-        # (Fixes incompability with software based on unix time, for example mongodb)
-        ts = ts.replace(microsecond=int(ts.microsecond / 1000) * 1000)
-        # Add timezone if not set
-        if not ts.tzinfo:
-            # Needed? All timestamps should be iso8601 so ought to always contain timezone.
-            # Yes, because it is optional in iso8601
-            logger.warning("timestamp without timezone found, using UTC: {}".format(ts))
-            ts = ts.replace(tzinfo=timezone.utc)
-        return ts
 
     def to_json_dict(self) -> dict:
         """Useful when sending data over the wire.
@@ -140,7 +154,7 @@ class Event(dict):
 
     @timestamp.setter
     def timestamp(self, timestamp: Union[str, datetime]) -> None:
-        self["timestamp"] = [self._timestamp_parse(timestamp)]
+        self["timestamp"] = [_timestamp_parse(timestamp)]
 
     @property
     def duration(self) -> Optional[timedelta]:
@@ -148,12 +162,7 @@ class Event(dict):
 
     @duration.setter
     def duration(self, duration: Union[timedelta, dict]) -> None:
-        if isinstance(duration, dict):
-            if duration["unit"] == "s":
-                duration = timedelta(seconds=duration["value"])
-            else:
-                raise Exception("Unknown unit '{}'".format(duration["unit"]))
-        self["duration"] = [duration]
+        self["duration"] = [_duration_parse(duration)]
 
     @property
     def count(self) -> Optional[int]:
@@ -181,7 +190,15 @@ class Event(dict):
 
     @timestamps.setter
     def timestamps(self, timestamps: List[Union[str, datetime]]) -> None:
-        self["timestamp"] = list(map(self._timestamp_parse, self.timestamps))
+        self["timestamp"] = list(map(_timestamp_parse, timestamps))
+
+    @property
+    def durations(self) -> List[timedelta]:
+        return self["duration"] if "duration" in self else []
+
+    @durations.setter
+    def durations(self, durations: List[Union[str, timedelta]]) -> None:
+        self["duration"] = list(map(_duration_parse, durations))
 
     @property
     def counts(self) -> List[int]:
