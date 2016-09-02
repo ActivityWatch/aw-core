@@ -5,7 +5,7 @@ import logging
 import sys
 import copy
 from typing import List, Union, Dict, Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
 from abc import ABCMeta, abstractmethod
 
 import appdirs
@@ -81,6 +81,17 @@ class DateTimeSerializer(Serializer):
     def decode(self, s):
         return iso8601.parse_date(s)
 
+class TimeDeltaSerializer(Serializer):
+    OBJ_CLASS = timedelta  # The class this serializer handles
+
+    def encode(self, td):
+        # https://docs.python.org/3.5/library/datetime.html#datetime.timedelta.total_seconds
+        return str(td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6)
+
+    def decode(self, i):
+        print(i)
+        return timedelta(microseconds=int(i))
+
 
 class TinyDBStorage():
     """
@@ -104,6 +115,7 @@ class TinyDBStorage():
         dbfile = self._get_bucket_db_path(bucket_id)
         serializer = SerializationMiddleware(JSONStorage)
         serializer.register_serializer(DateTimeSerializer(), 'DateTime')
+        serializer.register_serializer(TimeDeltaSerializer(), 'TimeDelta')
 
         self.db[bucket_id] = TinyDB(dbfile, storage=serializer)
         self.events[bucket_id] = self.db[bucket_id].table('events')

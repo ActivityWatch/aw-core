@@ -82,7 +82,7 @@ def test_insert_one(bucket_cm):
     """
     with bucket_cm as bucket:
         l = len(bucket.get())
-        event = Event(label="test", timestamp=now)
+        event = Event(label="test", timestamp=now, duration=timedelta(seconds=1))
         bucket.insert(event)
         fetched_events = bucket.get()
         assert_equal(l + 1, len(fetched_events))
