@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from nose.tools import assert_equal, assert_dict_equal, assert_raises, assert_list_equal
 
 from aw_core.models import Event
-from aw_core.transforms import chunk, filter_period_intersect
+from aw_core.transforms import chunk, filter_period_intersect, include_labels, exclude_labels
 
 
 class ChunkTest(unittest.TestCase):
@@ -25,6 +25,20 @@ class ChunkTest(unittest.TestCase):
         assert_list_equal(res['chunks']['test2']['other_labels'], ["test"])
         assert_dict_equal(res['chunks']['test']['duration'], {"value": eventcount, "unit": "s"})
         assert_dict_equal(res['chunks']['test2']['duration'], {"value": eventcount, "unit": "s"})
+
+
+class IncludeLabelsTest(unittest.TestCase):
+    def test_include_labels(self):
+        labels = ["a","c"]
+        events = [
+            Event(label=["a"]),
+            Event(label=["b"]),
+            Event(label=["c"]),
+        ]
+        included_labels = include_labels(events, labels)
+        excluded_labels = exclude_labels(events, labels)
+        assert_equal(len(included_labels), 2)
+        assert_equal(len(excluded_labels), 1)
 
 
 class FilterPeriodIntersectTest(unittest.TestCase):

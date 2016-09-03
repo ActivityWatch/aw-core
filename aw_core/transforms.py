@@ -65,6 +65,28 @@ def filter_period_intersect(events, filterevents):
 
     return filtered_events
 
+def include_labels(events, labels):
+    filtered_events = []
+    for event in events:
+        match = False
+        for label in labels:
+            if label in event["label"]:
+                match = True
+        if match:
+            filtered_events.append(event)
+    return filtered_events
+
+def exclude_labels(events, labels):
+    filtered_events = []
+    for event in events:
+        match = False
+        for label in labels:
+            if label in event["label"]:
+                match = True
+        if not match:
+            filtered_events.append(event)
+    return filtered_events
+
 
 def chunk(events: List[Event]) -> dict:
     eventcount = 0
@@ -92,3 +114,4 @@ def chunk(events: List[Event]) -> dict:
         "chunks": chunks,
     }
     return payload
+
