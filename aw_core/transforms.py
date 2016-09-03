@@ -85,7 +85,8 @@ def chunk(events: List[Event]) -> dict:
                         chunks[label]["duration"] += event.duration
     # Turn all timedeltas into duration-dicts
     for label in chunks:
-        chunks[label]["duration"] = {"value": chunks[label]["duration"].total_seconds(), "unit": "s"}
+        if "duration" in chunks[label] and isinstance(chunks[label]["duration"], timedelta):
+            chunks[label]["duration"] = {"value": chunks[label]["duration"].total_seconds(), "unit": "s"}
     payload = {
         "eventcount": eventcount,
         "chunks": chunks,
