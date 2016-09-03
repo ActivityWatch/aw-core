@@ -1,23 +1,23 @@
 from . import transforms
 
-def bucket_transform(btransform, ds):
+def bucket_transform(btransform, ds, limit=-1, start=None, end=None):
     if not "bucket" in btransform:
         # TODO: Better handling
         raise "No such bucket"
-    events = ds[btransform["bucket"]].get()
+    events = ds[btransform["bucket"]].get(limit=limit, starttime=start, endtime=end)
     for vfilter in btransform["filters"]:
         filtername = vfilter["name"]
         if filtername not in filters:
             # TODO: Handle better
             raise "No such filter"
-        events = filters[filtername](vfilter, events, ds)
+        events = filters[filtername](vfilter, events, ds, limit, start, end)
     return events
 
 
-def query(query, ds):
+def query(query, ds, limit=-1, start=None, end=None):
     events = []
     for transform in query["transforms"]:
-        events += bucket_transform(transform, ds)
+        events += bucket_transform(transform, ds, limit, start, end)
     
     if "chunk" in query and query["chunk"]:
         result = transforms.chunk(events)
@@ -34,18 +34,18 @@ FILTERS
 
 """
 
-def include_labels(tfilter, events, db):
+def include_labels(tfilter, events, ds, limit=-1, start=None, end=None):
     labels = tfilter["labels"] # list
     return transforms.include_labels(events, labels)
 
-def exclude_labels(tfilter, events, db):
+def exclude_labels(tfilter, events, ds, limit=-1, start=None, end=None):
     labels = tfilter["labels"] # list
     return transforms.exclude_labels(events, labels)
 
-def timeperiod_intersect(tfilter, events, db):
+def timeperiod_intersect(tfilter, events, ds, limit=-1, start=None, end=None):
     filterevents = []
     for btransform in tfilter["transforms"]:
-        filterevents += bucket_transform(btransform, db)
+        filterevents += bucket_transform(btransform, ds, limit, start, end)
     events = transforms.filter_period_intersect(events, filterevents)
     return events
 

@@ -21,7 +21,7 @@ def test_view(datastore):
         bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
         bucket2 = datastore.create_bucket(bucket_id=bid2, type="test", client="test", hostname="test", name=name)
         e1 = Event(label=["test1"],
-                   timestamp=datetime.now(timezone.utc),
+                   timestamp=datetime.now(timezone.utc)-timedelta(hours=100),
                    duration=timedelta(seconds=1))
         e2 = Event(label=["test2"],
                    timestamp=datetime.now(timezone.utc),
@@ -62,13 +62,20 @@ def test_view(datastore):
                 ]
             }
         }
+        # Test creating view
         create_view(example_view)
         assert_dict_equal(get_view('exview'), example_view)
         assert_list_equal(get_views(), ['exview'])
+        # Test that output is correct 
         result = query_view('exview', datastore)
         assert_dict_equal(result['chunks']['test1'], {'other_labels':[], 'duration': {'value': 10, 'unit': 's'}})
         assert_dict_equal(result['chunks']['test2'], {'other_labels':[], 'duration': {'value': 20, 'unit': 's'}})
-        print(result)
+        # Test that limit works
+        assert_equal(1, query_view('exview', datastore, limit=1)["eventcount"])
+        # Test that starttime works
+        assert_equal(10, query_view('exview', datastore, start=datetime.now(timezone.utc)-timedelta(hours=1))["eventcount"])
+        # Test that endtime works
+        assert_equal(10, query_view('exview', datastore, end=datetime.now(timezone.utc)-timedelta(hours=1))["eventcount"])
     finally:
         datastore.delete_bucket(bid1)
         datastore.delete_bucket(bid2)

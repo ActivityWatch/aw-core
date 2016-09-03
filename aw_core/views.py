@@ -29,9 +29,9 @@ def create_view(view):
     views[view["name"]] = view
 
 
-def query_view(viewname, ds):
+def query_view(viewname, ds, limit=-1, start=None, end=None):
     print(viewname)
-    return query(views[viewname]["query"], ds)
+    return query(views[viewname]["query"], ds, limit, start, end)
 
 def get_views():
     return [view for view in views]
