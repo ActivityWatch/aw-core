@@ -5,7 +5,7 @@ import logging
 import sys
 import copy
 from typing import List, Union, Dict, Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
 from abc import ABCMeta, abstractmethod
 
 import appdirs
@@ -81,6 +81,16 @@ class DateTimeSerializer(Serializer):
     def decode(self, s):
         return iso8601.parse_date(s)
 
+class TimeDeltaSerializer(Serializer):
+    OBJ_CLASS = timedelta  # The class this serializer handles
+
+    def encode(self, td):
+        # https://docs.python.org/3.5/library/datetime.html#datetime.timedelta.total_seconds
+        return str(td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6)
+
+    def decode(self, i):
+        return timedelta(microseconds=int(i))
+
 
 class TinyDBStorage():
     """
@@ -104,6 +114,7 @@ class TinyDBStorage():
         dbfile = self._get_bucket_db_path(bucket_id)
         serializer = SerializationMiddleware(JSONStorage)
         serializer.register_serializer(DateTimeSerializer(), 'DateTime')
+        serializer.register_serializer(TimeDeltaSerializer(), 'TimeDelta')
 
         self.db[bucket_id] = TinyDB(dbfile, storage=serializer)
         self.events[bucket_id] = self.db[bucket_id].table('events')
@@ -119,24 +130,23 @@ class TinyDBStorage():
         # Get all events
         events = [Event(**e) for e in self.events[bucket_id].all()]
         # Sort by timestamp
-        events = sorted(events, key=lambda k: k['timestamp'])[::-1]
+        events = sorted(events, key=lambda k: k.timestamp)[::-1]
         # Filter starttime
         if starttime:
             e = []
             for event in events:
-                if event['timestamp'][0] > starttime:
+                if event.timestamp > starttime:
                     e.append(event)
             events = e
         # Filter endtime
         if endtime:
             e = []
             for event in events:
-                if event['timestamp'][0] < endtime:
+                if event.timestamp < endtime:
                     e.append(event)
             events = e
         # Limit
-        events = [Event(**e) for e in events[:limit]]
-        return events
+        return events[:limit]
 
     def buckets(self):
         buckets = {}
@@ -155,7 +165,7 @@ class TinyDBStorage():
         self.events[bucket_id].insert_multiple(copy.deepcopy(events))
 
     def replace_last(self, bucket_id, event):
-        e = self.events[bucket_id].get(where('timestamp') == self.get_events(bucket_id, 1)[0]["timestamp"])
+        e = self.events[bucket_id].get(where('timestamp') == self.get_events(bucket_id, 1)[0].timestamps)
         self.events[bucket_id].remove(eids=[e.eid])
         self.insert_one(bucket_id, event)
 
@@ -243,9 +253,20 @@ class MongoDBStorageStrategy(StorageStrategy):
             events.append(Event(**event))
         return events
 
+    def _transform_event(self, event: dict) -> dict:
+        if "duration" in event:
+            event["duration"] = [{"value": td.total_seconds(), "unit": "s"} for td in event["duration"]]
+        return event
+
     def insert_one(self, bucket: str, event: Event):
         # .copy is needed because otherwise mongodb inserts a _id field into the event
-        self.db[bucket]["events"].insert_one(event.copy())
+        dict_event = self._transform_event(event.copy())
+        self.db[bucket]["events"].insert_one(dict_event)
+
+    def insert_many(self, bucket: str, events: List[Event]):
+        # .copy is needed because otherwise mongodb inserts a _id field into the event
+        dict_events = [self._transform_event(event.copy()) for event in events]  # type: List[dict]
+        self.db[bucket]["events"].insert_many(dict_events)
 
     def replace_last(self, bucket_id: str, event: Event):
         last_event = list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(1))[0]
@@ -293,13 +314,13 @@ class MemoryStorageStrategy(StorageStrategy):
         if starttime:
             e = []
             for event in events:
-                if event['timestamp'][0] > starttime:
+                if event.timestamp > starttime:
                     e.append(event)
             events = e
         if endtime:
             e = []
             for event in events:
-                if event['timestamp'][0] < endtime:
+                if event.timestamp < endtime:
                     e.append(event)
             events = e
         # Limit
