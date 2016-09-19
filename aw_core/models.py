@@ -3,6 +3,7 @@ import logging
 
 from datetime import datetime, timedelta, timezone
 
+import typing
 from typing import Any, List, Union, Optional
 
 import iso8601
@@ -77,7 +78,8 @@ class Event(dict):
 
         if not self.timestamp:
             logger.warning("Event did not have a timestamp, using now as timestamp")
-            self.timestamp = datetime.now(timezone.utc)
+            # The typing.cast here was required for mypy to shut up, weird...
+            self.timestamp = datetime.now(typing.cast(timezone, timezone.utc))
 
         self._drop_invalid_types()
         self._drop_empty_keys()
@@ -87,7 +89,8 @@ class Event(dict):
         for k in self.keys():
             for i, v in reversed(list(enumerate(self[k]))):
                 if not isinstance(v, self.ALLOWED_FIELDS[k]):
-                    logger.error("Found value {} in field {} that was not of proper instance ({}, expected: {}). Event: {}".format(v, k, type(v), self.ALLOWED_FIELDS[k], self))
+                    logger.error("Found value {} in field {} that was not of proper instance ({}, expected: {}). Event: {}"
+                                 .format(v, k, type(v), self.ALLOWED_FIELDS[k], self))
                     self[k].pop(i)
 
     def _drop_empty_keys(self):
