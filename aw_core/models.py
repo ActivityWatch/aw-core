@@ -149,7 +149,7 @@ class Event(dict):
 
     @label.setter
     def label(self, label: str) -> None:
-        self["label"] = label
+        self["label"] = [label]
 
     @property
     def timestamp(self) -> Optional[datetime]:
