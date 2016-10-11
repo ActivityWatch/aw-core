@@ -239,15 +239,15 @@ class MongoDBStorageStrategy(StorageStrategy):
                    starttime: datetime=None, endtime: datetime=None):
         query_filter = {}  # type: Dict[str, dict]
         if starttime:
-            query_filter["timestamp"] = {}
-            query_filter["timestamp"]["$gt"] = starttime
+            query_filter["timestamp.0"] = {}
+            query_filter["timestamp.0"]["$gt"] = starttime
         if endtime:
-            if "timestamp" not in query_filter:
-                query_filter["timestamp"] = {}
-            query_filter["timestamp"]["$lt"] = endtime
+            if "timestamp.0" not in query_filter:
+                query_filter["timestamp.0"] = {}
+            query_filter["timestamp.0"]["$lt"] = endtime
         if limit <= 0:
             limit = 10**9
-        ds_events = list(self.db[bucket_id]["events"].find(query_filter).sort([("timestamp", -1)]).limit(limit))
+        ds_events = list(self.db[bucket_id]["events"].find(query_filter).sort([("timestamp.0", -1)]).limit(limit))
         events = []
         for event in ds_events:
             event.pop('_id')
@@ -271,7 +271,7 @@ class MongoDBStorageStrategy(StorageStrategy):
 
     def replace_last(self, bucket_id: str, event: Event):
         last_event = list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(1))[0]
-        self.db[bucket_id]["events"].replace_one({"_id": last_event["_id"]}, event.to_json_dict())
+        self.db[bucket_id]["events"].replace_one({"_id": last_event["_id"]}, self._transform_event(event))
 
 
 class MemoryStorageStrategy(StorageStrategy):
