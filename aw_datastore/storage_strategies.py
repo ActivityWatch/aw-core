@@ -223,6 +223,7 @@ class MongoDBStorageStrategy(StorageStrategy):
         bucketnames = set()
         for bucket_coll in self.db.collection_names():
             bucketnames.add(bucket_coll.split('.')[0])
+        bucketnames.discard("system") # Discard all system collections
         buckets = dict()
         for bucket_id in bucketnames:
             buckets[bucket_id] = self.get_metadata(bucket_id)
