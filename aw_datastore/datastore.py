@@ -4,13 +4,13 @@ from typing import List, Union, Callable, Optional
 
 from aw_core.models import Event
 
-from .storage_strategies import StorageStrategy
+from .storages import AbstractStorage
 
 logger = logging.getLogger("aw.datastore")
 
 
 class Datastore:
-    def __init__(self, storage_strategy: Callable[..., StorageStrategy], testing=False) -> None:
+    def __init__(self, storage_strategy: Callable[..., AbstractStorage], testing=False) -> None:
         self.logger = logger.getChild("Datastore")
         self.bucket_instances = dict()  # type: Dict[str, Bucket]
 

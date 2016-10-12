@@ -2,12 +2,12 @@ from .datastore import Datastore
 
 
 def get_storage_methods():
-    from .storage_strategies import MemoryStorageStrategy, MongoDBStorageStrategy, TinyDBStorage
-    methods = [TinyDBStorage, MemoryStorageStrategy]
+    from .storages import MemoryStorage, MongoDBStorage, TinyDBStorage, SQLiteStorage
+    methods = [TinyDBStorage, MemoryStorage]  #, SQLiteStorage
 
     try:
         import pymongo
-        methods.append(MongoDBStorageStrategy)
+        methods.append(MongoDBStorage)
     except ImportError:  # pragma: no cover
         pass
 
