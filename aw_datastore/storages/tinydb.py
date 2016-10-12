@@ -133,5 +133,6 @@ class TinyDBStorage(AbstractStorage):
         self.metadata[bucket_id].insert(metadata)
 
     def delete_bucket(self, bucket_id):
-        self.db.pop(bucket_id)
-        os.remove(self._get_bucket_db_path(bucket_id))
+        if bucket_id in self.db:
+            self.db.pop(bucket_id)
+            os.remove(self._get_bucket_db_path(bucket_id))

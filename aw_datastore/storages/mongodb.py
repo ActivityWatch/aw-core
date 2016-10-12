@@ -1,6 +1,6 @@
 import logging
 from typing import List, Dict
-from datetime import datetime
+from datetime import datetime, timezone
 
 from aw_core.models import Event
 
@@ -71,10 +71,12 @@ class MongoDBStorage(AbstractStorage):
             query_filter["timestamp"]["$lt"] = endtime
         if limit <= 0:
             limit = 10**9
+
         ds_events = list(self.db[bucket_id]["events"].find(query_filter).sort([("timestamp", -1)]).limit(limit))
         events = []
         for event in ds_events:
             event.pop('_id')
+            event["timestamp"] = [ts.replace(tzinfo=timezone.utc) for ts in event["timestamp"]]
             events.append(Event(**event))
         return events
 

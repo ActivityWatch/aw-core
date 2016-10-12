@@ -40,7 +40,8 @@ class Datastore:
 
     def delete_bucket(self, bucket_id: str):
         self.logger.info("Deleting bucket '{}'".format(bucket_id))
-        del self.bucket_instances[bucket_id]
+        if bucket_id in self.bucket_instances:
+            del self.bucket_instances[bucket_id]
         return self.storage_strategy.delete_bucket(bucket_id)
 
     def buckets(self):

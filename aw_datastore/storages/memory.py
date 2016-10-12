@@ -33,8 +33,10 @@ class MemoryStorage(AbstractStorage):
         self.db[bucket_id] = []
 
     def delete_bucket(self, bucket_id: str) -> None:
-        del self.db[bucket_id]
-        del self._metadata[bucket_id]
+        if bucket_id in self.db:
+            del self.db[bucket_id]
+        if bucket_id in self._metadata:
+            del self._metadata[bucket_id]
 
     def buckets(self):
         buckets = dict()
