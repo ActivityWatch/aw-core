@@ -30,7 +30,6 @@ def create_view(view):
 
 
 def query_view(viewname, ds, limit=-1, start=None, end=None):
-    print(viewname)
     return query(views[viewname]["query"], ds, limit, start, end)
 
 def get_views():

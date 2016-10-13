@@ -3,18 +3,24 @@ from . import transforms
 def bucket_transform(btransform, ds, limit=-1, start=None, end=None):
     if not "bucket" in btransform:
         # TODO: Better handling
-        raise "No such bucket"
-    events = ds[btransform["bucket"]].get(limit=limit, starttime=start, endtime=end)
-    for vfilter in btransform["filters"]:
-        filtername = vfilter["name"]
-        if filtername not in filters:
-            # TODO: Handle better
-            raise "No such filter"
-        events = filters[filtername](vfilter, events, ds, limit, start, end)
+        raise "No bucket specified!"
+    if not btransform["bucket"] in ds.buckets():
+        # TODO: Better handling
+        raise "Cannot query bucket that doesn't exist!"
+    # Get events
+    events = ds[btransform["bucket"]].get(limit, start, end)
+    # Apply filters
+    if "filters" in btransform:
+        for vfilter in btransform["filters"]:
+            filtername = vfilter["name"]
+            if filtername not in filters:
+                # TODO: Handle better
+                raise "No such filter"
+            events = filters[filtername](vfilter, events, ds, limit, start, end)
     return events
 
 
-def query(query, ds, limit=-1, start=None, end=None):
+def query(query, ds, limit=0, start=None, end=None):
     events = []
     for transform in query["transforms"]:
         events += bucket_transform(transform, ds, limit, start, end)
@@ -22,9 +28,11 @@ def query(query, ds, limit=-1, start=None, end=None):
     if "chunk" in query and query["chunk"]:
         result = transforms.chunk(events)
     else:
-        result = []
+        result = {}
+        result["eventcount"] = len(events)
+        result["eventlist"] = []
         for event in events:
-            result.append(event.to_json_dict())
+            result["eventlist"].append(event.to_json_dict())
     return result
 
 
