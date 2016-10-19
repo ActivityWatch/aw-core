@@ -79,7 +79,7 @@ class PeeweeStorage(AbstractStorage):
         e.save()
 
     def insert_many(self, bucket_id, events: List[Event]):
-        # TODO: Use insert_many
+        # FIXME: Breaks for 10**5 events, use chunking when inserting
         events_dict = [{"bucket_id": bucket_id,
                         "timestamp": event.timestamp,
                         "jsonstr": event.to_json_str()}
@@ -94,8 +94,7 @@ class PeeweeStorage(AbstractStorage):
         e.save()
 
     def get_events(self, bucket_id: str, limit: int,
-                   starttime: Optional[datetime]=None, endtime: Optional[datetime]=None):
-        """Returns events in sorted order (latest first)"""
+                   starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
         q = EventModel.select() \
                       .where(EventModel.bucket_id == bucket_id) \
                       .order_by(EventModel.timestamp.desc()) \

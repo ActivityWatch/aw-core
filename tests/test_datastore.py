@@ -163,14 +163,22 @@ def test_get_datefilter(bucket_cm):
             events.append(Event(label="test",
                                 timestamp=now + timedelta(seconds=i)))
         bucket.insert(events)
+
         # Starttime
         for i in range(eventcount):
             fetched_events = bucket.get(-1, starttime=events[i].timestamp)
             assert_equal(eventcount - i - 1, len(fetched_events))
+
         # Endtime
         for i in range(eventcount):
             fetched_events = bucket.get(-1, endtime=events[i].timestamp)
             assert_equal(i, len(fetched_events))
+
+        # Both
+        for i in range(eventcount):
+            for j in range(i + 1, eventcount):
+                fetched_events = bucket.get(starttime=events[i].timestamp, endtime=events[j].timestamp)
+                assert_equal(j - i - 1, len(fetched_events))
 
 
 @parameterized(param_testing_buckets_cm())

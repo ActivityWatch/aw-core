@@ -1,6 +1,6 @@
 import logging
-from typing import List, Dict
-from datetime import datetime
+from typing import List, Dict, Optional
+from datetime import datetime, timezone
 
 import iso8601
 
@@ -63,15 +63,14 @@ class MongoDBStorage(AbstractStorage):
         return metadata
 
     def get_events(self, bucket_id: str, limit: int,
-                   starttime: datetime=None, endtime: datetime=None):
+                   starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
         query_filter = {}  # type: Dict[str, dict]
-        if starttime:
+        if starttime or endtime:
             query_filter["timestamp"] = {}
-            query_filter["timestamp"]["$gt"] = starttime
-        if endtime:
-            if "timestamp" not in query_filter:
-                query_filter["timestamp"] = {}
-            query_filter["timestamp"]["$lt"] = endtime
+            if starttime:
+                query_filter["timestamp"]["$gt"] = starttime
+            if endtime:
+                query_filter["timestamp"]["$lt"] = endtime
         if limit <= 0:
             limit = 10**9
 
@@ -79,6 +78,8 @@ class MongoDBStorage(AbstractStorage):
         events = []
         for event in ds_events:
             event.pop('_id')
+            # Required since MongoDB doesn't handle timezones
+            event["timestamp"] = [t.replace(tzinfo=timezone.utc) for t in event["timestamp"]]
             event = Event(**event)
             events.append(event)
         return events
@@ -103,4 +104,4 @@ class MongoDBStorage(AbstractStorage):
 
     def replace_last(self, bucket_id: str, event: Event):
         last_event = list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(1))[0]
-        self.db[bucket_id]["events"].replace_one({"_id": last_event["_id"]}, event.to_json_dict())
+        self.db[bucket_id]["events"].replace_one({"_id": last_event["_id"]}, self._transform_event(event.copy()))
