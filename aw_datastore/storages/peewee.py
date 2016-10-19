@@ -50,7 +50,11 @@ class PeeweeStorage(AbstractStorage):
     def __init__(self, testing):
         self.logger = logger.getChild("peewee")
         db.connect()
-        db.create_tables([BucketModel, EventModel])
+
+        if not BucketModel.table_exists():
+            BucketModel.create_table()
+        if not EventModel.table_exists():
+            EventModel.create_table()
 
     def buckets(self):
         buckets = {bucket.id: bucket.json() for bucket in BucketModel.select()}
