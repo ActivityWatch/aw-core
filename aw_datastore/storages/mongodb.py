@@ -76,6 +76,7 @@ class MongoDBStorage(AbstractStorage):
         events = []
         for event in ds_events:
             event.pop('_id')
+            event["timestamp"] = [t.replace(tzinfo=timezone.utc) for t in event["timestamp"]]
             event = Event(**event)
             events.append(event)
         return events
