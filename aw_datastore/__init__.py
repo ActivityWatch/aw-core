@@ -1,9 +1,8 @@
 from .datastore import Datastore
 
-
 def get_storage_methods():
-    from .storages import MemoryStorage, MongoDBStorage, TinyDBStorage, SQLiteStorage
-    methods = [TinyDBStorage, MemoryStorage]  #, SQLiteStorage
+    from .storages import MemoryStorage, MongoDBStorage, TinyDBStorage, PeeweeStorage
+    methods = [TinyDBStorage, MemoryStorage, PeeweeStorage]  # BerkeleyDBStorage
 
     try:
         import pymongo

@@ -7,3 +7,4 @@ from .sqlite import SQLiteStorage
 from .memory import MemoryStorage
 from .mongodb import MongoDBStorage
 from .tinydb import TinyDBStorage
+from .peewee import PeeweeStorage
