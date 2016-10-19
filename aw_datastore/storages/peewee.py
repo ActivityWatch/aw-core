@@ -81,10 +81,13 @@ class PeeweeStorage(AbstractStorage):
         e.save()
 
     def insert_many(self, bucket_id, events: List[Event]):
-        event_models = map(lambda e: EventModel.from_event(bucket_id, e), events)
-        # TODO: Do in a transaction
-        for e in event_models:
-            e.save()
+        # TODO: Use insert_many
+        events = [{"bucket_id": bucket_id,
+                   "timestamp": event.timestamp,
+                   "jsonstr": event.to_json_str()}
+                  for event in events]
+        with db.atomic():
+            EventModel.insert_many(events).execute()
 
     def replace_last(self, bucket_id, event):
         e = EventModel.select().order_by(EventModel.timestamp.desc()).limit(1).get()
@@ -104,14 +107,3 @@ class PeeweeStorage(AbstractStorage):
         if endtime:
             q = q.where(EventModel.timestamp < endtime)
         return [Event(**e) for e in list(map(EventModel.json, q.execute()))]
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        # Save (commit) the changes
-        self.conn.commit()
-
-        # We can also close the connection if we are done with it.
-        # Just be sure any changes have been committed or they will be lost.
-        self.conn.close()

@@ -4,7 +4,7 @@ from contextlib import contextmanager
 
 from aw_core.models import Event
 
-from TTT import TTT
+from takethetime import ttt
 
 from . import get_storage_methods, Datastore
 
@@ -33,20 +33,25 @@ def benchmark(ds: Datastore):
     events = create_test_events(num_events)
 
     with temporary_bucket(ds) as bucket:
-        with TTT():
-            with TTT("insert"):
+        with ttt(ds):
+            with ttt("insert"):
                 bucket.insert(events)
 
-            with TTT("get all"):
-                events = bucket.get()
-                print("Total number of events: {}".format(len(events)))
+            with ttt("get one"):
+                events = bucket.get(limit=1)
+                # print("Total number of events: {}".format(len(events)))
 
-            with TTT("get within time interval"):
+            with ttt("get all"):
+                events = bucket.get()
+                # print("Total number of events: {}".format(len(events)))
+
+            with ttt("get within time interval"):
                 events = bucket.get(starttime=events[-int(num_events / 2)].timestamp, endtime=events[0].timestamp)
-                print("Events within time interval: {}".format(len(events)))
+                assert len(events) == int(num_events / 2) - 1
+                # print("Events within time interval: {}".format(len(events)))
 
             assert events == sorted(events, reverse=True, key=lambda e: e.timestamp)
-            print(len(events))
+            # print(len(events))
 
 
 if __name__ == "__main__":
