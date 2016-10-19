@@ -48,6 +48,7 @@ class TinyDBStorage(AbstractStorage):
         self.logger = logger.getChild("tinydb")
 
         # Create dirs
+        # TODO: This should be placed in some other directory than 'aw-server'
         self.user_data_dir = appdirs.user_data_dir("aw-server", "activitywatch")
         self.buckets_dir = os.path.join(self.user_data_dir, "testing" if testing else "", "buckets")
         if not os.path.exists(self.buckets_dir):
