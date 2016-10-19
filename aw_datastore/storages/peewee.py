@@ -1,17 +1,21 @@
 from typing import Optional, List
 from datetime import datetime
 import json
+import os
 
 from peewee import Model, CharField, DateTimeField
-from peewee import *
 from playhouse.sqlite_ext import SqliteExtDatabase
+import appdirs
 
 from aw_core.models import Event
 
 from . import logger, AbstractStorage
 
 # TODO: Make dependent on testing variable in constructor
-db = SqliteExtDatabase('peewee-sqlite.db')
+db_path = appdirs.user_data_dir("activitywatch", "activitywatch")
+if not os.path.exists(db_path):
+    os.makedirs(db_path)
+db = SqliteExtDatabase(os.path.join(db_path, 'peewee-sqlite.db'))
 
 
 class BaseModel(Model):
