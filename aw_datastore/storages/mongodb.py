@@ -1,15 +1,16 @@
 import logging
 from typing import List, Dict
 from datetime import datetime
-from iso8601 import parse_date
 
-from aw_core.models import Event
+import iso8601
 
 # MongoDB
 try:
     import pymongo
 except ImportError:  # pragma: no cover
     logging.warning("Could not import pymongo, not available as a datastore backend")
+
+from aw_core.models import Event
 
 from . import logger
 from .abstract import AbstractStorage
@@ -86,7 +87,7 @@ class MongoDBStorage(AbstractStorage):
         if "duration" in event:
             event["duration"] = [{"value": td.total_seconds(), "unit": "s"} for td in event["duration"]]
         if "timestamp" in event:
-            event["timestamp"] = [parse_date(t) if type(t) == str else t for t in event["timestamp"]]
+            event["timestamp"] = [iso8601.parse_date(t) if type(t) == str else t for t in event["timestamp"]]
         return event
 
     def insert_one(self, bucket: str, event: Event):

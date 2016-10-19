@@ -5,18 +5,14 @@ import os
 
 from peewee import Model, CharField, DateTimeField
 from playhouse.sqlite_ext import SqliteExtDatabase
-import appdirs
 
 from aw_core.models import Event
 
-from . import logger
+from . import logger, data_dir
 from .abstract import AbstractStorage
 
 # TODO: Make dependent on testing variable in constructor
-db_path = appdirs.user_data_dir("activitywatch", "activitywatch")
-if not os.path.exists(db_path):
-    os.makedirs(db_path)
-db = SqliteExtDatabase(os.path.join(db_path, 'peewee-sqlite.db'))
+db = SqliteExtDatabase(os.path.join(data_dir, 'peewee-sqlite.db'))
 
 logger = logger.getChild("peewee")
 

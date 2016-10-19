@@ -5,16 +5,13 @@ import copy
 from typing import List
 from datetime import datetime, timedelta
 
-import appdirs
-
-# TinyDB
-from tinydb import TinyDB, Query, where
+from tinydb import TinyDB, where
 from tinydb.storages import JSONStorage
 from tinydb_serialization import Serializer, SerializationMiddleware
 
 from aw_core.models import Event
 
-from . import logger
+from . import logger, data_dir
 from .abstract import AbstractStorage
 
 
@@ -49,9 +46,7 @@ class TinyDBStorage(AbstractStorage):
         self.logger = logger.getChild("tinydb")
 
         # Create dirs
-        # TODO: This should be placed in some other directory than 'aw-server'
-        self.user_data_dir = appdirs.user_data_dir("aw-server", "activitywatch")
-        self.buckets_dir = os.path.join(self.user_data_dir, "testing" if testing else "", "buckets")
+        self.buckets_dir = os.path.join(data_dir, "testing" if testing else "", "buckets")
         if not os.path.exists(self.buckets_dir):
             os.makedirs(self.buckets_dir)
 
