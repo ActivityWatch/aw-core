@@ -14,7 +14,8 @@ from tinydb_serialization import Serializer, SerializationMiddleware
 
 from aw_core.models import Event
 
-from . import logger, AbstractStorage
+from . import logger
+from .abstract import AbstractStorage
 
 
 # For TinyDBStorage

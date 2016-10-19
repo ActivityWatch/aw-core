@@ -10,7 +10,8 @@ try:
 except ImportError:  # pragma: no cover
     logging.warning("Could not import pymongo, not available as a datastore backend")
 
-from . import logger, AbstractStorage
+from . import logger
+from .abstract import AbstractStorage
 
 
 class MongoDBStorage(AbstractStorage):

@@ -24,7 +24,7 @@ class AbstractStorage(metaclass=ABCMeta):
 
     @abstractmethod
     def create_bucket(self, bucket_id: str, type_id: str, client: str,
-                      hostname: str, created: str, name: str = None) -> None:
+                      hostname: str, created: str, name: Optional[str] = None) -> None:
         raise NotImplementedError
 
     @abstractmethod

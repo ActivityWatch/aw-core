@@ -5,17 +5,17 @@ from datetime import datetime
 
 from aw_core.models import Event
 
-from . import AbstractStorage
+from . import logger
+from .abstract import AbstractStorage
 
-logger = logging.getLogger("aw.datastore.strategies.memory")
+logger = logger.getChild("memory")
 
 
 class MemoryStorage(AbstractStorage):
     """For storage of data in-memory, useful primarily in testing"""
 
     def __init__(self, testing):
-        self.logger = logger.getChild("memory")
-        # self.logger.warning("Using in-memory storage, any events stored will not be persistent and will be lost when server is shut down. Use the --storage parameter to set a different storage method.")
+        # logger.warning("Using in-memory storage, any events stored will not be persistent and will be lost when server is shut down. Use the --storage parameter to set a different storage method.")
         self.db = {}  # type: Dict[str, List[Event]]
         self._metadata = dict()  # type: Dict[str, dict]
 

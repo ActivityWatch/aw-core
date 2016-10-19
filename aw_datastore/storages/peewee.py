@@ -9,13 +9,16 @@ import appdirs
 
 from aw_core.models import Event
 
-from . import logger, AbstractStorage
+from . import logger
+from .abstract import AbstractStorage
 
 # TODO: Make dependent on testing variable in constructor
 db_path = appdirs.user_data_dir("activitywatch", "activitywatch")
 if not os.path.exists(db_path):
     os.makedirs(db_path)
 db = SqliteExtDatabase(os.path.join(db_path, 'peewee-sqlite.db'))
+
+logger = logger.getChild("peewee")
 
 
 class BaseModel(Model):
@@ -52,7 +55,6 @@ class EventModel(BaseModel):
 
 class PeeweeStorage(AbstractStorage):
     def __init__(self, testing):
-        self.logger = logger.getChild("peewee")
         db.connect()
 
         if not BucketModel.table_exists():
@@ -64,8 +66,8 @@ class PeeweeStorage(AbstractStorage):
         buckets = {bucket.id: bucket.json() for bucket in BucketModel.select()}
         return buckets
 
-    def create_bucket(self, bucket_id: str, type: str, client: str, hostname: str,
-                      created: datetime, name: str):
+    def create_bucket(self, bucket_id: str, type_id: str, client: str,
+                      hostname: str, created: str, name: Optional[str] = None):
         BucketModel.create(id=bucket_id, type=type, client=client,
                            hostname=hostname, created=created, name=name)
 
