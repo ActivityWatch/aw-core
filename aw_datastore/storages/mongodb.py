@@ -1,6 +1,7 @@
 import logging
 from typing import List, Dict
-from datetime import datetime, timezone
+from datetime import datetime
+from iso8601 import parse_date
 
 from aw_core.models import Event
 
@@ -77,7 +78,6 @@ class MongoDBStorage(AbstractStorage):
         events = []
         for event in ds_events:
             event.pop('_id')
-            event["timestamp"] = [t.replace(tzinfo=timezone.utc) for t in event["timestamp"]]
             event = Event(**event)
             events.append(event)
         return events
@@ -85,11 +85,14 @@ class MongoDBStorage(AbstractStorage):
     def _transform_event(self, event: dict) -> dict:
         if "duration" in event:
             event["duration"] = [{"value": td.total_seconds(), "unit": "s"} for td in event["duration"]]
+        if "timestamp" in event:
+            event["timestamp"] = [parse_date(t) if type(t) == str else t for t in event["timestamp"]]
         return event
 
     def insert_one(self, bucket: str, event: Event):
         # .copy is needed because otherwise mongodb inserts a _id field into the event
-        dict_event = self._transform_event(event.copy())
+        dict_event = event.copy()
+        dict_event = self._transform_event(dict_event)
         self.db[bucket]["events"].insert_one(dict_event)
 
     def insert_many(self, bucket: str, events: List[Event]):
@@ -100,4 +103,3 @@ class MongoDBStorage(AbstractStorage):
     def replace_last(self, bucket_id: str, event: Event):
         last_event = list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(1))[0]
         self.db[bucket_id]["events"].replace_one({"_id": last_event["_id"]}, event.to_json_dict())
-
