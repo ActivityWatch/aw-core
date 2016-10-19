@@ -19,5 +19,5 @@ setup(name='aw-core',
           'tinydb>=3.2.1',
           'tinydb-serialization>=1.0.3',
           'python-json-logger>=0.1.5',
-          'TakeTheTime>=0.2.0',
+          'takethetime>=0.3.0',
       ])
