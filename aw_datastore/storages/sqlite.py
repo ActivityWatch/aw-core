@@ -1,16 +1,20 @@
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from datetime import datetime, timedelta, timezone
 import sqlite3
 
 from aw_core.models import Event
 
-from TTT import TTT
+from takethetime import ttt
 
 from . import logger, AbstractStorage
 
 
 def event_to_row(e: Event):
     return (e.timestamp.isoformat(), e.to_json_str())
+
+
+def table_format_to_str(table_format: Tuple[Tuple[str]]):
+    return "(" + ", ".join(tuple(" ".join(table_format[key]) for key in table_format)) + ")"
 
 
 class SQLiteStorage(AbstractStorage):
@@ -22,32 +26,45 @@ class SQLiteStorage(AbstractStorage):
 
         # TODO: Fix
         try:
-            self._create_table()
+            self._create_tables()
         except:
-            print("Table already created")
+            print("Tables already created")
 
-    def _create_table(self):
-        # Create table
-        table_format = (
+    def _create_table(self, table_format):
+        table_str = table_format_to_str(table_format)
+        print(table_str)
+        self.c.execute('CREATE TABLE events ' + table_str)
+
+    def _create_tables(self):
+        # Create event table
+        self._create_table((
             ("timestamp", "text"),
             ("bucket_id", "text"),
             ("jsonstr", "text"),
-        )
-        table_format_str = "(" + ", ".join(tuple(" ".join(table_format[key]) for key in table_format)) + ")"
-        print(table_format_str)
-        self.c.execute('CREATE TABLE events ' + table_format_str)
+        ))
 
-    def buckets(self, bucket_id: str):
-        raise NotImplemented
+        # Create bucket table
+        self._create_table((
+            ("bucket_id", "text"),
+            ("name", "text"),
+            ("hostname", "text"),
+            ("client", "text"),
+            ("created", "text"),
+        ))
 
-    def create_bucket(self, bucket_id: str, name: str):
-        raise NotImplemented
+    def buckets(self):
+
+        raise NotImplementedError
+
+    def create_bucket(self, bucket_id: str, type: str, client: str, hostname: str,
+                      created: datetime, name: str):
+        raise NotImplementedError
 
     def delete_bucket(self, bucket_id: str):
-        raise NotImplemented
+        raise NotImplementedError
 
     def get_metadata(self, bucket_id: str):
-        raise NotImplemented
+        raise NotImplementedError
 
     def insert_one(self, bucket_id: str, event: Event):
         row = event_to_row(event)
@@ -102,17 +119,17 @@ if __name__ == "__main__":
 
     bucket_id = "test_bucket"
 
-    with TTT():
+    with ttt():
         with SQLiteStorage() as sql:
 
-            with TTT("insert"):
+            with ttt("insert"):
                 sql.insert_many(bucket_id, events)
 
-            with TTT("get all"):
+            with ttt("get all"):
                 events = sql.get_events(bucket_id)
                 print("Total number of events: {}".format(len(events)))
 
-            with TTT("get within time interval"):
+            with ttt("get within time interval"):
                 events = sql.get_events(bucket_id, begin=now - 100 * timedelta(hours=1), end=now)
                 print("Events within time interval: {}".format(len(events)))
 
