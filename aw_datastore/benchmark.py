@@ -1,3 +1,4 @@
+import sys
 from typing import Optional, List, Callable
 from datetime import datetime, timedelta, timezone
 from contextlib import contextmanager
@@ -68,4 +69,5 @@ def benchmark(storage: Callable[..., AbstractStorage]):
 
 if __name__ == "__main__":
     for storage in get_storage_methods():
-        benchmark(storage)
+        if len(sys.argv) <= 1 or storage.__name__ in sys.argv:
+            benchmark(storage)
