@@ -87,8 +87,15 @@ class PeeweeStorage(AbstractStorage):
         with db.atomic():
             EventModel.insert_many(events_dict).execute()
 
+    def _get_last(self, bucket_id, event):
+        return EventModel.select() \
+                         .where(EventModel.bucket_id == bucket_id) \
+                         .order_by(EventModel.timestamp.desc()) \
+                         .limit(1) \
+                         .get()
+
     def replace_last(self, bucket_id, event):
-        e = EventModel.select().order_by(EventModel.timestamp.desc()).limit(1).get()
+        e = self._get_last(bucket_id, event)
         e.timestamp = event.timestamp
         e.jsonstr = event.to_json_str()
         e.save()

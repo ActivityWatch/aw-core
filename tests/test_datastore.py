@@ -192,7 +192,24 @@ def test_insert_invalid(bucket_cm):
 @parameterized(param_testing_buckets_cm())
 def test_replace_last(bucket_cm):
     """
-    Tests the replace last event in bucket functionality
+    Tests the replace last event in bucket functionality (simple)
+    """
+    with bucket_cm as bucket:
+        # Create two events
+        bucket.insert(Event(label="test1", timestamp=now))
+        bucket.insert(Event(label="test2", timestamp=now + timedelta(seconds=1)))
+        # Create second event to replace with the first one
+        bucket.replace_last(Event(label="test2-replaced",
+                                  timestamp=now + timedelta(seconds=1)))
+        # Assert length
+        assert_equal(2, len(bucket.get(-1)))
+        assert_equal(bucket.get(-1)[0].label, "test2-replaced")
+
+
+@parameterized(param_testing_buckets_cm())
+def test_replace_last_complex(bucket_cm):
+    """
+    Tests the replace last event in bucket functionality (complex)
     """
     with bucket_cm as bucket:
         # Create first event
@@ -205,7 +222,7 @@ def test_replace_last(bucket_cm):
         bucket.replace_last(event2)
         # Assert length and content
         assert_equal(eventcount, len(bucket.get(-1)))
-        assert_dict_equal(event2, bucket.get(-1)[-1])
+        assert_dict_equal(event2, bucket.get(-1)[0])
 
 
 @parameterized(param_testing_buckets_cm())
