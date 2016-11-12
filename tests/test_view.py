@@ -26,10 +26,10 @@ def test_view(datastore):
         e2 = Event(label=["test2"],
                    timestamp=datetime.now(timezone.utc),
                    duration=timedelta(seconds=2))
-        bucket1.insert(10*[e1]) 
-        bucket1.insert(5*[e2]) 
-        bucket2.insert(5*[e1]) 
-        bucket2.insert(10*[e2]) 
+        bucket1.insert(10*[e1])
+        bucket1.insert(5*[e2])
+        bucket2.insert(5*[e1])
+        bucket2.insert(10*[e2])
         example_view = \
         {
             'name': 'exview',
@@ -37,7 +37,7 @@ def test_view(datastore):
             'query':
             {
                 'chunk': True,
-                'transforms': 
+                'transforms':
                 [
                 {
                     'bucket': bid1,
@@ -66,7 +66,7 @@ def test_view(datastore):
         create_view(example_view)
         assert_dict_equal(get_view('exview'), example_view)
         assert_list_equal(get_views(), ['exview'])
-        # Test that output is correct 
+        # Test that output is correct
         result = query_view('exview', datastore)
         assert_dict_equal(result['chunks']['test1'], {'other_labels':[], 'duration': {'value': 10, 'unit': 's'}})
         assert_dict_equal(result['chunks']['test2'], {'other_labels':[], 'duration': {'value': 20, 'unit': 's'}})
