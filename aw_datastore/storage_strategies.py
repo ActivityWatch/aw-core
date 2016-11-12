@@ -325,7 +325,7 @@ class MemoryStorageStrategy(StorageStrategy):
                     e.append(event)
             events = e
         # Limit
-        if limit == -1:
+        if limit <= 0:
             limit = sys.maxsize
         events = events[:limit]
         # Return
