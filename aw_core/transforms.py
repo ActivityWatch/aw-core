@@ -91,7 +91,10 @@ def exclude_labels(events, labels):
 def chunk(events: List[Event]) -> dict:
     eventcount = 0
     chunks = dict()  # type: Dict[str, Any]
+    totduration = timedelta();
     for event in events:
+        if event.duration:
+            totduration += event.duration
         if "label" in event:
             eventcount += 1
             for label in event["label"]:
@@ -109,8 +112,11 @@ def chunk(events: List[Event]) -> dict:
     for label in chunks:
         if "duration" in chunks[label] and isinstance(chunks[label]["duration"], timedelta):
             chunks[label]["duration"] = {"value": chunks[label]["duration"].total_seconds(), "unit": "s"}
+    totduration = {"value": totduration.total_seconds(), "unit": "s"}
+    # Package response
     payload = {
         "eventcount": eventcount,
+        "duration": totduration,
         "chunks": chunks,
     }
     return payload

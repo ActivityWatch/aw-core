@@ -253,9 +253,9 @@ def test_query_filter_labels(datastore):
         }
         # Test that output is correct
         result = query(example_query, datastore)
-        print(result)
         assert_dict_equal(result['chunks']['test1'], {'other_labels':[], 'duration': {'value': 10, 'unit': 's'}})
         assert_dict_equal(result['chunks']['test2'], {'other_labels':[], 'duration': {'value': 20, 'unit': 's'}})
+        assert_dict_equal(result['duration'], {'value': 30, 'unit': 's'})
         # Test that limit works
         assert_equal(1, query(example_query, datastore, limit=1)["eventcount"])
         # Test that starttime works

@@ -1,5 +1,7 @@
 from . import transforms
 
+from datetime import timedelta
+
 class QueryException(Exception):
     pass
 
@@ -37,8 +39,11 @@ def query(query, ds, limit=0, start=None, end=None):
         result = {}
         result["eventcount"] = len(events)
         result["eventlist"] = []
+        result["duration"] = timedelta()
         for event in events:
+            result["duration"] += event.duration
             result["eventlist"].append(event.to_json_dict())
+        result["duration"] = {"value": result["duration"].total_seconds(), "unit": 's'}
     return result
 
 

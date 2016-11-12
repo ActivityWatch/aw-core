@@ -21,6 +21,7 @@ class ChunkTest(unittest.TestCase):
         res = chunk(events)
         logging.debug(res)
         assert_equal(res['eventcount'], eventcount)
+        assert_dict_equal(res['duration'], {"value": eventcount, "unit": "s"})
         assert_list_equal(res['chunks']['test']['other_labels'], ["test2"])
         assert_list_equal(res['chunks']['test2']['other_labels'], ["test"])
         assert_dict_equal(res['chunks']['test']['duration'], {"value": eventcount, "unit": "s"})
