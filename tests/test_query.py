@@ -266,4 +266,60 @@ def test_query_filter_labels(datastore):
         datastore.delete_bucket(bid1)
         datastore.delete_bucket(bid2)
 
-# TODO: Make a test case for timeperiod_intersect filter
+@parameterized(param_datastore_objects())
+def test_query_filter_labels(datastore):
+    """
+        Timeperiod intersect and eventlist
+    """
+    print(type(datastore.storage_strategy))
+    name = "A label/name for a test bucket"
+    bid1 = "bucket1"
+    bid2 = "bucket2"
+    try:
+        bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
+        bucket2 = datastore.create_bucket(bucket_id=bid2, type="test", client="test", hostname="test", name=name)
+        currtime = datetime.now(timezone.utc)
+        e1 = Event(label=["test1"],
+                   timestamp=currtime,
+                   duration=timedelta(seconds=1))
+        e2 = Event(label=["test2"],
+                   timestamp=currtime+timedelta(seconds=2),
+                   duration=timedelta(seconds=1))
+        et = Event(label=["intersect-label"],
+                   timestamp=currtime,
+                   duration=timedelta(seconds=1))
+
+        bucket1.insert(e1)
+        bucket1.insert(e2)
+        bucket2.insert(et)
+        example_query = \
+        {
+            'chunk': False,
+            'transforms':
+            [
+            {
+                'bucket': bid1,
+                'filters':
+                [
+                    {
+                        'name': 'timeperiod_intersect',
+                        'transforms':
+                        [
+                            {
+                                'bucket': bid2,
+                            }
+                        ]
+                    }
+                ],
+            },
+            ]
+        }
+        # Test that output is correct
+        result = query(example_query, datastore)
+        print(result)
+        assert_equal(1, len(result['eventlist']))
+        assert_dict_equal(result['eventlist'][0], e1.to_json_dict())
+        assert_dict_equal(result['duration'], {'value': 1.0, 'unit': 's'})
+    finally:
+        datastore.delete_bucket(bid1)
+        datastore.delete_bucket(bid2)
