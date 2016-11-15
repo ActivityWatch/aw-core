@@ -1,5 +1,5 @@
 import sys
-from typing import Optional, List, Callable
+from typing import Callable
 from datetime import datetime, timedelta, timezone
 from contextlib import contextmanager
 
@@ -11,7 +11,7 @@ from . import get_storage_methods, Datastore
 from .storages import AbstractStorage
 
 
-def create_test_events(n):
+def create_test_events(n):  # pragma: no cover
     now = datetime.now(timezone.utc)
 
     events = [None] * n
@@ -22,7 +22,7 @@ def create_test_events(n):
 
 
 @contextmanager
-def temporary_bucket(ds):
+def temporary_bucket(ds):  # pragma: no cover
     bucket_id = "test_bucket"
     ds.delete_bucket(bucket_id)
     bucket = ds.create_bucket(bucket_id, "testingtype", "test-client", "testing-box")
@@ -30,7 +30,7 @@ def temporary_bucket(ds):
     ds.delete_bucket(bucket_id)
 
 
-def benchmark(storage: Callable[..., AbstractStorage]):
+def benchmark(storage: Callable[..., AbstractStorage]):  # pragma: no cover
     ds = Datastore(storage, testing=True)
     num_events = 5 * 10**4
     events = create_test_events(num_events)
@@ -67,7 +67,7 @@ def benchmark(storage: Callable[..., AbstractStorage]):
             events_in_interval(10)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     for storage in get_storage_methods():
         if len(sys.argv) <= 1 or storage.__name__ in sys.argv:
             benchmark(storage)
