@@ -1,4 +1,3 @@
-from typing import Optional, List
 from datetime import datetime, timedelta, timezone
 from contextlib import contextmanager
 
@@ -9,7 +8,7 @@ from TTT import TTT
 from . import get_storage_methods, Datastore
 
 
-def create_test_events(n):
+def create_test_events(n):  # pragma: no cover
     now = datetime.now(timezone.utc)
 
     events = [None] * n
@@ -20,7 +19,7 @@ def create_test_events(n):
 
 
 @contextmanager
-def temporary_bucket(ds):
+def temporary_bucket(ds):  # pragma: no cover
     bucket_id = "test_bucket"
     ds.delete_bucket(bucket_id)
     bucket = ds.create_bucket(bucket_id, "testingtype", "test-client", "testing-box")
@@ -28,7 +27,7 @@ def temporary_bucket(ds):
     ds.delete_bucket(bucket_id)
 
 
-def benchmark(ds: Datastore):
+def benchmark(ds: Datastore):  # pragma: no cover
     num_events = 10000
     events = create_test_events(num_events)
 
@@ -49,7 +48,7 @@ def benchmark(ds: Datastore):
             print(len(events))
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     for storage in get_storage_methods():
         print(storage.__name__)
         ds = Datastore(storage, testing=True)
