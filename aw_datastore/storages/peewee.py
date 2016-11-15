@@ -64,7 +64,7 @@ class PeeweeStorage(AbstractStorage):
 
     def create_bucket(self, bucket_id: str, type_id: str, client: str,
                       hostname: str, created: str, name: Optional[str] = None):
-        BucketModel.create(id=bucket_id, type=type, client=client,
+        BucketModel.create(id=bucket_id, type=type_id, client=client,
                            hostname=hostname, created=created, name=name)
 
     def delete_bucket(self, bucket_id: str):
