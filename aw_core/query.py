@@ -2,11 +2,13 @@ from . import transforms
 
 from datetime import timedelta
 
+
 class QueryException(Exception):
     pass
 
+
 def bucket_transform(btransform, ds, limit=-1, start=None, end=None):
-    if not "bucket" in btransform:
+    if "bucket" not in btransform:
         raise QueryException("No bucket specified in transform: {}".format(btransform))
     if not isinstance(btransform["bucket"], str):
         raise QueryException("Invalid bucket name in transform: '{}'".format(btransform["bucket"]))
@@ -53,19 +55,22 @@ FILTERS
 
 """
 
+
 def include_labels(tfilter, events, ds, limit=-1, start=None, end=None):
     if "labels" not in tfilter:
         return []
     else:
-        labels = tfilter["labels"] # list
+        labels = tfilter["labels"]  # type: list
         return transforms.include_labels(events, labels)
+
 
 def exclude_labels(tfilter, events, ds, limit=-1, start=None, end=None):
     if "labels" not in tfilter:
         return events
     else:
-        labels = tfilter["labels"] # list
+        labels = tfilter["labels"]  # type: list
         return transforms.exclude_labels(events, labels)
+
 
 def timeperiod_intersect(tfilter, events, ds, limit=-1, start=None, end=None):
     filterevents = []

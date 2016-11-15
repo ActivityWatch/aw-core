@@ -57,8 +57,10 @@ class Bucket:
     def metadata(self) -> dict:
         return self.ds.storage_strategy.get_metadata(self.bucket_id)
 
-    def get(self, limit: int = 10**4,
+    def get(self, limit: int = -1,
             starttime: datetime=None, endtime: datetime=None) -> List[Event]:
+        if limit < 0:
+            limit = 10**4
         return self.ds.storage_strategy.get_events(self.bucket_id, limit, starttime, endtime)
 
     def insert(self, events: Union[Event, List[Event]]):
