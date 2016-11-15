@@ -30,7 +30,7 @@ def bucket_transform(btransform, ds, limit=-1, start=None, end=None):
     return events
 
 
-def query(query, ds, limit=0, start=None, end=None):
+def query(query, ds, limit=-1, start=None, end=None):
     events = []
     for transform in query["transforms"]:
         events += bucket_transform(transform, ds, limit, start, end)
