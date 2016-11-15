@@ -76,6 +76,8 @@ class Event(dict):
             else:
                 setattr(self, arg, kwargs[arg])
 
+        self.verify()
+
         if not self.timestamp:
             logger.warning("Event did not have a timestamp, using now as timestamp")
             # The typing.cast here was required for mypy to shut up, weird...
@@ -83,6 +85,13 @@ class Event(dict):
 
         self._drop_invalid_types()
         self._drop_empty_keys()
+
+    def verify(self):
+        for k in self.ALLOWED_FIELDS.keys():
+            if k in self:
+                t = type(getattr(self, k))
+                if t != self.ALLOWED_FIELDS[k] and t != type(None):
+                    logger.warning("Event from models.py was unable to set attribute {} to correct type\n Supposed to be {}, while actual is {}".format(k, self.ALLOWED_FIELDS[k], type(getattr(self, k))))
 
     def _drop_invalid_types(self):
         # Check for invalid types

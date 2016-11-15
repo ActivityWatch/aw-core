@@ -51,6 +51,7 @@ class MongoDBStorage(AbstractStorage):
         bucketnames = set()
         for bucket_coll in self.db.collection_names():
             bucketnames.add(bucket_coll.split('.')[0])
+        bucketnames.discard("system")  # Discard all system collections
         buckets = dict()
         for bucket_id in bucketnames:
             buckets[bucket_id] = self.get_metadata(bucket_id)
@@ -66,15 +67,15 @@ class MongoDBStorage(AbstractStorage):
                    starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
         query_filter = {}  # type: Dict[str, dict]
         if starttime or endtime:
-            query_filter["timestamp"] = {}
+            query_filter["timestamp.0"] = {}
             if starttime:
-                query_filter["timestamp"]["$gt"] = starttime
+                query_filter["timestamp.0"]["$gt"] = starttime
             if endtime:
-                query_filter["timestamp"]["$lt"] = endtime
+                query_filter["timestamp.0"]["$lt"] = endtime
         if limit <= 0:
             limit = 10**9
 
-        ds_events = list(self.db[bucket_id]["events"].find(query_filter).sort([("timestamp", -1)]).limit(limit))
+        ds_events = list(self.db[bucket_id]["events"].find(query_filter).sort([("timestamp.0", -1)]).limit(limit))
         events = []
         for event in ds_events:
             event.pop('_id')

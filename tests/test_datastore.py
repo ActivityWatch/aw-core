@@ -64,6 +64,7 @@ def test_create_bucket(datastore):
         assert_equal(name, bucket.metadata()["name"])
     finally:
         datastore.delete_bucket(bid)
+    assert bid not in datastore.buckets()
 
 
 @parameterized(param_datastore_objects())
@@ -88,6 +89,8 @@ def test_insert_one(bucket_cm):
         assert_equal(l + 1, len(fetched_events))
         assert_equal(Event, type(fetched_events[0]))
         assert_dict_equal(event, Event(**fetched_events[0]))
+        logging.info(event)
+        logging.info(fetched_events[0].to_json_str())
 
 
 @parameterized(param_testing_buckets_cm())
