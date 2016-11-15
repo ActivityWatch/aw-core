@@ -30,6 +30,8 @@ def bucket_transform(btransform, ds, limit=-1, start=None, end=None):
 
 def query(query, ds, limit=0, start=None, end=None):
     events = []
+    if "transforms" not in query:
+        raise QueryException("Query does not contain a transform: {}".format(query))
     for transform in query["transforms"]:
         events += bucket_transform(transform, ds, limit, start, end)
 
