@@ -203,7 +203,7 @@ def test_query_nonexisting_filter(datastore):
 
 
 @parameterized(param_datastore_objects())
-def test_query_filter_labels(datastore):
+def test_query_filter_labels_with_chunking(datastore):
     """
         Test include/exclude label filters as well as eventcount limit and start/end filtering
     """
