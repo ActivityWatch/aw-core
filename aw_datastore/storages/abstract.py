@@ -10,14 +10,10 @@ class AbstractStorage(metaclass=ABCMeta):
     """
     Interface for storage methods.
     """
+    sid = "Storage id not set, fix me"
 
     @abstractmethod
     def __init__(self, testing: bool) -> None:
-        raise NotImplementedError
-
-    @property
-    @abstractproperty
-    def sid(self) -> str:
         raise NotImplementedError
 
     @abstractmethod

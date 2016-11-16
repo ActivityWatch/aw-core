@@ -18,6 +18,7 @@ from .abstract import AbstractStorage
 
 class MongoDBStorage(AbstractStorage):
     """Uses a MongoDB server as backend"""
+    sid = "mongodb"
 
     def __init__(self, testing) -> None:
         self.logger = logger.getChild(self.sid)
@@ -28,10 +29,6 @@ class MongoDBStorage(AbstractStorage):
         self.client.server_info()
 
         self.db = self.client["activitywatch" + ("-testing" if testing else "")]
-
-    @property
-    def sid(self) -> str:
-        return "mongodb"
 
     def create_bucket(self, bucket_id: str, type_id: str, client: str, hostname: str, created: str, name: str = None) -> None:
         if not name:

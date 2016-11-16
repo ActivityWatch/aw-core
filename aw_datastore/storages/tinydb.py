@@ -41,6 +41,7 @@ class TinyDBStorage(AbstractStorage):
     """
     TinyDB storage method
     """
+    sid = "tinydb"
 
     def __init__(self, testing):
         self.logger = logger.getChild(self.sid)
@@ -55,10 +56,6 @@ class TinyDBStorage(AbstractStorage):
         self.metadata = {}
         for bucket_id in os.listdir(self.buckets_dir):
             self._add_bucket(bucket_id)
-
-    @property
-    def sid(self) -> str:
-        return "tinydb"
 
     def _add_bucket(self, bucket_id: str):
         dbfile = self._get_bucket_db_path(bucket_id)

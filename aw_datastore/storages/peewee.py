@@ -48,6 +48,8 @@ class EventModel(BaseModel):
 
 
 class PeeweeStorage(AbstractStorage):
+    sid = "peewee"
+
     def __init__(self, testing):
         self.logger = logger.getChild(self.sid)
         db.connect()
@@ -56,10 +58,6 @@ class PeeweeStorage(AbstractStorage):
             BucketModel.create_table()
         if not EventModel.table_exists():
             EventModel.create_table()
-
-    @property
-    def sid(self) -> str:
-        return "peewee"
 
     def buckets(self):
         buckets = {bucket.id: bucket.json() for bucket in BucketModel.select()}

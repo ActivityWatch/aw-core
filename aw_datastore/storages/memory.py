@@ -10,16 +10,13 @@ from .abstract import AbstractStorage
 
 class MemoryStorage(AbstractStorage):
     """For storage of data in-memory, useful primarily in testing"""
+    sid = "memory"
 
     def __init__(self, testing):
         self.logger = logger.getChild(self.sid)
         # self.logger.warning("Using in-memory storage, any events stored will not be persistent and will be lost when server is shut down. Use the --storage parameter to set a different storage method.")
         self.db = {}  # type: Dict[str, List[Event]]
         self._metadata = dict()  # type: Dict[str, dict]
-
-    @property
-    def sid(self) -> str:
-        return "memory"
 
     def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None) -> None:
         if not name:
