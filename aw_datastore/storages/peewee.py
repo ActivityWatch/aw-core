@@ -58,6 +58,9 @@ class PeeweeStorage(AbstractStorage):
         if not EventModel.table_exists():
             EventModel.create_table()
 
+    def sid(self) -> str:
+        return "peewee"
+
     def buckets(self):
         buckets = {bucket.id: bucket.json() for bucket in BucketModel.select()}
         return buckets

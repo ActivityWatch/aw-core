@@ -56,6 +56,9 @@ class TinyDBStorage(AbstractStorage):
         for bucket_id in os.listdir(self.buckets_dir):
             self._add_bucket(bucket_id)
 
+    def sid(self) -> str:
+        return "tinydb"
+
     def _add_bucket(self, bucket_id: str):
         dbfile = self._get_bucket_db_path(bucket_id)
         serializer = SerializationMiddleware(JSONStorage)

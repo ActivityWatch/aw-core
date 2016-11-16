@@ -19,6 +19,9 @@ class MemoryStorage(AbstractStorage):
         self.db = {}  # type: Dict[str, List[Event]]
         self._metadata = dict()  # type: Dict[str, dict]
 
+    def sid(self) -> str:
+        return "memory"
+
     def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None) -> None:
         if not name:
             name = bucket_id

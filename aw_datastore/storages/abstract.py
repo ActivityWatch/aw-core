@@ -1,7 +1,7 @@
 import logging
 from typing import List, Dict, Optional
 from datetime import datetime
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta, abstractmethod, abstractproperty
 
 from aw_core.models import Event
 
@@ -16,6 +16,10 @@ class AbstractStorage(metaclass=ABCMeta):
 
     @abstractmethod
     def __init__(self, testing: bool) -> None:
+        raise NotImplementedError
+
+    @abstractproperty
+    def sid(self) -> str:
         raise NotImplementedError
 
     @abstractmethod

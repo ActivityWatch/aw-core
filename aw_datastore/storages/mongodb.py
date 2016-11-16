@@ -29,6 +29,9 @@ class MongoDBStorage(AbstractStorage):
 
         self.db = self.client["activitywatch" + ("-testing" if testing else "")]
 
+    def sid(self) -> str:
+        return "mongodb"
+
     def create_bucket(self, bucket_id: str, type_id: str, client: str, hostname: str, created: str, name: str = None) -> None:
         if not name:
             name = bucket_id
