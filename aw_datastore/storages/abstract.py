@@ -6,9 +6,6 @@ from abc import ABCMeta, abstractmethod, abstractproperty
 from aw_core.models import Event
 
 
-logger = logging.getLogger("aw.datastore.storages.abstract")
-
-
 class AbstractStorage(metaclass=ABCMeta):
     """
     Interface for storage methods.

@@ -14,8 +14,6 @@ from .abstract import AbstractStorage
 # TODO: Make dependent on testing variable in constructor
 db = SqliteExtDatabase(os.path.join(data_dir, 'peewee-sqlite.db'))
 
-logger = logger.getChild("peewee")
-
 
 class BaseModel(Model):
     class Meta:
@@ -51,6 +49,7 @@ class EventModel(BaseModel):
 
 class PeeweeStorage(AbstractStorage):
     def __init__(self, testing):
+        self.logger = logger.getChild(self.sid)
         db.connect()
 
         if not BucketModel.table_exists():
