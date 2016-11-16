@@ -17,6 +17,7 @@ class MemoryStorage(AbstractStorage):
         self.db = {}  # type: Dict[str, List[Event]]
         self._metadata = dict()  # type: Dict[str, dict]
 
+    @property
     def sid(self) -> str:
         return "memory"
 

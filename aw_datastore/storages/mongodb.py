@@ -29,6 +29,7 @@ class MongoDBStorage(AbstractStorage):
 
         self.db = self.client["activitywatch" + ("-testing" if testing else "")]
 
+    @property
     def sid(self) -> str:
         return "mongodb"
 

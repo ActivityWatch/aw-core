@@ -15,6 +15,7 @@ class AbstractStorage(metaclass=ABCMeta):
     def __init__(self, testing: bool) -> None:
         raise NotImplementedError
 
+    @property
     @abstractproperty
     def sid(self) -> str:
         raise NotImplementedError

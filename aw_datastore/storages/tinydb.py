@@ -56,6 +56,7 @@ class TinyDBStorage(AbstractStorage):
         for bucket_id in os.listdir(self.buckets_dir):
             self._add_bucket(bucket_id)
 
+    @property
     def sid(self) -> str:
         return "tinydb"
 

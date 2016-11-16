@@ -57,6 +57,7 @@ class PeeweeStorage(AbstractStorage):
         if not EventModel.table_exists():
             EventModel.create_table()
 
+    @property
     def sid(self) -> str:
         return "peewee"
 
