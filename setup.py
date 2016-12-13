@@ -11,6 +11,7 @@ setup(name='aw-core',
       packages=['aw_core', 'aw_datastore'],
       install_requires=[
           'jsonschema',
+          'peewee>=2.8.5',
           'strict-rfc3339',
           'appdirs==1.4.0',
           'nose-parameterized',
@@ -18,4 +19,5 @@ setup(name='aw-core',
           'tinydb>=3.2.1',
           'tinydb-serialization>=1.0.3',
           'python-json-logger>=0.1.5',
+          'takethetime>=0.3.0',
       ])

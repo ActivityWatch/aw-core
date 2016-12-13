@@ -4,13 +4,13 @@ from typing import List, Union, Callable, Optional
 
 from aw_core.models import Event
 
-from .storage_strategies import StorageStrategy
+from .storages import AbstractStorage
 
 logger = logging.getLogger("aw.datastore")
 
 
 class Datastore:
-    def __init__(self, storage_strategy: Callable[..., StorageStrategy], testing=False) -> None:
+    def __init__(self, storage_strategy: Callable[..., AbstractStorage], testing=False) -> None:
         self.logger = logger.getChild("Datastore")
         self.bucket_instances = dict()  # type: Dict[str, Bucket]
 
@@ -40,7 +40,8 @@ class Datastore:
 
     def delete_bucket(self, bucket_id: str):
         self.logger.info("Deleting bucket '{}'".format(bucket_id))
-        del self.bucket_instances[bucket_id]
+        if bucket_id in self.bucket_instances:
+            del self.bucket_instances[bucket_id]
         return self.storage_strategy.delete_bucket(bucket_id)
 
     def buckets(self):
@@ -56,7 +57,7 @@ class Bucket:
     def metadata(self) -> dict:
         return self.ds.storage_strategy.get_metadata(self.bucket_id)
 
-    def get(self, limit: int = 10**4,
+    def get(self, limit: int = -1,
             starttime: datetime=None, endtime: datetime=None) -> List[Event]:
         return self.ds.storage_strategy.get_events(self.bucket_id, limit, starttime, endtime)
 

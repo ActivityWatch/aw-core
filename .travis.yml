@@ -18,15 +18,25 @@ install:
  - "python setup.py install"
 
 script:
+ # Run the tests
  - "nosetests -v --with-coverage --cover-package='aw_core,aw_datastore'"
+
+ # Run the benchmark
+ - "python -m aw_datastore.benchmark"
+
  # Forgiving checking
  - "export MYPYPATH=$TRAVIS_BUILD_DIR/stubs"
- - "mypy aw_core"
- - "mypy aw_datastore"
+ - "mypy aw_core --silent-imports"
+ - "mypy aw_datastore --silent-imports"
+
+ # The following typechecking won't fail the build
+ # Don't silence missing imports
+ - "mypy aw_core; echo 'Not a failing step'"
+ - "mypy aw_datastore; echo 'Not a failing step'"
  # Strict checking
- #- "mypy --check-untyped-defs --disallow-untyped-defs aw_core"
- # Super strict checking, not used due to lack of stubs
- #- "mypy --check-untyped-defs --disallow-untyped-defs --disallow-untyped-calls aw_core"
+ - "mypy --check-untyped-defs --disallow-untyped-defs aw_core; echo 'Not a failing step'"
+ # Super strict checking
+ - "mypy --check-untyped-defs --disallow-untyped-defs --disallow-untyped-calls aw_core; echo 'Not a failing step'"
 
 after_success:
  - "bash <(curl -s https://codecov.io/bash)"
