@@ -4,9 +4,9 @@ import logging
 from typing import Optional
 from datetime import datetime
 
-import appdirs
 from pythonjsonlogger import jsonlogger
 
+from . import dirs
 
 log_file_path = None
 
@@ -33,23 +33,21 @@ def _create_stderr_handler() -> logging.Handler:
 
 
 def _create_file_handler(name, testing=False, log_json=False) -> logging.Handler:
-    # Get and create log path
-    user_data_dir = appdirs.user_data_dir(name, "activitywatch")
-    log_dir = os.path.join(user_data_dir, "testing" if testing else "", "logs")
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+    log_dir = dirs.get_log_dir()
 
     # Set logfile path and name
     global log_file_path
 
-    if log_json:
-        log_file_path = os.path.join(log_dir, str(datetime.now().isoformat()) + ".log.json")
-        fh = logging.FileHandler(log_file_path, mode='w')
-        fh.setFormatter(_create_json_formatter())
-    else:
-        log_file_path = os.path.join(log_dir, str(datetime.now().isoformat()) + ".log")
-        fh = logging.FileHandler(log_file_path, mode='w')
-        fh.setFormatter(_create_human_formatter())
+    # Should result in something like:
+    # $LOG_DIR/aw-server_testing_2017-01-05T00:21:39.log
+    file_ext = ".log.json" if log_json else ".log"
+    now_str = str(datetime.now().replace(microsecond=0).isoformat())
+    log_file_path = os.path.join(log_dir,
+                                 name + "_" + ("testing_" if testing else "") +
+                                 now_str + file_ext)
+
+    fh = logging.FileHandler(log_file_path, mode='w')
+    fh.setFormatter(_create_json_formatter() if log_json else _create_human_formatter)
 
     return fh
 
