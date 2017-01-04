@@ -2,6 +2,7 @@ from typing import Optional, List
 from datetime import datetime
 import json
 import os
+import logging
 
 from peewee import Model, CharField, DateTimeField
 from playhouse.sqlite_ext import SqliteExtDatabase
@@ -14,7 +15,12 @@ from .abstract import AbstractStorage
 # TODO: Make dependent on testing variable in constructor
 db = SqliteExtDatabase(os.path.join(data_dir, 'peewee-sqlite.db'))
 
+
 logger = logger.getChild("peewee")
+
+# Prevent debug output from propagating
+peewee_logger = logging.getLogger("peewee")
+peewee_logger.setLevel(logging.INFO)
 
 
 class BaseModel(Model):
