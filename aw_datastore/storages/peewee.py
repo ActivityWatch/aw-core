@@ -15,7 +15,6 @@ from .abstract import AbstractStorage
 # TODO: Make dependent on testing variable in constructor
 db = SqliteExtDatabase(os.path.join(data_dir, 'peewee-sqlite.db'))
 
-
 logger = logger.getChild("peewee")
 
 # Prevent debug output from propagating
@@ -56,7 +55,10 @@ class EventModel(BaseModel):
 
 
 class PeeweeStorage(AbstractStorage):
+    sid = "peewee"
+
     def __init__(self, testing):
+        self.logger = logger.getChild(self.sid)
         db.connect()
 
         if not BucketModel.table_exists():
@@ -70,7 +72,7 @@ class PeeweeStorage(AbstractStorage):
 
     def create_bucket(self, bucket_id: str, type_id: str, client: str,
                       hostname: str, created: str, name: Optional[str] = None):
-        BucketModel.create(id=bucket_id, type=type, client=client,
+        BucketModel.create(id=bucket_id, type=type_id, client=client,
                            hostname=hostname, created=created, name=name)
 
     def delete_bucket(self, bucket_id: str):

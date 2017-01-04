@@ -41,9 +41,10 @@ class TinyDBStorage(AbstractStorage):
     """
     TinyDB storage method
     """
+    sid = "tinydb"
 
     def __init__(self, testing):
-        self.logger = logger.getChild("tinydb")
+        self.logger = logger.getChild(self.sid)
 
         # Create dirs
         self.buckets_dir = os.path.join(data_dir, "testing" if testing else "", "buckets")

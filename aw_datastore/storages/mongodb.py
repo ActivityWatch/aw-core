@@ -18,9 +18,10 @@ from .abstract import AbstractStorage
 
 class MongoDBStorage(AbstractStorage):
     """Uses a MongoDB server as backend"""
+    sid = "mongodb"
 
     def __init__(self, testing) -> None:
-        self.logger = logger.getChild("mongodb")
+        self.logger = logger.getChild(self.sid)
 
         self.client = pymongo.MongoClient(serverSelectionTimeoutMS=5000)
         # Try to connect to the server to make sure that it's available

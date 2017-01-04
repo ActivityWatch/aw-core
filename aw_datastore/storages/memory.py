@@ -8,14 +8,13 @@ from aw_core.models import Event
 from . import logger
 from .abstract import AbstractStorage
 
-logger = logger.getChild("memory")
-
-
 class MemoryStorage(AbstractStorage):
     """For storage of data in-memory, useful primarily in testing"""
+    sid = "memory"
 
     def __init__(self, testing):
-        # logger.warning("Using in-memory storage, any events stored will not be persistent and will be lost when server is shut down. Use the --storage parameter to set a different storage method.")
+        self.logger = logger.getChild(self.sid)
+        # self.logger.warning("Using in-memory storage, any events stored will not be persistent and will be lost when server is shut down. Use the --storage parameter to set a different storage method.")
         self.db = {}  # type: Dict[str, List[Event]]
         self._metadata = dict()  # type: Dict[str, dict]
 

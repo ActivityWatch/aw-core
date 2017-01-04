@@ -61,6 +61,10 @@ def test_create_bucket(datastore):
     bid = "test-identifier"
     bucket = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name=name)
     try:
+        assert_equal(bid, bucket.metadata()["id"])
+        assert_equal("test", bucket.metadata()["type"])
+        assert_equal("test", bucket.metadata()["client"])
+        assert_equal("test", bucket.metadata()["hostname"])
         assert_equal(name, bucket.metadata()["name"])
     finally:
         datastore.delete_bucket(bid)

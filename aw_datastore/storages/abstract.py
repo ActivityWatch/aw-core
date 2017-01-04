@@ -1,18 +1,16 @@
 import logging
 from typing import List, Dict, Optional
 from datetime import datetime
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta, abstractmethod, abstractproperty
 
 from aw_core.models import Event
-
-
-logger = logging.getLogger("aw.datastore.storages.abstract")
 
 
 class AbstractStorage(metaclass=ABCMeta):
     """
     Interface for storage methods.
     """
+    sid = "Storage id not set, fix me"
 
     @abstractmethod
     def __init__(self, testing: bool) -> None:

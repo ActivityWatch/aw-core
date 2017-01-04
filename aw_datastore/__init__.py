@@ -2,7 +2,7 @@ from .datastore import Datastore
 
 def get_storage_methods():
     from .storages import MemoryStorage, MongoDBStorage, TinyDBStorage, PeeweeStorage
-    methods = [TinyDBStorage, MemoryStorage, PeeweeStorage]  # BerkeleyDBStorage
+    methods = [PeeweeStorage, TinyDBStorage, MemoryStorage]  # BerkeleyDBStorage
 
     try:
         import pymongo
@@ -15,5 +15,5 @@ def get_storage_methods():
 
 def get_storage_method_names():
     methods = get_storage_methods()
-    names = [method.__name__[0:method.__name__.find("Storage")].lower() for method in methods]
+    names  = [method.sid for method in methods]
     return names
