@@ -10,8 +10,9 @@ from tinydb.storages import JSONStorage
 from tinydb_serialization import Serializer, SerializationMiddleware
 
 from aw_core.models import Event
+from aw_core.dirs import get_data_dir
 
-from . import logger, data_dir
+from . import logger
 from .abstract import AbstractStorage
 
 
@@ -47,6 +48,7 @@ class TinyDBStorage(AbstractStorage):
         self.logger = logger.getChild(self.sid)
 
         # Create dirs
+        data_dir = get_data_dir("aw-server")
         self.buckets_dir = os.path.join(data_dir, "testing" if testing else "", "buckets")
         if not os.path.exists(self.buckets_dir):
             os.makedirs(self.buckets_dir)
