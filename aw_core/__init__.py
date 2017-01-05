@@ -1,5 +1,6 @@
 from .timeperiod import TimePeriod
 
+from . import dirs
 from . import log
 
 from . import models
