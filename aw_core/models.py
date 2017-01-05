@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 import typing
-from typing import Any, List, Union, Optional
+from typing import Any, List, Dict, Union, Optional
 
 import iso8601
 
@@ -86,11 +86,21 @@ class Event(dict):
         self._drop_invalid_types()
         self._drop_empty_keys()
 
+    @classmethod
+    def from_json_obj(json_obj: Union[List, Dict]) -> List["Event"]:
+        "Checks if json object is a list or a single event and returns a list of events"
+        if isinstance(json_obj, dict):
+            return [Event(**json_obj)]
+        elif isinstance(json_obj, list):
+            return [Event(**e) for e in json_obj]
+        else:
+            raise TypeError("json_obj was neither a dict nor list: {}".format(json_obj))
+
     def verify(self):
         for k in self.ALLOWED_FIELDS.keys():
             if k in self:
                 t = type(getattr(self, k))
-                if t != self.ALLOWED_FIELDS[k] and t != type(None):
+                if t != self.ALLOWED_FIELDS[k] and isinstance(t, type(None)):
                     logger.warning("Event from models.py was unable to set attribute {} to correct type\n Supposed to be {}, while actual is {}".format(k, self.ALLOWED_FIELDS[k], type(getattr(self, k))))
 
     def _drop_invalid_types(self):
