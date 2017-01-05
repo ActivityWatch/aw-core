@@ -47,7 +47,7 @@ def _create_file_handler(name, testing=False, log_json=False) -> logging.Handler
     log_file_path = os.path.join(log_dir, log_name)
 
     fh = logging.FileHandler(log_file_path, mode='w')
-    if json_log:
+    if log_json:
         fh.setFormatter(_create_json_formatter())
     else:
         fh.setFormatter(_create_human_formatter())
