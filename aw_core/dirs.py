@@ -6,7 +6,7 @@ import appdirs
 
 def ensure_returned_path_exists(f):
     @wraps(f)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args, **kwargs) -> str:
         path = f(*args, **kwargs)
         if not os.path.exists(path):
             os.makedirs(path)
@@ -15,7 +15,7 @@ def ensure_returned_path_exists(f):
 
 
 @ensure_returned_path_exists
-def get_log_dir():
+def get_log_dir() -> str:
     return os.path.join(_get_global_data_dir(), "logs")
 
 
