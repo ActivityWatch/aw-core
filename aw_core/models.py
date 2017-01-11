@@ -108,7 +108,8 @@ class Event(dict):
         for k in self.keys():
             for i, v in reversed(list(enumerate(self[k]))):
                 if not isinstance(v, self.ALLOWED_FIELDS[k]):
-                    logger.error("Found value {} in field {} that was not of proper instance ({}, expected: {}). Event: {}"
+                    if v != None: # FIXME: Optionals are invalidly defaulted to None, this is just a workaround so the logs don't get spammed
+                        logger.error("Found value {} in field {} that was not of proper instance ({}, expected: {}). Event: {}"
                                  .format(v, k, type(v), self.ALLOWED_FIELDS[k], self))
                     self[k].pop(i)
 
