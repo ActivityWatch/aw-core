@@ -87,7 +87,7 @@ class Event(dict):
         self._drop_empty_keys()
 
     @classmethod
-    def from_json_obj(json_obj: Union[List, Dict]) -> List["Event"]:
+    def from_json_obj(cls, json_obj: Union[List, Dict]) -> List["Event"]:
         "Checks if json object is a list or a single event and returns a list of events"
         if isinstance(json_obj, dict):
             return [Event(**json_obj)]
