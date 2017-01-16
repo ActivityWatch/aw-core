@@ -8,12 +8,13 @@ from peewee import Model, CharField, DateTimeField
 from playhouse.sqlite_ext import SqliteExtDatabase
 
 from aw_core.models import Event
+from aw_core.dirs import get_data_dir
 
-from . import logger, data_dir
+from . import logger
 from .abstract import AbstractStorage
 
 # TODO: Make dependent on testing variable in constructor
-db = SqliteExtDatabase(os.path.join(data_dir, 'peewee-sqlite.db'))
+db = SqliteExtDatabase(os.path.join(get_data_dir("aw-server"), 'peewee-sqlite.db'))
 
 logger = logger.getChild("peewee")
 
