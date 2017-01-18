@@ -1,3 +1,5 @@
+import platform as _platform
+
 from . import storages
 from .datastore import Datastore
 
@@ -5,6 +7,11 @@ from .datastore import Datastore
 def get_storage_methods():
     from .storages import MemoryStorage, MongoDBStorage, TinyDBStorage, PeeweeStorage
     methods = [PeeweeStorage, TinyDBStorage, MemoryStorage]  # BerkeleyDBStorage
+
+    # TinyDB doesn't work on Windows
+    if _platform.system() != "Windows":
+        methods.append(TinyDBStorage)
+
 
     try:
         import pymongo
