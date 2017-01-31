@@ -8,7 +8,7 @@ setup(name='aw-core',
       author='Erik Bjäreholt',
       author_email='erik@bjareho.lt',
       url='https://github.com/ActivityWatch/aw-core',
-      packages=find_packages(),
+      packages=set(find_packages()) - set(["tests"]),
       install_requires=[
           'jsonschema',
           'peewee>=2.8.5',
