@@ -4,8 +4,8 @@ from datetime import datetime, timedelta, timezone
 
 from nose.tools import assert_equal, assert_dict_equal, assert_raises, assert_list_equal
 
-from aw_core.models import Event
-from aw_core.transforms import chunk, filter_period_intersect, include_labels, exclude_labels
+from .context.aw_core.models import Event
+from .context.aw_core.transforms import chunk, filter_period_intersect, include_labels, exclude_labels
 
 
 class ChunkTest(unittest.TestCase):

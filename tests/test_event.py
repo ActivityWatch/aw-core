@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 import json
 import logging
 
-from aw_core.models import Event
+from .context.aw_core.models import Event
 
 import unittest
 

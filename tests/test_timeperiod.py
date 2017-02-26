@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from nose.tools import assert_equal
 
-from aw_core import TimePeriod
+from .context.aw_core import TimePeriod
 
 logger = logging.getLogger("aw.core.transform")
 

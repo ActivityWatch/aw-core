@@ -1,12 +1,12 @@
 from datetime import datetime, timedelta, timezone
 
-from nose.tools import assert_equal, assert_dict_equal, assert_list_equal, assert_raises
+from nose.tools import assert_equal, assert_dict_equal
 from nose_parameterized import parameterized
 
 from . import param_datastore_objects
 
-from aw_core.models import Event
-from aw_core.query import QueryException, query
+from .context.aw_core.models import Event
+from .context.aw_core.query import QueryException, query
 
 
 """

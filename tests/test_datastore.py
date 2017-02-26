@@ -5,42 +5,16 @@ from datetime import datetime, timedelta, timezone
 from nose.tools import assert_equal, assert_dict_equal, assert_raises
 from nose_parameterized import parameterized
 
-from aw_core.models import Event
-from aw_datastore import Datastore, get_storage_methods, get_storage_method_names
+from .context.aw_core.models import Event
+from .context.aw_datastore import get_storage_method_names
+
+from .utils import param_datastore_objects, param_testing_buckets_cm
+
 
 logging.basicConfig(level=logging.DEBUG)
 
 # Useful when you just want some placeholder time in your events, saves typing
 now = datetime.now(timezone.utc)
-
-
-class TempTestBucket:
-    """Context manager for creating a test bucket"""
-
-    def __init__(self, datastore):
-        self.ds = datastore
-        self.bucket_id = "test-{}".format(random.randint(0, 10**4))
-
-    def __enter__(self):
-        self.ds.create_bucket(bucket_id=self.bucket_id, type="test", client="test", hostname="test")
-        return self.ds[self.bucket_id]
-
-    def __exit__(self, *_):
-        self.ds.delete_bucket(bucket_id=self.bucket_id)
-
-    def __repr__(self):
-        return "<TempTestBucket using {}>".format(self.ds.storage_strategy.__class__.__name__)
-
-
-def param_datastore_objects():
-    return [[Datastore(storage_strategy=strategy, testing=True)]
-            for strategy in get_storage_methods()]
-
-
-def param_testing_buckets_cm():
-    datastores = [Datastore(storage_strategy=strategy, testing=True)
-                  for strategy in get_storage_methods()]
-    return [[TempTestBucket(ds)] for ds in datastores]
 
 
 def test_get_storage_method_names():
@@ -230,6 +204,25 @@ def test_replace_last_complex(bucket_cm):
         # Assert length and content
         assert_equal(eventcount, len(bucket.get(-1)))
         assert_dict_equal(event2, bucket.get(-1)[0])
+
+
+@parameterized(param_testing_buckets_cm())
+def test_get_last(bucket_cm):
+    """
+    Tests setting the result limit when fetching events
+    """
+    now = datetime.now()
+    second = timedelta(seconds=1)
+    with bucket_cm as bucket:
+        events = [Event(label="test", timestamp=ts) for ts in [now + second, now + second * 2, now + second * 3]]
+
+        for event in events:
+            bucket.insert(event)
+
+        assert_equal(bucket.get(limit=1)[0], events[-1])
+        for event in bucket.get(limit=5):
+            print(event.timestamp, event.labels)
+        fail()
 
 
 @parameterized(param_testing_buckets_cm())
