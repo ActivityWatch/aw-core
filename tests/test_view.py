@@ -1,15 +1,14 @@
 from datetime import datetime, timedelta, timezone
 
-from nose.tools import assert_equal, assert_dict_equal, assert_list_equal
-from nose_parameterized import parameterized
+import pytest
 
-from utils import param_datastore_objects
+from .utils import param_datastore_objects
 
-from context.aw_core.models import Event
-from context.aw_core.views import create_view, query_view, get_view, get_views
+from aw_core.models import Event
+from aw_core.views import create_view, query_view, get_view, get_views
 
 
-@parameterized(param_datastore_objects())
+@pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_view(datastore):
     name = "A label/name for a test bucket"
     bid1 = "bucket1"
@@ -51,18 +50,18 @@ def test_view(datastore):
         }
         # Test creating view
         create_view(example_view)
-        assert_dict_equal(get_view('exview'), example_view)
-        assert_list_equal(get_views(), ['exview'])
+        assert get_view('exview') == example_view
+        assert get_views() == ['exview']
         # Test that output is correct
         result = query_view('exview', datastore)
-        assert_dict_equal(result['chunks']['test1'], {'other_labels': [], 'duration': {'value': 10, 'unit': 's'}})
-        assert_dict_equal(result['chunks']['test2'], {'other_labels': [], 'duration': {'value': 20, 'unit': 's'}})
+        assert result['chunks']['test1'] == {'other_labels': [], 'duration': {'value': 10, 'unit': 's'}}
+        assert result['chunks']['test2'] == {'other_labels': [], 'duration': {'value': 20, 'unit': 's'}}
         # Test that limit works
-        assert_equal(1, query_view('exview', datastore, limit=1)["eventcount"])
+        assert 1 == query_view('exview', datastore, limit=1)["eventcount"]
         # Test that starttime works
-        assert_equal(10, query_view('exview', datastore, start=datetime.now(timezone.utc) - timedelta(hours=1))["eventcount"])
+        assert 10 == query_view('exview', datastore, start=datetime.now(timezone.utc) - timedelta(hours=1))["eventcount"]
         # Test that endtime works
-        assert_equal(10, query_view('exview', datastore, end=datetime.now(timezone.utc) - timedelta(hours=1))["eventcount"])
+        assert 10 == query_view('exview', datastore, end=datetime.now(timezone.utc) - timedelta(hours=1))["eventcount"]
     finally:
         datastore.delete_bucket(bid1)
         datastore.delete_bucket(bid2)

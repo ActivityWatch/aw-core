@@ -3,10 +3,13 @@ import random
 from datetime import datetime, timedelta, timezone
 
 from nose.tools import assert_equal, assert_dict_equal, assert_raises
-from nose_parameterized import parameterized
+import pytest
+from pytest import fail
 
-from .context.aw_core.models import Event
-from .context.aw_datastore import get_storage_method_names
+from . import context
+
+from aw_core.models import Event
+from aw_datastore import get_storage_method_names
 
 from .utils import param_datastore_objects, param_testing_buckets_cm
 
@@ -21,7 +24,7 @@ def test_get_storage_method_names():
     assert get_storage_method_names()
 
 
-@parameterized(param_datastore_objects())
+@pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_get_buckets(datastore):
     """
     Tests fetching buckets
@@ -29,7 +32,7 @@ def test_get_buckets(datastore):
     datastore.buckets()
 
 
-@parameterized(param_datastore_objects())
+@pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_create_bucket(datastore):
     name = "A label/name for a test bucket"
     bid = "test-identifier"
@@ -45,7 +48,7 @@ def test_create_bucket(datastore):
     assert bid not in datastore.buckets()
 
 
-@parameterized(param_datastore_objects())
+@pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_nonexistant_bucket(datastore):
     """
     Tests that a KeyError is raised if you request a non-existant bucket
@@ -54,7 +57,7 @@ def test_nonexistant_bucket(datastore):
         datastore["I-do-not-exist"]
 
 
-@parameterized(param_testing_buckets_cm())
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_insert_one(bucket_cm):
     """
     Tests inserting one event into a bucket
@@ -71,7 +74,7 @@ def test_insert_one(bucket_cm):
         logging.info(fetched_events[0].to_json_str())
 
 
-@parameterized(param_testing_buckets_cm())
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_empty_bucket(bucket_cm):
     """
     Ensures empty buckets are empty
@@ -80,7 +83,7 @@ def test_empty_bucket(bucket_cm):
         assert_equal(0, len(bucket.get()))
 
 
-@parameterized(param_testing_buckets_cm())
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_insert_many(bucket_cm):
     """
     Tests that you can insert many events at the same time to a bucket
@@ -94,7 +97,7 @@ def test_insert_many(bucket_cm):
             assert_dict_equal(e, fe)
 
 
-@parameterized(param_testing_buckets_cm())
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_insert_badtype(bucket_cm):
     """
     Tests that you cannot insert non-event types into a bucket
@@ -111,7 +114,7 @@ def test_insert_badtype(bucket_cm):
         assert_equal(l, len(bucket.get()))
 
 
-@parameterized(param_testing_buckets_cm())
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_get_ordered(bucket_cm):
     """
     Makes sure that received events are ordered
@@ -132,7 +135,7 @@ def test_get_ordered(bucket_cm):
             assert_equal(True, fetched_events[i].timestamp > fetched_events[i + 1].timestamp)
 
 
-@parameterized(param_testing_buckets_cm())
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_get_datefilter(bucket_cm):
     """
     Tests the datetimefilter when fetching events
@@ -162,7 +165,7 @@ def test_get_datefilter(bucket_cm):
                 assert_equal(j - i - 1, len(fetched_events))
 
 
-@parameterized(param_testing_buckets_cm())
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_insert_invalid(bucket_cm):
     with bucket_cm as bucket:
         event = "not a real event"
@@ -170,7 +173,7 @@ def test_insert_invalid(bucket_cm):
             bucket.insert(event)
 
 
-@parameterized(param_testing_buckets_cm())
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_replace_last(bucket_cm):
     """
     Tests the replace last event in bucket functionality (simple)
@@ -187,7 +190,7 @@ def test_replace_last(bucket_cm):
         assert_equal(bucket.get(-1)[0].label, "test2-replaced")
 
 
-@parameterized(param_testing_buckets_cm())
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_replace_last_complex(bucket_cm):
     """
     Tests the replace last event in bucket functionality (complex)
@@ -206,7 +209,7 @@ def test_replace_last_complex(bucket_cm):
         assert_dict_equal(event2, bucket.get(-1)[0])
 
 
-@parameterized(param_testing_buckets_cm())
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_get_last(bucket_cm):
     """
     Tests setting the result limit when fetching events
@@ -222,10 +225,10 @@ def test_get_last(bucket_cm):
         assert_equal(bucket.get(limit=1)[0], events[-1])
         for event in bucket.get(limit=5):
             print(event.timestamp, event.labels)
-        fail()
+        # fail()
 
 
-@parameterized(param_testing_buckets_cm())
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_limit(bucket_cm):
     """
     Tests setting the result limit when fetching events
@@ -239,7 +242,7 @@ def test_limit(bucket_cm):
         assert_equal(5, len(bucket.get(limit=5)))
 
 
-@parameterized(param_testing_buckets_cm())
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_get_metadata(bucket_cm):
     """
     Tests the get_metadata function

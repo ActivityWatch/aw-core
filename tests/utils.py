@@ -2,7 +2,7 @@ import logging
 import random
 from datetime import datetime, timezone
 
-from .context.aw_datastore import Datastore, get_storage_methods
+from aw_datastore import Datastore, get_storage_methods
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -28,12 +28,14 @@ class TempTestBucket:
         return "<TempTestBucket using {}>".format(self.ds.storage_strategy.__class__.__name__)
 
 
+_storage_methods = get_storage_methods()
+
 def param_datastore_objects():
-    return [[Datastore(storage_strategy=strategy, testing=True)]
-            for strategy in get_storage_methods()]
+    return [Datastore(storage_strategy=strategy, testing=True)
+            for strategy in _storage_methods]
 
 
 def param_testing_buckets_cm():
     datastores = [Datastore(storage_strategy=strategy, testing=True)
-                  for strategy in get_storage_methods()]
-    return [[TempTestBucket(ds)] for ds in datastores]
+                  for strategy in _storage_methods]
+    return [TempTestBucket(ds) for ds in datastores]

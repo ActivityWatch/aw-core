@@ -1,12 +1,12 @@
 from datetime import datetime, timedelta, timezone
 
 from nose.tools import assert_equal, assert_dict_equal
-from nose_parameterized import parameterized
+import pytest
 
-from . import param_datastore_objects
+from .utils import param_datastore_objects
 
-from .context.aw_core.models import Event
-from .context.aw_core.query import QueryException, query
+from aw_core.models import Event
+from aw_core.query import QueryException, query
 
 
 """
@@ -16,7 +16,7 @@ from .context.aw_core.query import QueryException, query
 """
 
 
-@parameterized(param_datastore_objects())
+@pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query_unspecified_bucket(datastore):
     """
         Asserts that a exception is raised when a query doesn't have a specified bucket
@@ -34,7 +34,7 @@ def test_query_unspecified_bucket(datastore):
         raise "Test didn't catch a 'no bucket specified' QueryException which is was supposed to"
 
 
-@parameterized(param_datastore_objects())
+@pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query_invalid_bucket(datastore):
     """
         Asserts that a exception is raised when a query has specified a bucket that is not a string
@@ -54,11 +54,12 @@ def test_query_invalid_bucket(datastore):
         raise "Test didn't catch a 'Invalid bucket' QueryException which is was supposed to"
 
 
-@parameterized(param_datastore_objects())
+@pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query_nonexisting_bucket(datastore):
     """
         Asserts that a exception is raised when a query has specified a bucket that does not exist
     """
+    print(datastore)
     example_query = {
         'chunk': True,
         'transforms': [{
@@ -79,7 +80,7 @@ def test_query_nonexisting_bucket(datastore):
 
 """
 
-@parameterized(param_datastore_objects())
+@pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query_unspecified_filter(datastore):
     """
         Asserts that a exception is raised when a query has a filter where the filtername is not specified
@@ -106,7 +107,7 @@ def test_query_unspecified_filter(datastore):
         datastore.delete_bucket(bid1)
 
 
-@parameterized(param_datastore_objects())
+@pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query_invalid_filter(datastore):
     """
         Asserts that a exception is raised when a query has a filter name that is not a string
@@ -135,7 +136,7 @@ def test_query_invalid_filter(datastore):
         datastore.delete_bucket(bid1)
 
 
-@parameterized(param_datastore_objects())
+@pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query_nonexisting_filter(datastore):
     """
         Asserts that a exception is raised when a query tries to use a filter that doesn't exist
@@ -164,7 +165,7 @@ def test_query_nonexisting_filter(datastore):
         datastore.delete_bucket(bid1)
 
 
-@parameterized(param_datastore_objects())
+@pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query_filter_labels_with_chunking(datastore):
     """
         Test include/exclude label filters as well as eventcount limit and start/end filtering
@@ -219,7 +220,7 @@ def test_query_filter_labels_with_chunking(datastore):
         datastore.delete_bucket(bid2)
 
 
-@parameterized(param_datastore_objects())
+@pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query_filter_labels(datastore):
     """
         Timeperiod intersect and eventlist

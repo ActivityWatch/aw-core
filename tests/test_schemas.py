@@ -3,7 +3,7 @@ import unittest
 from jsonschema import validate as _validate, FormatChecker
 from jsonschema.exceptions import ValidationError
 
-from .context.aw_core import schema
+from aw_core import schema
 
 # TODO: Include date-time format
 # https://python-jsonschema.readthedocs.io/en/latest/validate/#jsonschema.FormatChecker

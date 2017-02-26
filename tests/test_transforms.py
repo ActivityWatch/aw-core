@@ -2,10 +2,8 @@ import logging
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from nose.tools import assert_equal, assert_dict_equal, assert_raises, assert_list_equal
-
-from .context.aw_core.models import Event
-from .context.aw_core.transforms import chunk, filter_period_intersect, include_labels, exclude_labels
+from aw_core.models import Event
+from aw_core.transforms import chunk, filter_period_intersect, include_labels, exclude_labels
 
 
 class ChunkTest(unittest.TestCase):
@@ -20,12 +18,12 @@ class ChunkTest(unittest.TestCase):
                                 duration=timedelta(seconds=1)))
         res = chunk(events)
         logging.debug(res)
-        assert_equal(res['eventcount'], eventcount)
-        assert_dict_equal(res['duration'], {"value": eventcount, "unit": "s"})
-        assert_list_equal(res['chunks']['test']['other_labels'], ["test2"])
-        assert_list_equal(res['chunks']['test2']['other_labels'], ["test"])
-        assert_dict_equal(res['chunks']['test']['duration'], {"value": eventcount, "unit": "s"})
-        assert_dict_equal(res['chunks']['test2']['duration'], {"value": eventcount, "unit": "s"})
+        assert res['eventcount'] == eventcount
+        assert res['duration'] == {"value": eventcount, "unit": "s"}
+        assert res['chunks']['test']['other_labels'] == ["test2"]
+        assert res['chunks']['test2']['other_labels'] == ["test"]
+        assert res['chunks']['test']['duration'] == {"value": eventcount, "unit": "s"}
+        assert res['chunks']['test2']['duration'] == {"value": eventcount, "unit": "s"}
 
 
 class IncludeLabelsTest(unittest.TestCase):
@@ -38,8 +36,8 @@ class IncludeLabelsTest(unittest.TestCase):
         ]
         included_labels = include_labels(events, labels)
         excluded_labels = exclude_labels(events, labels)
-        assert_equal(len(included_labels), 2)
-        assert_equal(len(excluded_labels), 1)
+        assert len(included_labels) == 2
+        assert len(excluded_labels) == 1
 
 
 class FilterPeriodIntersectTest(unittest.TestCase):
@@ -52,7 +50,7 @@ class FilterPeriodIntersectTest(unittest.TestCase):
         to_filter = [Event(label="lala", timestamp=now, duration=td1h)]
         filter_with = [Event(timestamp=now + timedelta(minutes=30), duration=td1h)]
         filtered_events = filter_period_intersect(to_filter, filter_with)
-        assert_equal(filtered_events[0].duration, timedelta(minutes=30))
+        assert filtered_events[0].duration == timedelta(minutes=30)
 
         # Filter 2x 30min events with a 15min gap with another 45min event in between intersecting both
         to_filter = [
@@ -61,5 +59,5 @@ class FilterPeriodIntersectTest(unittest.TestCase):
         ]
         filter_with = [Event(timestamp=now + timedelta(minutes=15), duration=timedelta(minutes=45))]
         filtered_events = filter_period_intersect(to_filter, filter_with)
-        assert_equal(filtered_events[0].duration, timedelta(minutes=15))
-        assert_equal(filtered_events[1].duration, timedelta(minutes=15))
+        assert filtered_events[0].duration == timedelta(minutes=15)
+        assert filtered_events[1].duration == timedelta(minutes=15)
