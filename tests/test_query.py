@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta, timezone
 
-from nose.tools import assert_equal, assert_dict_equal
 import pytest
 
 from .utils import param_datastore_objects
@@ -26,12 +25,8 @@ def test_query_unspecified_bucket(datastore):
         'transforms': [{}]
     }
     # Query and handle QueryException
-    try:
+    with pytest.raises(QueryException):
         result = query(example_query, datastore)
-    except QueryException:
-        pass
-    else:
-        raise "Test didn't catch a 'no bucket specified' QueryException which is was supposed to"
 
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
@@ -46,12 +41,8 @@ def test_query_invalid_bucket(datastore):
         }]
     }
     # Query and handle QueryException
-    try:
+    with pytest.raises(QueryException):
         result = query(example_query, datastore)
-    except QueryException:
-        pass
-    else:
-        raise "Test didn't catch a 'Invalid bucket' QueryException which is was supposed to"
 
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
@@ -67,12 +58,8 @@ def test_query_nonexisting_bucket(datastore):
         }]
     }
     # Query and handle QueryException
-    try:
+    with pytest.raises(QueryException):
         result = query(example_query, datastore)
-    except QueryException:
-        pass
-    else:
-        raise "Test didn't catch a 'No such bucket' QueryException which is was supposed to"
 
 """
 
@@ -97,12 +84,8 @@ def test_query_unspecified_filter(datastore):
             }]
         }
         # Query and handle QueryException
-        try:
+        with pytest.raises(QueryException):
             result = query(example_query, datastore)
-        except QueryException:
-            pass
-        else:
-            raise "Test didn't catch a 'filter name not specified' QueryException which is was supposed to"
     finally:
         datastore.delete_bucket(bid1)
 
@@ -126,12 +109,8 @@ def test_query_invalid_filter(datastore):
             }]
         }
         # Query and handle QueryException
-        try:
+        with pytest.raises(QueryException):
             result = query(example_query, datastore)
-        except QueryException:
-            pass
-        else:
-            raise "Test didn't catch a 'Invalid filter' QueryException which is was supposed to"
     finally:
         datastore.delete_bucket(bid1)
 
@@ -155,12 +134,8 @@ def test_query_nonexisting_filter(datastore):
             }]
         }
         # Query and handle QueryException
-        try:
+        with pytest.raises(QueryException):
             result = query(example_query, datastore)
-        except QueryException:
-            pass
-        else:
-            raise "Test didn't catch a 'No such filter' QueryException which is was supposed to"
     finally:
         datastore.delete_bucket(bid1)
 
@@ -206,15 +181,15 @@ def test_query_filter_labels_with_chunking(datastore):
         }
         # Test that output is correct
         result = query(example_query, datastore)
-        assert_dict_equal(result['chunks']['test1'], {'other_labels': [], 'duration': {'value': 10, 'unit': 's'}})
-        assert_dict_equal(result['chunks']['test2'], {'other_labels': [], 'duration': {'value': 20, 'unit': 's'}})
-        assert_dict_equal(result['duration'], {'value': 30, 'unit': 's'})
+        assert result['chunks']['test1'] == {'other_labels': [], 'duration': {'value': 10, 'unit': 's'}}
+        assert result['chunks']['test2'] == {'other_labels': [], 'duration': {'value': 20, 'unit': 's'}}
+        assert result['duration'] == {'value': 30, 'unit': 's'}
         # Test that limit works
-        assert_equal(1, query(example_query, datastore, limit=1)["eventcount"])
+        assert 1 == query(example_query, datastore, limit=1)["eventcount"]
         # Test that starttime works
-        assert_equal(10, query(example_query, datastore, start=now - timedelta(hours=1))["eventcount"])
+        assert 10 == query(example_query, datastore, start=now - timedelta(hours=1))["eventcount"]
         # Test that endtime works
-        assert_equal(10, query(example_query, datastore, end=now - timedelta(hours=1))["eventcount"])
+        assert 10 == query(example_query, datastore, end=now - timedelta(hours=1))["eventcount"]
     finally:
         datastore.delete_bucket(bid1)
         datastore.delete_bucket(bid2)
@@ -261,9 +236,9 @@ def test_query_filter_labels(datastore):
         # Test that output is correct
         result = query(example_query, datastore)
         print(result)
-        assert_equal(1, len(result['eventlist']))
-        assert_dict_equal(result['eventlist'][0], e1.to_json_dict())
-        assert_dict_equal(result['duration'], {'value': 1.0, 'unit': 's'})
+        assert 1 == len(result['eventlist'])
+        assert result['eventlist'][0] == e1.to_json_dict()
+        assert result['duration'] == {'value': 1.0, 'unit': 's'}
     finally:
         datastore.delete_bucket(bid1)
         datastore.delete_bucket(bid2)
