@@ -1,7 +1,7 @@
 import logging
 import json
 from datetime import datetime, timedelta
-from typing import List, Any, Optional
+from typing import List, Any, Dict, Optional
 from copy import copy, deepcopy
 
 from aw_core.models import Event
