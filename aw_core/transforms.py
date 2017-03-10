@@ -1,6 +1,7 @@
 import logging
+import json
 from datetime import datetime, timedelta
-from typing import List, Any
+from typing import List, Any, Optional
 from copy import copy, deepcopy
 
 from aw_core.models import Event
@@ -21,6 +22,39 @@ def _replace_event_period(event: Event, period: TimePeriod) -> Event:
     e.timestamp = period.start
     e.duration = period.duration
     return e
+
+
+def heartbeat_reduce(events: Event, pulsetime: float) -> List[Event]:
+    """Merges consequtive events together according to the rules of `heartbeat_merge`."""
+    reduced = []
+    if len(events) > 0:
+        reduced.append(events.pop(0))
+    for heartbeat in events:
+        merged = heartbeat_merge(reduced[-1], heartbeat, pulsetime)
+        if merged is not None:
+            # Heartbeat was merged
+            reduced[-1] = merged
+        else:
+            # Heartbeat was not merged
+            reduced.append(heartbeat)
+    return reduced
+
+
+def heartbeat_merge(last_event: Event, heartbeat: Event, pulsetime: float) -> Optional[Event]:
+    """Merges two events together if they have identical labels and are separated by a time smaller than pulsetime."""
+    if json.dumps(last_event.labels) == json.dumps(heartbeat.labels):
+        # print("Passed labels check")
+
+        # Diff between timestamps in seconds, takes into account the duration of the last event
+        ts_diff_seconds = (heartbeat.timestamp - last_event.timestamp).total_seconds()
+        last_duration_seconds = last_event.duration.total_seconds() if last_event.duration else 0
+
+        if ts_diff_seconds < pulsetime + last_duration_seconds:
+            # print("Passed ts_diff check")
+            last_event.duration = timedelta(seconds=ts_diff_seconds)
+            return last_event
+
+    return None
 
 
 def filter_period_intersect(events, filterevents):

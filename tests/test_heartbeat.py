@@ -1,0 +1,54 @@
+from datetime import datetime, timedelta, timezone
+import json
+import logging
+
+from aw_core.models import Event
+from aw_core import transforms
+
+import unittest
+
+
+def test_heartbeat_merge():
+    """Events should merge"""
+    now = datetime.now()
+    td_1s = timedelta(seconds=1)
+
+    last_event, heartbeat = Event(timestamp=now, label="test"), Event(timestamp=now + td_1s, label="test")
+    merged = transforms.heartbeat_merge(last_event, heartbeat, pulsetime=2)
+    assert merged is not None
+
+
+def test_heartbeat_merge_fail():
+    """Merge should not happen"""
+    now = datetime.now()
+    td_1s = timedelta(seconds=1)
+
+    # timestamp of heartbeat more than pulsetime away
+    last_event, heartbeat = Event(timestamp=now, label="test"), Event(timestamp=now + 3*td_1s, label="test")
+    merged = transforms.heartbeat_merge(last_event, heartbeat, pulsetime=2)
+    assert merged is None
+
+    # labels not identical
+    last_event, heartbeat = Event(timestamp=now, label="test"), Event(timestamp=now + td_1s, label="test2")
+    merged = transforms.heartbeat_merge(last_event, heartbeat, pulsetime=2)
+    assert merged is None
+
+
+def test_heartbeat_reduce():
+    """Events should reduce"""
+    now = datetime.now()
+    td_1s = timedelta(seconds=1)
+
+    events = [Event(timestamp=now, label="test"), Event(timestamp=now + td_1s, label="test")]
+    reduced_events = transforms.heartbeat_reduce(events, pulsetime=2)
+    assert len(reduced_events) == 1
+
+
+def test_heartbeat_reduce_fail():
+    """Events should not reduce"""
+    now = datetime.now()
+    td_1s = timedelta(seconds=1)
+
+    events = [Event(timestamp=now, label="test"), Event(timestamp=now + 3*td_1s, label="test")]
+    reduced_events = transforms.heartbeat_reduce(events, pulsetime=2)
+    assert len(reduced_events) == 2
