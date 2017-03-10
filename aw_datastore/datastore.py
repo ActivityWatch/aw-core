@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import List, Union, Callable, Optional
+from typing import Dict, List, Union, Callable, Optional
 
 from aw_core.models import Event
 
