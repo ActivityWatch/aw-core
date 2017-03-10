@@ -19,7 +19,7 @@ install:
 
 script:
  # Run the tests
- - "nosetests -v --with-coverage --cover-package='aw_core,aw_datastore'"
+ - "pytest -v --cov=aw_core --cov=aw_datastore"
 
  # Run the benchmark
  - "python -m aw_datastore.benchmark"
