@@ -4,14 +4,15 @@ python:
 # - "3.3"
 # - "3.4"
  - "3.5"
- - "nightly" # currently points to 3.6-dev
+ - "3.6"
+ - "nightly"
 
 services:
  - mongodb
 
 before_install:
- - "pip install coverage"
- - "pip install mypy-lang==0.4.4"
+ - "pip install pytest pytest-cov coverage"
+ - "pip install mypy"
 
 install:
  - "pip install pymongo"
@@ -19,7 +20,7 @@ install:
 
 script:
  # Run the tests
- - "nosetests -v --with-coverage --cover-package='aw_core,aw_datastore'"
+ - "pytest -v --cov=aw_core --cov=aw_datastore"
 
  # Run the benchmark
  - "python -m aw_datastore.benchmark"

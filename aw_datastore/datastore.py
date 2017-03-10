@@ -59,6 +59,7 @@ class Bucket:
 
     def get(self, limit: int = -1,
             starttime: datetime=None, endtime: datetime=None) -> List[Event]:
+        """Returns events sorted in descending order by timestamp"""
         return self.ds.storage_strategy.get_events(self.bucket_id, limit, starttime, endtime)
 
     def insert(self, events: Union[Event, List[Event]]):

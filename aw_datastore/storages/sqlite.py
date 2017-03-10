@@ -22,6 +22,17 @@ logger = logger.getChild("peewee")
 peewee_logger = logging.getLogger("peewee")
 peewee_logger.setLevel(logging.INFO)
 
+CREATE_TABLE = """
+CREATE TABLE IF NOT EXISTS bucket
+(
+    id PRIMARY KEY,
+    created,
+    name,
+    type,
+    client,
+    hostname
+)
+"""
 
 class BaseModel(Model):
     class Meta:
@@ -60,7 +71,7 @@ class PeeweeStorage(AbstractStorage):
 
     def __init__(self, testing):
         self.logger = logger.getChild(self.sid)
-        # db.connect()
+        db.connect()
 
         if not BucketModel.table_exists():
             BucketModel.create_table()
