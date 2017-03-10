@@ -4,14 +4,14 @@ python:
 # - "3.3"
 # - "3.4"
  - "3.5"
- - "nightly" # currently points to 3.6-dev
+ - "3.6"
 
 services:
  - mongodb
 
 before_install:
- - "pip install coverage"
- - "pip install mypy-lang==0.4.4"
+ - "pip install pytest pytest-cov coverage"
+ - "pip install mypy"
 
 install:
  - "pip install pymongo"
