@@ -180,8 +180,8 @@ class Event(dict):
         self["timestamp"] = [_timestamp_parse(timestamp)]
 
     @property
-    def duration(self) -> Optional[timedelta]:
-        return self["duration"][0] if self._hasprop("duration") else None
+    def duration(self) -> timedelta:
+        return self["duration"][0] if self._hasprop("duration") else timedelta(0)
 
     @duration.setter
     def duration(self, duration: Union[timedelta, dict]) -> None:
