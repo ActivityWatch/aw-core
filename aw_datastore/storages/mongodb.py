@@ -75,11 +75,11 @@ class MongoDBStorage(AbstractStorage):
                 query_filter["timestamp.0"]["$lt"] = endtime
 
         if limit == 0:
-            ds_events = []
-        else:
-            if limit < 0:
-                limit = 10**9
-            ds_events = list(self.db[bucket_id]["events"].find(query_filter).sort([("timestamp.0", -1)]).limit(limit))
+            return []
+        if limit < 0:
+            limit = 10**9
+        ds_events = list(self.db[bucket_id]["events"].find(query_filter).sort([("timestamp.0", -1)]).limit(limit))
+
         events = []
         for event in ds_events:
             event.pop('_id')
