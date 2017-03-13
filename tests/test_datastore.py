@@ -231,8 +231,11 @@ def test_limit(bucket_cm):
             bucket.insert(Event(label="test", timestamp=now))
 
         print(len(bucket.get(limit=1)))
+        assert 0 == len(bucket.get(limit=0))
         assert 1 == len(bucket.get(limit=1))
+        assert 3 == len(bucket.get(limit=3))
         assert 5 == len(bucket.get(limit=5))
+        assert 5 == len(bucket.get(limit=-1))
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())

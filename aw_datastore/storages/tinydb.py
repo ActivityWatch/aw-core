@@ -74,7 +74,7 @@ class TinyDBStorage(AbstractStorage):
 
     def get_events(self, bucket_id: str, limit: int,
                    starttime: datetime=None, endtime: datetime=None):
-        if limit <= 0:
+        if limit < 0:
             limit = sys.maxsize
         # Get all events
         events = [Event(**e) for e in self.events[bucket_id].all()]
