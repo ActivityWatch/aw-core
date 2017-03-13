@@ -22,12 +22,12 @@ script:
  - "pytest -v --cov=aw_core --cov=aw_datastore"
 
  # Run the benchmark
- - "python -m aw_datastore.benchmark"
+ # - "python -m aw_datastore.benchmark"
 
  # Forgiving checking
  - "export MYPYPATH=$TRAVIS_BUILD_DIR/stubs"
- - "mypy aw_core --silent-imports"
- - "mypy aw_datastore --silent-imports"
+ - "mypy aw_core --ignore-missing-imports --follow-imports=skip"
+ - "mypy aw_datastore --ignore-missing-imports --follow-imports=skip"
 
  # The following typechecking won't fail the build
  # Don't silence missing imports
