@@ -27,7 +27,7 @@ script:
  # Forgiving checking
  - "export MYPYPATH=$TRAVIS_BUILD_DIR/stubs"
  - "mypy aw_core --ignore-missing-imports --follow-imports=skip"
- - "mypy aw_datastore --ignore-missing-imports --foollow-impoorts=skip"
+ - "mypy aw_datastore --ignore-missing-imports --follow-impoorts=skip"
 
  # The following typechecking won't fail the build
  # Don't silence missing imports
