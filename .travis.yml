@@ -22,7 +22,7 @@ script:
  - "pytest -v --cov=aw_core --cov=aw_datastore"
 
  # Run the benchmark
- - "python -m aw_datastore.benchmark"
+ # - "python -m aw_datastore.benchmark"
 
  # Forgiving checking
  - "export MYPYPATH=$TRAVIS_BUILD_DIR/stubs"
