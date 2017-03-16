@@ -1,10 +1,12 @@
 import os
 import json
+import logging
 from datetime import datetime, timezone
 
 from .query import query
 from aw_core import dirs
 
+logger = logging.getLogger("aw.core.views")
 
 views = {}
 
@@ -54,7 +56,7 @@ def get_view_cache_file(viewname, ds, start, end):
 def get_cached_query(viewname, ds, start, end):
     cache_file = get_view_cache_file(viewname, ds, start, end)
     if os.path.isfile(cache_file):
-        print("Retrieving cached query {}".format(cache_file))
+        logger.debug("Retrieving cached query {}".format(cache_file))
         with open(cache_file, 'r') as f:
             return json.load(f)
     else:
@@ -63,13 +65,12 @@ def get_cached_query(viewname, ds, start, end):
 
 def cache_query(data, viewname, ds, start, end):
     cache_file = get_view_cache_file(viewname, ds, start, end)
-    print("Caching query {}".format(cache_file))
+    logger.debug("Caching query {}".format(cache_file))
     with open(cache_file, 'w') as f:
         json.dump(data, f)
 
 
 def query_view(viewname, ds, limit=-1, start=None, end=None):
-    print(views[viewname])
     if views[viewname]["query"]["cache"]:
         if end < datetime.now(timezone.utc):
             cached_result = get_cached_query(viewname, ds, start, end)
