@@ -31,6 +31,7 @@ def test_view(datastore):
             'created': '2016-09-03',
             'query': {
                 'chunk': True,
+                'cache': True,
                 'transforms': [
                     {
                         'bucket': bid1,

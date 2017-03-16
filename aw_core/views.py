@@ -72,13 +72,13 @@ def cache_query(data, viewname, ds, start, end):
 
 def query_view(viewname, ds, limit=-1, start=None, end=None):
     if views[viewname]["query"]["cache"]:
-        if end < datetime.now(timezone.utc):
+        if end and end < datetime.now(timezone.utc):
             cached_result = get_cached_query(viewname, ds, start, end)
             if cached_result:
                 return cached_result
     result = query(views[viewname]["query"], ds, limit, start, end)
     if views[viewname]["query"]["cache"]:
-        if end < datetime.now(timezone.utc):
+        if end and end < datetime.now(timezone.utc):
             cache_query(result, viewname, ds, start, end)
     return result
 
