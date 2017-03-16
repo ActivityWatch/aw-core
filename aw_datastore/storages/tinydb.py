@@ -113,12 +113,12 @@ class TinyDBStorage(AbstractStorage):
     def insert_many(self, bucket_id: str, events: List[Event]):
         self.events[bucket_id].insert_multiple(copy.deepcopy(events))
 
-    def replace_last(self, bucket_id, event):
-        e = self.events[bucket_id].get(where('timestamp') == self.get_events(bucket_id, 1)[0].timestamps)
+    def replace_last(self, bucket_id: str, event: Event):
+        e = self.events[bucket_id].get(where('timestamp') == self.get_events(bucket_id, 1)[0].timestamp)
         self.events[bucket_id].remove(eids=[e.eid])
         self.insert_one(bucket_id, event)
 
-    def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None):
+    def create_bucket(self, bucket_id: str, type_id: str, client: str, hostname: str, created: str, name=None):
         if not name:
             name = bucket_id
         metadata = {

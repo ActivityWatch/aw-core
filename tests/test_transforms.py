@@ -10,29 +10,35 @@ class ChunkTest(unittest.TestCase):
     # Tests the chunk transform
 
     def test_chunk(self):
-        eventcount = 10
+        eventcount = 8
         events = []
         for i in range(eventcount):
-            events.append(Event(label=["test", "test2"],
+            events.append(Event(label="test",
+                                keyvals={"key"+str(i%2): "val"+str(i%4)},
                                 timestamp=datetime.now(timezone.utc) + timedelta(seconds=i),
                                 duration=timedelta(seconds=1)))
         res = chunk(events)
         logging.debug(res)
         assert res['eventcount'] == eventcount
-        assert res['duration'] == {"value": eventcount, "unit": "s"}
-        assert res['chunks']['test']['other_labels'] == ["test2"]
-        assert res['chunks']['test2']['other_labels'] == ["test"]
-        assert res['chunks']['test']['duration'] == {"value": eventcount, "unit": "s"}
-        assert res['chunks']['test2']['duration'] == {"value": eventcount, "unit": "s"}
+        assert res['duration'] == timedelta(seconds=eventcount)
+        print(res)
+        assert res['chunks']['test']['duration'] == timedelta(seconds=eventcount)
+        assert res['chunks']['test']['keyvals']['key0']['duration'] == timedelta(seconds=eventcount/2)
+        assert res['chunks']['test']['keyvals']['key0']['values']['val0']['duration'] == timedelta(seconds=eventcount/4)
+        assert res['chunks']['test']['keyvals']['key0']['values']['val2']['duration'] == timedelta(seconds=eventcount/4)
+        assert res['chunks']['test']['duration'] == timedelta(seconds=eventcount)
+        assert res['chunks']['test']['keyvals']['key1']['duration'] == timedelta(seconds=eventcount/2)
+        assert res['chunks']['test']['keyvals']['key1']['values']['val1']['duration'] == timedelta(seconds=eventcount/4)
+        assert res['chunks']['test']['keyvals']['key1']['values']['val3']['duration'] == timedelta(seconds=eventcount/4)
 
 
 class IncludeLabelsTest(unittest.TestCase):
     def test_include_labels(self):
         labels = ["a","c"]
         events = [
-            Event(label=["a"]),
-            Event(label=["b"]),
-            Event(label=["c"]),
+            Event(label="a"),
+            Event(label="b"),
+            Event(label="c"),
         ]
         included_labels = include_labels(events, labels)
         excluded_labels = exclude_labels(events, labels)

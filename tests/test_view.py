@@ -16,10 +16,10 @@ def test_view(datastore):
     try:
         bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
         bucket2 = datastore.create_bucket(bucket_id=bid2, type="test", client="test", hostname="test", name=name)
-        e1 = Event(label=["test1"],
+        e1 = Event(label="test1",
                    timestamp=datetime.now(timezone.utc) - timedelta(hours=100),
                    duration=timedelta(seconds=1))
-        e2 = Event(label=["test2"],
+        e2 = Event(label="test2",
                    timestamp=datetime.now(timezone.utc),
                    duration=timedelta(seconds=2))
         bucket1.insert(10 * [e1])
@@ -54,8 +54,8 @@ def test_view(datastore):
         assert get_views() == ['exview']
         # Test that output is correct
         result = query_view('exview', datastore)
-        assert result['chunks']['test1'] == {'other_labels': [], 'duration': {'value': 10, 'unit': 's'}}
-        assert result['chunks']['test2'] == {'other_labels': [], 'duration': {'value': 20, 'unit': 's'}}
+        assert result['chunks']['test1'] == {'duration': {'value': 10.0, 'unit': 's'}, "keyvals": {}}
+        assert result['chunks']['test2'] == {'duration': {'value': 20.0, 'unit': 's'}, "keyvals": {}}
         # Test that limit works
         assert 1 == query_view('exview', datastore, limit=1)["eventcount"]
         # Test that starttime works

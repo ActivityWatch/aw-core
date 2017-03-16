@@ -42,7 +42,9 @@ def heartbeat_reduce(events: Event, pulsetime: float) -> List[Event]:
 
 def heartbeat_merge(last_event: Event, heartbeat: Event, pulsetime: float) -> Optional[Event]:
     """Merges two events together if they have identical labels and are separated by a time smaller than pulsetime."""
-    if json.dumps(last_event.labels) == json.dumps(heartbeat.labels):
+    if last_event.label == heartbeat.label \
+       and last_event.keyvals == heartbeat.keyvals \
+       and last_event.count == heartbeat.count:
         # print("Passed labels check")
 
         # Diff between timestamps in seconds, takes into account the duration of the last event
@@ -125,28 +127,46 @@ def exclude_labels(events, labels):
 def chunk(events: List[Event]) -> dict:
     eventcount = 0
     chunks = dict()  # type: Dict[str, Any]
-    totduration_d = timedelta();
+    totduration = timedelta();
     for event in events:
+        eventcount += 1
         if event.duration:
-            totduration_d += event.duration
-        if "label" in event:
-            eventcount += 1
-            for label in event["label"]:
-                if label not in chunks:
-                    chunks[label] = {"other_labels": []}
-                for co_label in event["label"]:
-                    if co_label != label and co_label not in chunks[label]["other_labels"]:
-                        chunks[label]["other_labels"].append(co_label)
+            totduration += event.duration
+        if event.label:
+            if event.label not in chunks:
+                chunks[event.label] = {"keyvals": {}}
                 if event.duration:
-                    if "duration" not in chunks[label]:
-                        chunks[label]["duration"] = copy(event.duration)
+                    chunks[event.label]["duration"] = copy(event.duration)
+            else:
+                if event.duration:
+                    if "duration" not in chunks[event.label]:
+                        chunks[event.label]["duration"] = copy(event.duration)
                     else:
-                        chunks[label]["duration"] += event.duration
-    # Turn all timedeltas into duration-dicts
-    for label in chunks:
-        if "duration" in chunks[label] and isinstance(chunks[label]["duration"], timedelta):
-            chunks[label]["duration"] = {"value": chunks[label]["duration"].total_seconds(), "unit": "s"}
-    totduration = {"value": totduration_d.total_seconds(), "unit": "s"}
+                        chunks[event.label]["duration"] += event.duration
+            for k, v in event.keyvals.items():
+                if k not in chunks[event.label]["keyvals"]:
+                    kv_info = {"values": {}}
+                    if event.duration:
+                        kv_info["duration"] = copy(event.duration)
+                    chunks[event.label]["keyvals"][k] = kv_info
+                else:
+                    if event.duration:
+                        if "duration" not in chunks[event.label]["keyvals"][k]:
+                            chunks[event.label]["keyvals"][k]["duration"] = copy(event.duration)
+                        else:
+                            chunks[event.label]["keyvals"][k]["duration"] += event.duration
+                if v not in chunks[event.label]["keyvals"][k]["values"]:
+                    chunks[event.label]["keyvals"][k]["values"][v] = {}
+                    if event.duration:
+                        chunks[event.label]["keyvals"][k]["values"][v]["duration"] = event.duration
+                    else:
+                        chunks[event.label]["keyvals"][k]["values"][v]["duration"] = timedelta()
+                else:
+                    if event.duration:
+                        if "duration" not in chunks[event.label]["keyvals"][k]["values"][v]:
+                            chunks[event.label]["keyvals"][k]["values"][v]["duration"] = event.duration
+                        else:
+                            chunks[event.label]["keyvals"][k]["values"][v]["duration"] += event.duration
     # Package response
     payload = {
         "eventcount": eventcount,

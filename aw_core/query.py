@@ -1,6 +1,6 @@
 from . import transforms
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 
 class QueryException(Exception):
@@ -30,6 +30,10 @@ def bucket_transform(btransform, ds, limit=-1, start=None, end=None):
     return events
 
 
+def _timedelta_to_dict(td: timedelta):
+    return {"value": td.total_seconds(), "unit": "s"}
+
+
 def query(query, ds, limit=-1, start=None, end=None):
     events = []
     if "transforms" not in query:
@@ -39,6 +43,17 @@ def query(query, ds, limit=-1, start=None, end=None):
 
     if "chunk" in query and query["chunk"]:
         result = transforms.chunk(events)
+        # Turn all timedeltas into duration-dicts
+        for label, lv in result["chunks"].items():
+            if "duration" in lv:
+                result["chunks"][label]["duration"] = _timedelta_to_dict(lv["duration"])
+            for key, kv in lv["keyvals"].items():
+                if "duration" in kv:
+                    result["chunks"][label]["keyvals"][key]["duration"] = _timedelta_to_dict(kv["duration"])
+                for value, vv in kv["values"].items():
+                    if "duration" in vv:
+                        result["chunks"][label]["keyvals"][key]["values"][value]["duration"] = _timedelta_to_dict(vv["duration"])
+        result["duration"] = _timedelta_to_dict(result["duration"])
     else:
         result = {}
         result["eventcount"] = len(events)
@@ -47,7 +62,7 @@ def query(query, ds, limit=-1, start=None, end=None):
         for event in events:
             result["duration"] += event.duration
             result["eventlist"].append(event.to_json_dict())
-        result["duration"] = {"value": result["duration"].total_seconds(), "unit": 's'}
+        result["duration"] = _timedelta_to_dict(result["duration"])
     return result
 
 

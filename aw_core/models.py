@@ -49,13 +49,13 @@ class Event(dict):
     """
 
     # TODO: Use JSONSchema as specification
-    # FIXME: tags and label have similar/same meaning, pick one
     # FIXME: Some other databases (such as Zenobase) use tag instead of label, we should consider changing
     ALLOWED_FIELDS = {
         "timestamp": datetime,
         "count": int,
         "duration": timedelta,
         "label": str,
+        "keyvals": dict,
         "note": str,
     }
 
@@ -70,11 +70,7 @@ class Event(dict):
 
         # Set all the kwargs
         for arg in kwargs:
-            # Use the pluralized setter when kwarg value is a list
-            if isinstance(kwargs[arg], list):
-                setattr(self, arg + "s", kwargs[arg])
-            else:
-                setattr(self, arg, kwargs[arg])
+            setattr(self, arg, kwargs[arg])
 
         self.verify()
 
@@ -86,16 +82,6 @@ class Event(dict):
         self._drop_invalid_types()
         self._drop_empty_keys()
 
-    @classmethod
-    def from_json_obj(cls, json_obj: Union[List, Dict]) -> List["Event"]:
-        "Checks if json object is a list or a single event and returns a list of events"
-        if isinstance(json_obj, dict):
-            return [Event(**json_obj)]
-        elif isinstance(json_obj, list):
-            return [Event(**e) for e in json_obj]
-        else:
-            raise TypeError("json_obj was neither a dict nor list: {}".format(json_obj))
-
     def verify(self):
         for k in self.ALLOWED_FIELDS.keys():
             if k in self:
@@ -105,13 +91,16 @@ class Event(dict):
 
     def _drop_invalid_types(self):
         # Check for invalid types
+        invalid_keys = []
         for k in self.keys():
-            for i, v in reversed(list(enumerate(self[k]))):
-                if not isinstance(v, self.ALLOWED_FIELDS[k]):
-                    if v != None: # FIXME: Optionals are invalidly defaulted to None, this is just a workaround so the logs don't get spammed
-                        logger.error("Found value {} in field {} that was not of proper instance ({}, expected: {}). Event: {}"
-                                 .format(v, k, type(v), self.ALLOWED_FIELDS[k], self))
-                    self[k].pop(i)
+            v = self[k]
+            if not isinstance(v, self.ALLOWED_FIELDS[k]):
+                if v != None: # FIXME: Optionals are invalidly defaulted to None, this is just a workaround so the logs don't get spammed
+                    logger.error("Found value {} in field {} that was not of proper instance ({}, expected: {}). Event: {}"
+                             .format(v, k, type(v), self.ALLOWED_FIELDS[k], self))
+                invalid_keys.append(k)
+        for k in invalid_keys:
+            del self[k]
 
     def _drop_empty_keys(self):
         # Drop dict keys whose values are only an empty list
@@ -124,9 +113,9 @@ class Event(dict):
         Any mongodb interop should not use do this as it accepts datetimes."""
         data = self.copy()
         if "timestamp" in data:
-            data["timestamp"] = [dt.astimezone().isoformat() for dt in data["timestamp"]]
+            data["timestamp"] = self["timestamp"].astimezone().isoformat()
         if "duration" in data:
-            data["duration"] = [{"value": td.total_seconds(), "unit": "s"} for td in data["duration"]]
+            data["duration"] = {"value": self["duration"].total_seconds(), "unit": "s"}
         return data
 
     def to_json_str(self) -> str:
@@ -165,68 +154,40 @@ class Event(dict):
 
     @property
     def label(self) -> Optional[str]:
-        return self["label"][0] if self._hasprop("label") else None
+        return self["label"] if self._hasprop("label") else None
 
     @label.setter
     def label(self, label: str) -> None:
-        self["label"] = [label]
+        self["label"] = label
+
+    @property
+    def keyvals(self) -> dict:
+        return self["keyvals"] if self._hasprop("keyvals") else {}
+
+    @keyvals.setter
+    def keyvals(self, keyvals: dict):
+        self["keyvals"] = keyvals
 
     @property
     def timestamp(self) -> Optional[datetime]:
-        return self["timestamp"][0] if self._hasprop("timestamp") else None
+        return self["timestamp"] if self._hasprop("timestamp") else None
 
     @timestamp.setter
     def timestamp(self, timestamp: Union[str, datetime]) -> None:
-        self["timestamp"] = [_timestamp_parse(timestamp)]
+        self["timestamp"] = _timestamp_parse(timestamp)
 
     @property
     def duration(self) -> timedelta:
-        return self["duration"][0] if self._hasprop("duration") else timedelta(0)
+        return self["duration"] if self._hasprop("duration") else timedelta(0)
 
     @duration.setter
     def duration(self, duration: Union[timedelta, dict]) -> None:
-        self["duration"] = [_duration_parse(duration)]
+        self["duration"] = _duration_parse(duration)
 
     @property
     def count(self) -> Optional[int]:
-        return self["count"][0] if self._hasprop("count") else None
+        return self["count"] if self._hasprop("count") else None
 
     @count.setter
     def count(self, count: int) -> None:
-        self["count"] = [count]
-
-    """
-    Below comes all the plural-versions of the above
-    """
-
-    @property
-    def labels(self) -> List[int]:
-        return self["label"] if "label" in self else []
-
-    @labels.setter
-    def labels(self, labels: List[str]) -> None:
-        self["label"] = labels
-
-    @property
-    def timestamps(self) -> List[datetime]:
-        return self["timestamp"] if "timestamp" in self else []
-
-    @timestamps.setter
-    def timestamps(self, timestamps: List[Union[str, datetime]]) -> None:
-        self["timestamp"] = list(map(_timestamp_parse, timestamps))
-
-    @property
-    def durations(self) -> List[timedelta]:
-        return self["duration"] if "duration" in self else []
-
-    @durations.setter
-    def durations(self, durations: List[Union[dict, timedelta]]) -> None:
-        self["duration"] = list(map(_duration_parse, durations))
-
-    @property
-    def counts(self) -> List[int]:
-        return self["count"] if "count" in self else []
-
-    @counts.setter
-    def counts(self, counts: List[int]) -> None:
-        self["count"] = counts
+        self["count"] = count

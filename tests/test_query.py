@@ -153,10 +153,11 @@ def test_query_filter_labels_with_chunking(datastore):
     try:
         bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
         bucket2 = datastore.create_bucket(bucket_id=bid2, type="test", client="test", hostname="test", name=name)
-        e1 = Event(label=["test1"],
+        e1 = Event(label="test1",
                    timestamp=now - timedelta(hours=100),
-                   duration=timedelta(seconds=1))
-        e2 = Event(label=["test2"],
+                   duration=timedelta(seconds=1),
+                   keyvals={"key": "val"})
+        e2 = Event(label="test2",
                    timestamp=now,
                    duration=timedelta(seconds=2))
         bucket1.insert(10 * [e1])
@@ -181,8 +182,8 @@ def test_query_filter_labels_with_chunking(datastore):
         }
         # Test that output is correct
         result = query(example_query, datastore)
-        assert result['chunks']['test1'] == {'other_labels': [], 'duration': {'value': 10, 'unit': 's'}}
-        assert result['chunks']['test2'] == {'other_labels': [], 'duration': {'value': 20, 'unit': 's'}}
+        assert result['chunks']['test1'] == {'duration': {'value': 10.0, 'unit': 's'}, 'keyvals': {'key':{'duration': {'value': 10.0, 'unit': 's'}, 'values': {'val': {'duration': {'value': 10.0, 'unit': 's'}}}}}}
+        assert result['chunks']['test2'] == {'duration': {'value': 20.0, 'unit': 's'}, "keyvals": {}}
         assert result['duration'] == {'value': 30, 'unit': 's'}
         # Test that limit works
         assert 1 == query(example_query, datastore, limit=1)["eventcount"]
@@ -208,13 +209,13 @@ def test_query_filter_labels(datastore):
         bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
         bucket2 = datastore.create_bucket(bucket_id=bid2, type="test", client="test", hostname="test", name=name)
         currtime = datetime.now(timezone.utc)
-        e1 = Event(label=["test1"],
+        e1 = Event(label="test1",
                    timestamp=currtime,
                    duration=timedelta(seconds=1))
-        e2 = Event(label=["test2"],
+        e2 = Event(label="test2",
                    timestamp=currtime + timedelta(seconds=2),
                    duration=timedelta(seconds=1))
-        et = Event(label=["intersect-label"],
+        et = Event(label="intersect-label",
                    timestamp=currtime,
                    duration=timedelta(seconds=1))
 

@@ -68,32 +68,30 @@ class MongoDBStorage(AbstractStorage):
                    starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
         query_filter = {}  # type: Dict[str, dict]
         if starttime or endtime:
-            query_filter["timestamp.0"] = {}
+            query_filter["timestamp"] = {}
             if starttime:
-                query_filter["timestamp.0"]["$gt"] = starttime
+                query_filter["timestamp"]["$gt"] = starttime
             if endtime:
-                query_filter["timestamp.0"]["$lt"] = endtime
+                query_filter["timestamp"]["$lt"] = endtime
 
         if limit == 0:
             return []
         if limit < 0:
             limit = 10**9
-        ds_events = list(self.db[bucket_id]["events"].find(query_filter).sort([("timestamp.0", -1)]).limit(limit))
+        ds_events = list(self.db[bucket_id]["events"].find(query_filter).sort([("timestamp", -1)]).limit(limit))
 
         events = []
         for event in ds_events:
             event.pop('_id')
             # Required since MongoDB doesn't handle timezones
-            event["timestamp"] = [t.replace(tzinfo=timezone.utc) for t in event["timestamp"]]
+            event["timestamp"] = event["timestamp"].replace(tzinfo=timezone.utc)
             event = Event(**event)
             events.append(event)
         return events
 
     def _transform_event(self, event: dict) -> dict:
         if "duration" in event:
-            event["duration"] = [{"value": td.total_seconds(), "unit": "s"} for td in event["duration"]]
-        if "timestamp" in event:
-            event["timestamp"] = [iso8601.parse_date(t) if type(t) == str else t for t in event["timestamp"]]
+            event["duration"] = {"value": event["duration"].total_seconds(), "unit": "s"}
         return event
 
     def insert_one(self, bucket: str, event: Event):
