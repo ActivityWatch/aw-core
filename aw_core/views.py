@@ -28,6 +28,7 @@ def create_view(view):
     view: {
         "name": 'viewname'
         "transforms": [btransform],
+        "cache": true/false,
         "chunk": true/false,
         "created": date,
     }
@@ -42,11 +43,13 @@ def get_view_cache_directory(viewname, dsname):
     cache_dir = os.path.join(cache_dir, viewname)
     return cache_dir
 
+
 def get_view_cache_file(viewname, ds, start, end):
     cache_filename = "{} to {}".format(start, end)
     cache_dir = get_view_cache_directory(viewname, ds.storage_strategy.sid)
     cache_file = os.path.join(cache_dir, cache_filename)
     return cache_file
+
 
 def get_cached_query(viewname, ds, start, end):
     cache_file = get_view_cache_file(viewname, ds, start, end)
@@ -57,6 +60,7 @@ def get_cached_query(viewname, ds, start, end):
     else:
         return None
 
+
 def cache_query(data, viewname, ds, start, end):
     cache_file = get_view_cache_file(viewname, ds, start, end)
     print("Caching query {}".format(cache_file))
@@ -64,19 +68,23 @@ def cache_query(data, viewname, ds, start, end):
         json.dump(data, f)
 
 
-
 def query_view(viewname, ds, limit=-1, start=None, end=None):
-    if end < datetime.now(timezone.utc):
-        cached_result = get_cached_query(viewname, ds, start, end)
-        if cached_result:
-            return cached_result
+    print(views[viewname])
+    if views[viewname]["query"]["cache"]:
+        if end < datetime.now(timezone.utc):
+            cached_result = get_cached_query(viewname, ds, start, end)
+            if cached_result:
+                return cached_result
     result = query(views[viewname]["query"], ds, limit, start, end)
-    if end < datetime.now(timezone.utc):
-        cache_query(result, viewname, ds, start, end)
+    if views[viewname]["query"]["cache"]:
+        if end < datetime.now(timezone.utc):
+            cache_query(result, viewname, ds, start, end)
     return result
+
 
 def get_views():
     return [view for view in views]
+
 
 def get_view(viewname):
     if viewname in views:
