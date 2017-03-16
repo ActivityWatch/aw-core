@@ -145,7 +145,7 @@ def chunk(events: List[Event]) -> dict:
                         chunks[event.label]["duration"] += event.duration
             for k, v in event.keyvals.items():
                 if k not in chunks[event.label]["keyvals"]:
-                    kv_info = {"values": {}}
+                    kv_info = {"values": {}} # type: dict
                     if event.duration:
                         kv_info["duration"] = copy(event.duration)
                     chunks[event.label]["keyvals"][k] = kv_info
