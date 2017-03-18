@@ -7,7 +7,7 @@ import pytest
 from . import context
 
 from aw_core.models import Event
-from aw_datastore import get_storage_method_names
+from aw_datastore import get_storage_methods
 
 from .utils import param_datastore_objects, param_testing_buckets_cm
 
@@ -18,8 +18,8 @@ logging.basicConfig(level=logging.DEBUG)
 now = datetime.now(timezone.utc)
 
 
-def test_get_storage_method_names():
-    assert get_storage_method_names()
+def test_get_storage_methods():
+    assert get_storage_methods()
 
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
