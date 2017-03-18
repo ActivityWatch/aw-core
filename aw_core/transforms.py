@@ -124,7 +124,7 @@ def exclude_labels(events, labels):
     return filtered_events
 
 
-def chunk(events: List[Event]) -> dict:
+def full_chunk(events: List[Event]) -> dict:
     eventcount = 0
     chunks = dict()  # type: Dict[str, Any]
     totduration = timedelta();
@@ -167,6 +167,33 @@ def chunk(events: List[Event]) -> dict:
                             chunks[event.label]["keyvals"][k]["values"][v]["duration"] = event.duration
                         else:
                             chunks[event.label]["keyvals"][k]["values"][v]["duration"] += event.duration
+    # Package response
+    payload = {
+        "eventcount": eventcount,
+        "duration": totduration,
+        "chunks": chunks,
+    }
+    return payload
+
+def label_chunk(events: List[Event]) -> dict:
+    eventcount = 0
+    chunks = dict()  # type: Dict[str, Any]
+    totduration = timedelta();
+    for event in events:
+        eventcount += 1
+        if event.duration:
+            totduration += event.duration
+        if event.label:
+            if event.label not in chunks:
+                chunks[event.label] = {"keyvals": {}}
+                if event.duration:
+                    chunks[event.label]["duration"] = copy(event.duration)
+            else:
+                if event.duration:
+                    if "duration" not in chunks[event.label]:
+                        chunks[event.label]["duration"] = copy(event.duration)
+                    else:
+                        chunks[event.label]["duration"] += event.duration
     # Package response
     payload = {
         "eventcount": eventcount,

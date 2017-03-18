@@ -31,7 +31,7 @@ def create_view(view):
         "name": 'viewname'
         "transforms": [btransform],
         "cache": true/false,
-        "chunk": true/false,
+        "chunk": full/label/false,
         "created": date,
     }
     """

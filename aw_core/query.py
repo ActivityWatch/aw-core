@@ -42,18 +42,9 @@ def query(query, ds, limit=-1, start=None, end=None):
         events += bucket_transform(transform, ds, limit, start, end)
 
     if "chunk" in query and query["chunk"]:
-        result = transforms.chunk(events)
-        # Turn all timedeltas into duration-dicts
-        for label, lv in result["chunks"].items():
-            if "duration" in lv:
-                result["chunks"][label]["duration"] = _timedelta_to_dict(lv["duration"])
-            for key, kv in lv["keyvals"].items():
-                if "duration" in kv:
-                    result["chunks"][label]["keyvals"][key]["duration"] = _timedelta_to_dict(kv["duration"])
-                for value, vv in kv["values"].items():
-                    if "duration" in vv:
-                        result["chunks"][label]["keyvals"][key]["values"][value]["duration"] = _timedelta_to_dict(vv["duration"])
-        result["duration"] = _timedelta_to_dict(result["duration"])
+        if query["chunk"] not in chunkers:
+            raise QueryException("Query has a invalid chunking method: {}".format(query["chunk"]))
+        result = chunkers[query["chunk"]](events)
     else:
         result = {}
         result["eventcount"] = len(events)
@@ -65,6 +56,41 @@ def query(query, ds, limit=-1, start=None, end=None):
         result["duration"] = _timedelta_to_dict(result["duration"])
     return result
 
+
+"""
+
+CHUNKERS
+
+"""
+
+def full_chunk(events):
+    result = transforms.full_chunk(events)
+    # Turn all timedeltas into duration-dicts
+    for label, lv in result["chunks"].items():
+        if "duration" in lv:
+            result["chunks"][label]["duration"] = _timedelta_to_dict(lv["duration"])
+        for key, kv in lv["keyvals"].items():
+            if "duration" in kv:
+                result["chunks"][label]["keyvals"][key]["duration"] = _timedelta_to_dict(kv["duration"])
+            for value, vv in kv["values"].items():
+                if "duration" in vv:
+                    result["chunks"][label]["keyvals"][key]["values"][value]["duration"] = _timedelta_to_dict(vv["duration"])
+    result["duration"] = _timedelta_to_dict(result["duration"])
+    return result
+
+def label_chunk(events):
+    result = transforms.label_chunk(events)
+    # Turn all timedeltas into duration-dicts
+    for label, lv in result["chunks"].items():
+        if "duration" in lv:
+            result["chunks"][label]["duration"] = _timedelta_to_dict(lv["duration"])
+    result["duration"] = _timedelta_to_dict(result["duration"])
+    return result
+
+chunkers = {
+    'label': label_chunk,
+    'full': full_chunk,
+}
 
 """
 
