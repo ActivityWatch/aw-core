@@ -4,7 +4,7 @@ import json
 import os
 import logging
 
-from peewee import Model, CharField, DateTimeField
+from peewee import Model, CharField, DateTimeField, Database
 from playhouse.sqlite_ext import SqliteExtDatabase
 
 from aw_core.models import Event
@@ -24,7 +24,7 @@ class BaseModel(Model):
     class Meta:
         # The following is set in the PeeweeStorage constructor (`BaseModel._meta.database`)
         # See: https://peewee.readthedocs.io/en/latest/peewee/models.html#model-options-and-table-metadata
-        database = None
+        database = None  # type: Database
 
 
 class BucketModel(BaseModel):
