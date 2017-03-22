@@ -32,6 +32,21 @@ class ChunkTest(unittest.TestCase):
         assert res['chunks']['test']['keyvals']['key1']['values']['val3']['duration'] == timedelta(seconds=eventcount/4)
 
 
+    def test_chunk_label(self):
+        eventcount = 8
+        events = []
+        for i in range(eventcount):
+            events.append(Event(label="test",
+                                timestamp=datetime.now(timezone.utc) + timedelta(seconds=i),
+                                duration=timedelta(seconds=1)))
+        res = label_chunk(events)
+        logging.debug(res)
+        assert res['eventcount'] == eventcount
+        assert res['duration'] == timedelta(seconds=eventcount)
+        print(res)
+        assert res['chunks']['test']['duration'] == timedelta(seconds=eventcount)
+
+
 class IncludeLabelsTest(unittest.TestCase):
     def test_include_labels(self):
         labels = ["a","c"]
