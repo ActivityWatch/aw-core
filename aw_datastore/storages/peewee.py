@@ -4,7 +4,7 @@ import json
 import os
 import logging
 
-from peewee import Model, CharField, DateTimeField
+from peewee import Model, CharField, DateTimeField, Database
 from playhouse.sqlite_ext import SqliteExtDatabase
 
 from aw_core.models import Event
@@ -12,9 +12,6 @@ from aw_core.dirs import get_data_dir
 
 from . import logger
 from .abstract import AbstractStorage
-
-# TODO: Make dependent on testing variable in constructor
-db = SqliteExtDatabase(os.path.join(get_data_dir("aw-server"), 'peewee-sqlite.db'))
 
 logger = logger.getChild("peewee")
 
@@ -25,7 +22,9 @@ peewee_logger.setLevel(logging.INFO)
 
 class BaseModel(Model):
     class Meta:
-        database = db
+        # The following is set in the PeeweeStorage constructor (`BaseModel._meta.database`)
+        # See: https://peewee.readthedocs.io/en/latest/peewee/models.html#model-options-and-table-metadata
+        database = None  # type: Database
 
 
 class BucketModel(BaseModel):
@@ -60,6 +59,15 @@ class PeeweeStorage(AbstractStorage):
 
     def __init__(self, testing):
         self.logger = logger.getChild(self.sid)
+
+        filename = 'peewee-sqlite' + ('-testing' if testing else '') + '.db'
+        self.db = SqliteExtDatabase(os.path.join(get_data_dir("aw-server"), filename))
+
+        # It's not beautiful, but it works.
+        BaseModel._meta.database = self.db
+        BucketModel._meta.database = self.db
+        EventModel._meta.database = self.db
+
         # db.connect()
 
         if not BucketModel.table_exists():
@@ -93,7 +101,7 @@ class PeeweeStorage(AbstractStorage):
                         "timestamp": event.timestamp,
                         "jsonstr": event.to_json_str()}
                        for event in events]
-        with db.atomic():
+        with self.db.atomic():
             EventModel.insert_many(events_dict).execute()
 
     def _get_last(self, bucket_id, event):
