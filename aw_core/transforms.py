@@ -159,8 +159,6 @@ def full_chunk(events: List[Event]) -> dict:
                     chunks[event.label]["keyvals"][k]["values"][v] = {}
                     if event.duration:
                         chunks[event.label]["keyvals"][k]["values"][v]["duration"] = event.duration
-                    else:
-                        chunks[event.label]["keyvals"][k]["values"][v]["duration"] = timedelta()
                 else:
                     if event.duration:
                         if "duration" not in chunks[event.label]["keyvals"][k]["values"][v]:
