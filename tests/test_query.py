@@ -21,7 +21,7 @@ def test_query_unspecified_bucket(datastore):
         Asserts that a exception is raised when a query doesn't have a specified bucket
     """
     example_query = {
-        'chunk': True,
+        'chunk': 'full',
         'transforms': [{}]
     }
     # Query and handle QueryException
@@ -35,7 +35,7 @@ def test_query_invalid_bucket(datastore):
         Asserts that a exception is raised when a query has specified a bucket that is not a string
     """
     example_query = {
-        'chunk': True,
+        'chunk': 'full',
         'transforms': [{
             'bucket': 123,
         }]
@@ -52,7 +52,7 @@ def test_query_nonexisting_bucket(datastore):
     """
     print(datastore)
     example_query = {
-        'chunk': True,
+        'chunk': 'full',
         'transforms': [{
             'bucket': "There is no bucket with this name",
         }]
@@ -77,7 +77,7 @@ def test_query_unspecified_filter(datastore):
     try:
         bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
         example_query = {
-            'chunk': True,
+            'chunk': 'full',
             'transforms': [{
                 'bucket': bid1,
                 'filters': [{}],
@@ -100,7 +100,7 @@ def test_query_invalid_filter(datastore):
     try:
         bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
         example_query = {
-            'chunk': True,
+            'chunk': 'full',
             'transforms': [{
                 'bucket': bid1,
                 'filters': [{
@@ -125,7 +125,7 @@ def test_query_nonexisting_filter(datastore):
     try:
         bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
         example_query = {
-            'chunk': True,
+            'chunk': 'full',
             'transforms': [{
                 'bucket': bid1,
                 'filters': [{
@@ -165,7 +165,7 @@ def test_query_filter_labels_with_chunking(datastore):
         bucket2.insert(5 * [e1])
         bucket2.insert(10 * [e2])
         example_query = {
-            'chunk': True,
+            'chunk': 'full',
             'transforms': [{
                 'bucket': bid1,
                 'filters': [{
@@ -223,7 +223,6 @@ def test_query_filter_labels(datastore):
         bucket1.insert(e2)
         bucket2.insert(et)
         example_query = {
-            'chunk': False,
             'transforms': [{
                 'bucket': bid1,
                 'filters': [{

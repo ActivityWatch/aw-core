@@ -30,7 +30,7 @@ def test_view(datastore):
             'name': 'exview',
             'created': '2016-09-03',
             'query': {
-                'chunk': True,
+                'chunk': 'full',
                 'cache': True,
                 'transforms': [
                     {

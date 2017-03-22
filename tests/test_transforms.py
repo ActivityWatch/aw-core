@@ -3,13 +3,13 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from aw_core.models import Event
-from aw_core.transforms import chunk, filter_period_intersect, include_labels, exclude_labels
+from aw_core.transforms import full_chunk, label_chunk, filter_period_intersect, include_labels, exclude_labels
 
 
 class ChunkTest(unittest.TestCase):
     # Tests the chunk transform
 
-    def test_chunk(self):
+    def test_chunk_full(self):
         eventcount = 8
         events = []
         for i in range(eventcount):
@@ -17,7 +17,7 @@ class ChunkTest(unittest.TestCase):
                                 keyvals={"key"+str(i%2): "val"+str(i%4)},
                                 timestamp=datetime.now(timezone.utc) + timedelta(seconds=i),
                                 duration=timedelta(seconds=1)))
-        res = chunk(events)
+        res = full_chunk(events)
         logging.debug(res)
         assert res['eventcount'] == eventcount
         assert res['duration'] == timedelta(seconds=eventcount)
