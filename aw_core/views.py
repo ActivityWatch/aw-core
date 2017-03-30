@@ -74,13 +74,13 @@ def get_view_cache_file(viewname, ds, start, end):
 
 
 def get_cached_query(viewname, ds, start, end):
-    cache_file = get_view_cache_file(viewname, ds, start, end)
-    if os.path.isfile(cache_file):
-        logger.debug("Retrieving cached query {}".format(cache_file))
-        with open(cache_file, 'r') as f:
-            return json.load(f)
-    else:
-        return None
+    if end and end < datetime.now(timezone.utc):
+        cache_file = get_view_cache_file(viewname, ds, start, end)
+        if os.path.isfile(cache_file):
+            logger.debug("Retrieving cached query {}".format(cache_file))
+            with open(cache_file, 'r') as f:
+                return json.load(f)
+    return None
 
 
 def cache_query(data, viewname, ds, start, end):
@@ -89,31 +89,40 @@ def cache_query(data, viewname, ds, start, end):
     with open(cache_file, 'w') as f:
         json.dump(data, f)
 
-
 def query_view(viewname, ds, limit=-1, start=None, end=None):
     view = views[viewname]
-    if view["query"]["cache"]:
-        if end and end < datetime.now(timezone.utc):
-            cached_result = get_cached_query(viewname, ds, start, end)
-            if cached_result:
-                return cached_result
-
+    # Check if query should be cached
+    cache = False
+    if "cache" in view["query"] and view["query"]["cache"]:
+        cache = True
+    # Check if query already is cached
+    if cache:
+        cached_result = get_cached_query(viewname, ds, start, end)
+        if cached_result:
+            return cached_result
+    # Do query
+    if "type" not in view:
+        raise ViewException("View type unspecified")
     if view["type"] == "bucket":
         result = query(view["query"], ds, limit, start, end)
     elif view["type"] == "view":
-        viewname = view["query"]["viewname"]
-        for q in view["query"]["queries"]:
-            limit = query["limit"] if "limit" in q else -1
-            start = query["start"] if "start" in q else None
-            end   = query["end"] if "end" in q else None
-            result = query_view(viewname, ds, limit, start, end)
+        query_multiview(viewname, ds, limit, start, end)
     else:
-        raise ViewException("View type invalid or unspecified")
-
-    if view["query"]["cache"]:
+        raise ViewException("View type invalid")
+    # Cache result
+    if cache:
         if end and end < datetime.now(timezone.utc):
             cache_query(result, viewname, ds, start, end)
     return result
+
+
+def query_multiview(viewname, ds, limit, start, end):
+    viewname = view["query"]["viewname"]
+    for q in view["query"]["queries"]:
+        limit = query["limit"] if "limit" in q else -1
+        start = query["start"] if "start" in q else None
+        end   = query["end"] if "end" in q else None
+        result = query_view(viewname, ds, limit, start, end)
 
 
 def get_views():
