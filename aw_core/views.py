@@ -17,26 +17,46 @@ def create_view(view):
         **** PARAMETERS ****
     }
     'label_include':
-        {'labels': [labels]},
+        {'labels': [labels]}
     'label_exclude':
-        {'labels': [labels]},
+        {'labels': [labels]}
     'timeperiod_intersect':
-        {'transforms': [btransform]},
+        {'transforms': [btransform]}
 
-    btransform: {
+    buckettransform: {
         'bucket': 'bucketname',
         'filters': [filter],
     }
+
+    viewquery{
+        "limit": -1,
+        "start": None,
+        "end": None,
+    }
+
+    viewtransform: {
+        view: 'viewname',
+        queries: [
+            viewquery
+        ]
+    }
+
+    "transforms": [
+        btransform/viewtransform
+    ]
+
     view: {
-        "name": 'viewname'
-        "transforms": [btransform],
+        "name": 'viewname',
         "cache": true/false,
         "chunk": full/label/false,
-        "created": date,
+        "type": 'view'/'bucket',
+        "query": transforms,
     }
     """
     views[view["name"]] = view
 
+class ViewException(Exception):
+    pass
 
 @dirs.ensure_returned_path_exists
 def get_view_cache_directory(viewname, dsname):
@@ -71,13 +91,26 @@ def cache_query(data, viewname, ds, start, end):
 
 
 def query_view(viewname, ds, limit=-1, start=None, end=None):
-    if views[viewname]["query"]["cache"]:
+    view = views["viewname"]
+    if view["query"]["cache"]:
         if end and end < datetime.now(timezone.utc):
             cached_result = get_cached_query(viewname, ds, start, end)
             if cached_result:
                 return cached_result
-    result = query(views[viewname]["query"], ds, limit, start, end)
-    if views[viewname]["query"]["cache"]:
+
+    if view["type"] == "bucket":
+        result = query(view["query"], ds, limit, start, end)
+    elif view["type"] == "view":
+        viewname = view["query"]["viewname"]
+        for query in view["query"]["queries"]:
+            limit = query["limit"] if "limit" in query else -1
+            start = query["start"] if "start" in query else None
+            end   = query["end"] if "end" in query else None
+            result = query_view(viewname, ds, limit, start, end)
+    else:
+        raise ViewException("View type invalid or unspecified")
+
+    if view["query"]["cache"]:
         if end and end < datetime.now(timezone.utc):
             cache_query(result, viewname, ds, start, end)
     return result
