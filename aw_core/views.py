@@ -91,7 +91,7 @@ def cache_query(data, viewname, ds, start, end):
 
 
 def query_view(viewname, ds, limit=-1, start=None, end=None):
-    view = views["viewname"]
+    view = views[viewname]
     if view["query"]["cache"]:
         if end and end < datetime.now(timezone.utc):
             cached_result = get_cached_query(viewname, ds, start, end)
@@ -102,10 +102,10 @@ def query_view(viewname, ds, limit=-1, start=None, end=None):
         result = query(view["query"], ds, limit, start, end)
     elif view["type"] == "view":
         viewname = view["query"]["viewname"]
-        for query in view["query"]["queries"]:
-            limit = query["limit"] if "limit" in query else -1
-            start = query["start"] if "start" in query else None
-            end   = query["end"] if "end" in query else None
+        for q in view["query"]["queries"]:
+            limit = query["limit"] if "limit" in q else -1
+            start = query["start"] if "start" in q else None
+            end   = query["end"] if "end" in q else None
             result = query_view(viewname, ds, limit, start, end)
     else:
         raise ViewException("View type invalid or unspecified")
