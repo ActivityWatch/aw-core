@@ -67,7 +67,7 @@ def get_view_cache_directory(viewname, dsname):
 
 
 def get_view_cache_file(viewname, ds, start, end):
-    cache_filename = "{} to {}".format(start, end)
+    cache_filename = "{}_to_{}".format(start, end)
     cache_dir = get_view_cache_directory(viewname, ds.storage_strategy.sid)
     cache_file = os.path.join(cache_dir, cache_filename)
     return cache_file
