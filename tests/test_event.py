@@ -11,7 +11,7 @@ valid_timestamp="1937-01-01T12:00:27.87+00:20"
 
 class EventTest(unittest.TestCase):
     def test_create(self):
-        Event(label="test", timestamp=datetime.now(timezone.utc), duration=timedelta(hours=13, minutes=37), keyvals={"key": "val"})
+        Event(label="test", timestamp=datetime.now(timezone.utc), duration=timedelta(hours=13, minutes=37), keyvals={"key": "val"}, count=1)
 
     def test_invalid_type(self):
         e = Event(label=1, timestamp=datetime.now(timezone.utc))
@@ -23,8 +23,15 @@ class EventTest(unittest.TestCase):
         # Invalid field should be dropped
         assert "invalid_field" not in e
 
+    def test_invalid_type(self):
+        e = Event(label="a", timestamp=datetime.now(timezone.utc))
+        assert True == e.verify()
+        e.count = "a"
+        assert False == e.verify()
+
+
     def test_json_serialization(self):
-        e = Event(label="test", timestamp=datetime.now(timezone.utc), duration=timedelta(hours=13, minutes=37), keyvals={"key": "val"})
+        e = Event(label="test", timestamp=datetime.now(timezone.utc), duration=timedelta(hours=13, minutes=37), keyvals={"key": "val"}, count=1)
         json_str = e.to_json_str()
         logging.error(json_str)
         assert e == Event(**json.loads(json_str))

@@ -72,22 +72,24 @@ class Event(dict):
         for arg in kwargs:
             setattr(self, arg, kwargs[arg])
 
-        self.verify()
-
         if not self.timestamp:
             logger.warning("Event did not have a timestamp, using now as timestamp")
             # The typing.cast here was required for mypy to shut up, weird...
             self.timestamp = datetime.now(typing.cast(timezone, timezone.utc))
 
-        self._drop_invalid_types()
-        self._drop_empty_keys()
+        self.verify()
+
 
     def verify(self):
+        success = True
         for k in self.ALLOWED_FIELDS.keys():
             if k in self:
                 t = type(getattr(self, k))
-                if t != self.ALLOWED_FIELDS[k] and isinstance(t, type(None)):
+                if t != self.ALLOWED_FIELDS[k] and not isinstance(t, type(None)):
+                    success = False
                     logger.warning("Event from models.py was unable to set attribute {} to correct type\n Supposed to be {}, while actual is {}".format(k, self.ALLOWED_FIELDS[k], type(getattr(self, k))))
+        self._drop_invalid_types()
+        return success
 
     def _drop_invalid_types(self):
         # Check for invalid types
@@ -102,18 +104,11 @@ class Event(dict):
         for k in invalid_keys:
             del self[k]
 
-    def _drop_empty_keys(self):
-        # Drop dict keys whose values are only an empty list
-        for k in list(self.keys()):
-            if not self[k]:
-                del self[k]
-
     def to_json_dict(self) -> dict:
         """Useful when sending data over the wire.
         Any mongodb interop should not use do this as it accepts datetimes."""
         data = self.copy()
-        if "timestamp" in data:
-            data["timestamp"] = self["timestamp"].astimezone().isoformat()
+        data["timestamp"] = self["timestamp"].astimezone().isoformat()
         if "duration" in data:
             data["duration"] = {"value": self["duration"].total_seconds(), "unit": "s"}
         return data
