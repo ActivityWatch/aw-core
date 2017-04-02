@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timezone
 
 from .query import query
+from .transforms import merge_queries
 from aw_core import dirs
 
 logger = logging.getLogger("aw.core.views")
@@ -29,7 +30,6 @@ def create_view(view):
     }
 
     viewquery{
-        "limit": -1,
         "start": None,
         "end": None,
     }
@@ -87,7 +87,9 @@ def cache_query(data, viewname, ds, start, end):
         json.dump(data, f)
 
 
-def query_view(viewname, ds, limit=-1, start=None, end=None):
+def query_view(viewname, ds, start=None, end=None):
+    if viewname not in views:
+        raise ViewException("Tried to query non-existing view named {}".format(viewname))
     view = views[viewname]
     # Check if query should be cached
     cache = False
@@ -99,7 +101,7 @@ def query_view(viewname, ds, limit=-1, start=None, end=None):
         if cached_result:
             return cached_result
     # Do query
-    result = query(view["query"], ds, limit, start, end)
+    result = query(view["query"], ds, -1, start, end)
     # Cache result
     if cache:
         if end and end < datetime.now(timezone.utc):
@@ -107,13 +109,22 @@ def query_view(viewname, ds, limit=-1, start=None, end=None):
     return result
 
 
-def query_multiview(viewname, ds, limit, start, end):
-    viewname = view["query"]["viewname"]
-    for q in view["query"]["queries"]:
-        limit = query["limit"] if "limit" in q else -1
-        start = query["start"] if "start" in q else None
-        end   = query["end"] if "end" in q else None
-        result = query_view(viewname, ds, limit, start, end)
+def query_multiview(viewname, ds, starts=[], ends=[]):
+    if viewname not in views:
+        raise ViewException("Tried to query non-existing view named {}".format(viewname))
+    view = views[viewname]
+    if len(starts) != len(ends):
+        raise ViewException("query_multiview call has more start points than endpoints")
+
+    q = view["query"]
+    result = None
+    for i in range(len(starts)):
+        next_result = query_view(viewname, ds, starts[i], ends[i])
+        if not result:
+            result = next_result
+        else:
+            result = merge_queries(result, next_result)
+    return result
 
 
 def get_views():

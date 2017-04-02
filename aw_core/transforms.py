@@ -173,6 +173,7 @@ def full_chunk(events: List[Event]) -> dict:
     }
     return payload
 
+
 def label_chunk(events: List[Event]) -> dict:
     eventcount = 0
     chunks = dict()  # type: Dict[str, Any]
@@ -199,4 +200,50 @@ def label_chunk(events: List[Event]) -> dict:
         "chunks": chunks,
     }
     return payload
+
+
+def merge_chunks(chunk1, chunk2):
+    result = {}
+    for label in set(chunk1.keys()).union(set(chunk2.keys())):
+        if label in chunk1 and label in chunk2:
+            result[label] = {}
+            c1kv = chunk1[label]["keyvals"]
+            c2kv = chunk2[label]["keyvals"]
+            for key in set(c1kv.keys()).union(set(c2kv.keys())):
+                if key in c1kv and key in c2kv:
+                    result[label]["keyvals"][key] = {
+                        "duration": c1kv["duration"] + c2kv["duration"]
+                    }
+                elif key in c1kv:
+                    result[label]["keyvals"][key] = c1kv[key]
+                else:
+                    result[label]["keyvals"][key] = c2kv[key]
+        elif label in chunk1:
+            result[label] = chunk1[label]
+        else:
+            result[label] = chunk2[label]
+
+
+    return result
+
+
+def merge_queries(q1, q2):
+    result = {}
+    # Eventcount
+    result["eventcount"] = q1["eventcount"] + q2["eventcount"]
+    # Duration
+    d1 = q1["duration"]
+    if type(d1) is dict:
+        d1 = timedelta(seconds=d1["value"])
+    d2 = q2["duration"]
+    if type(d2) is dict:
+        d2 = timedelta(seconds=d2["value"])
+    result["duration"] = d1 + d2
+    # Data (eventlist/chunks)
+    if "chunks" in q1 and "chunks" in q2:
+        result["chunks"] = merge_chunks(q1["chunks"], q2["chunks"])
+    if "eventlist" in q1 and "eventlist" in q2:
+        result["eventlist"] = q1["eventlist"] + q2["eventlist"]
+    return result
+
 
