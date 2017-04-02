@@ -141,7 +141,7 @@ def test_query_nonexisting_filter(datastore):
 
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
-def test_query_filter_labels_with_chunking(datastore):
+def test_query_filter_labels_with_full_chunking(datastore):
     """
         Test include/exclude label filters as well as eventcount limit and start/end filtering
     """
@@ -184,6 +184,62 @@ def test_query_filter_labels_with_chunking(datastore):
         result = query(example_query, datastore)
         assert result['chunks']['test1'] == {'duration': {'value': 10.0, 'unit': 's'}, 'keyvals': {'key':{'duration': {'value': 10.0, 'unit': 's'}, 'values': {'val': {'duration': {'value': 10.0, 'unit': 's'}}}}}}
         assert result['chunks']['test2'] == {'duration': {'value': 20.0, 'unit': 's'}, "keyvals": {}}
+        assert result['duration'] == {'value': 30, 'unit': 's'}
+        # Test that limit works
+        assert 1 == query(example_query, datastore, limit=1)["eventcount"]
+        # Test that starttime works
+        assert 10 == query(example_query, datastore, start=now - timedelta(hours=1))["eventcount"]
+        # Test that endtime works
+        assert 10 == query(example_query, datastore, end=now - timedelta(hours=1))["eventcount"]
+    finally:
+        datastore.delete_bucket(bid1)
+        datastore.delete_bucket(bid2)
+
+
+@pytest.mark.parametrize("datastore", param_datastore_objects())
+def test_query_filter_labels_with_label_chunking(datastore):
+    """
+        Test include/exclude label filters as well as eventcount limit and start/end filtering
+    """
+    print(type(datastore.storage_strategy))
+    name = "A label/name for a test bucket"
+    bid1 = "bucket1"
+    bid2 = "bucket2"
+    now = datetime.now(timezone.utc)
+    try:
+        bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
+        bucket2 = datastore.create_bucket(bucket_id=bid2, type="test", client="test", hostname="test", name=name)
+        e1 = Event(label="test1",
+                   timestamp=now - timedelta(hours=100),
+                   duration=timedelta(seconds=1),
+                   keyvals={"key": "val"})
+        e2 = Event(label="test2",
+                   timestamp=now,
+                   duration=timedelta(seconds=2))
+        bucket1.insert(10 * [e1])
+        bucket1.insert(5 * [e2])
+        bucket2.insert(5 * [e1])
+        bucket2.insert(10 * [e2])
+        example_query = {
+            'chunk': 'label',
+            'transforms': [{
+                'bucket': bid1,
+                'filters': [{
+                    'name': 'include_labels',
+                    'labels': ['test1'],
+                }]
+            }, {
+                'bucket': bid2,
+                'filters': [{
+                    'name': 'exclude_labels',
+                    'labels': ['test1'],
+                }],
+            }]
+        }
+        # Test that output is correct
+        result = query(example_query, datastore)
+        assert result['chunks']['test1'] == {'duration': {'value': 10.0, 'unit': 's'}}
+        assert result['chunks']['test2'] == {'duration': {'value': 20.0, 'unit': 's'}}
         assert result['duration'] == {'value': 30, 'unit': 's'}
         # Test that limit works
         assert 1 == query(example_query, datastore, limit=1)["eventcount"]

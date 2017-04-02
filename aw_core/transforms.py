@@ -184,7 +184,7 @@ def label_chunk(events: List[Event]) -> dict:
             totduration += event.duration
         if event.label:
             if event.label not in chunks:
-                chunks[event.label] = {"keyvals": {}}
+                chunks[event.label] = {}
                 if event.duration:
                     chunks[event.label]["duration"] = copy(event.duration)
             else:
