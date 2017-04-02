@@ -29,7 +29,6 @@ def test_view(datastore):
         example_view = {
             'name': 'exview',
             'created': '2016-09-03',
-            'type': 'bucket',
             'query': {
                 'chunk': 'full',
                 'cache': True,

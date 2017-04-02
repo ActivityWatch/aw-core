@@ -34,13 +34,6 @@ def create_view(view):
         "end": None,
     }
 
-    viewtransform: {
-        view: 'viewname',
-        queries: [
-            viewquery
-        ]
-    }
-
     "transforms": [
         btransform/viewtransform
     ]
@@ -67,6 +60,10 @@ def get_view_cache_directory(viewname, dsname):
 
 
 def get_view_cache_file(viewname, ds, start, end):
+    if start:
+        start = start.strftime("%Y-%m-%dT%H:%m:%SZ")
+    if end:
+        end   = end.strftime("%Y-%m-%dT%H:%m:%SZ")
     cache_filename = "{}_to_{}".format(start, end)
     cache_dir = get_view_cache_directory(viewname, ds.storage_strategy.sid)
     cache_file = os.path.join(cache_dir, cache_filename)
@@ -89,6 +86,7 @@ def cache_query(data, viewname, ds, start, end):
     with open(cache_file, 'w') as f:
         json.dump(data, f)
 
+
 def query_view(viewname, ds, limit=-1, start=None, end=None):
     view = views[viewname]
     # Check if query should be cached
@@ -101,14 +99,7 @@ def query_view(viewname, ds, limit=-1, start=None, end=None):
         if cached_result:
             return cached_result
     # Do query
-    if "type" not in view:
-        raise ViewException("View type unspecified")
-    if view["type"] == "bucket":
-        result = query(view["query"], ds, limit, start, end)
-    elif view["type"] == "view":
-        query_multiview(viewname, ds, limit, start, end)
-    else:
-        raise ViewException("View type invalid")
+    result = query(view["query"], ds, limit, start, end)
     # Cache result
     if cache:
         if end and end < datetime.now(timezone.utc):
