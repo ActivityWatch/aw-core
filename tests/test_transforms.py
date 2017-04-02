@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from aw_core.models import Event
-from aw_core.transforms import full_chunk, label_chunk, filter_period_intersect, include_labels, exclude_labels
+from aw_core.transforms import full_chunk, label_chunk, filter_period_intersect, include_labels, exclude_labels, merge_queries
 
 
 class ChunkTest(unittest.TestCase):
@@ -82,3 +82,35 @@ class FilterPeriodIntersectTest(unittest.TestCase):
         filtered_events = filter_period_intersect(to_filter, filter_with)
         assert filtered_events[0].duration == timedelta(minutes=15)
         assert filtered_events[1].duration == timedelta(minutes=15)
+
+
+class MergeQueriesTest(unittest.TestCase):
+    def test_merge_queries_chunk_full(self):
+        now = datetime.now(timezone.utc)
+        eventcount = 8
+        events = []
+        for i in range(eventcount):
+            events.append(Event(label="test",
+                                keyvals={"key"+str(i%2): "val"+str(i%4)},
+                                timestamp=now + timedelta(seconds=i),
+                                duration=timedelta(seconds=1)))
+        res1 = full_chunk(events)
+        events.append(Event(label="test",
+                            keyvals={"key2": "val4"},
+                            timestamp=now,
+                            duration=timedelta(seconds=1)))
+        events.append(Event(label="test2",
+                            timestamp=now,
+                            duration=timedelta(seconds=1)))
+        res2 = full_chunk(events)
+        print(res1)
+        res_merged = merge_queries(res1, res2)
+        print(res_merged)
+        assert 18 == res_merged["eventcount"]
+        assert timedelta(seconds=18) == res_merged["duration"]
+        assert timedelta(seconds=4) == res_merged["chunks"]["test"]["keyvals"]["key0"]["values"]["val0"]["duration"]
+        assert timedelta(seconds=4) == res_merged["chunks"]["test"]["keyvals"]["key1"]["values"]["val1"]["duration"]
+        assert timedelta(seconds=4) == res_merged["chunks"]["test"]["keyvals"]["key0"]["values"]["val2"]["duration"]
+        assert timedelta(seconds=4) == res_merged["chunks"]["test"]["keyvals"]["key1"]["values"]["val3"]["duration"]
+        assert timedelta(seconds=1) == res_merged["chunks"]["test"]["keyvals"]["key2"]["values"]["val4"]["duration"]
+        assert timedelta(seconds=1) == res_merged["chunks"]["test2"]["duration"]

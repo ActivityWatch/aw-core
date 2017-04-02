@@ -206,21 +206,34 @@ def merge_chunks(chunk1, chunk2):
     result = {}
     for label in set(chunk1.keys()).union(set(chunk2.keys())):
         if label in chunk1 and label in chunk2:
-            result[label] = {}
+            result[label] = {"keyvals":{}}
             c1kv = chunk1[label]["keyvals"]
             c2kv = chunk2[label]["keyvals"]
             for key in set(c1kv.keys()).union(set(c2kv.keys())):
                 if key in c1kv and key in c2kv:
-                    result[label]["keyvals"][key] = {
-                        "duration": c1kv["duration"] + c2kv["duration"]
-                    }
+                    result[label]["keyvals"][key] = {"values":{}}
+                    c1k = c1kv[key]["values"]
+                    c2k = c2kv[key]["values"]
+                    for val in set(c1k.keys()).union(set(c2k.keys())):
+                        if val in c1k and val in c2k:
+                            c1v = c1k[val]
+                            c2v = c2k[val]
+                            result[label]["keyvals"][key]["values"][val] = {
+                                "duration":
+                                    c1v["duration"] +
+                                    c2v["duration"]
+                            }
+                        elif val in c1v:
+                            result[label]["keyvals"][key]["values"][val] = c1k[val]
+                        elif val in c2v:
+                            result[label]["keyvals"][key]["values"][val] = c2k[val]
                 elif key in c1kv:
                     result[label]["keyvals"][key] = c1kv[key]
-                else:
+                elif key in c2kv:
                     result[label]["keyvals"][key] = c2kv[key]
         elif label in chunk1:
             result[label] = chunk1[label]
-        else:
+        elif label in chunk2:
             result[label] = chunk2[label]
 
 
