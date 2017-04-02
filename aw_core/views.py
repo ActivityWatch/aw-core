@@ -61,9 +61,9 @@ def get_view_cache_directory(viewname, dsname):
 
 def get_view_cache_file(viewname, ds, start, end):
     if start:
-        start = start.strftime("%Y%m%dT%H%m%SZ")
+        start = start.astimezone(timezone.utc).strftime("%Y%m%dT%H%m%SZ")
     if end:
-        end   = end.strftime("%Y%m%dT%H%m%SZ")
+        end   = end.astimezone(timezone.utc).strftime("%Y%m%dT%H%m%SZ")
     cache_filename = "{}_to_{}".format(start, end)
     cache_dir = get_view_cache_directory(viewname, ds.storage_strategy.sid)
     cache_file = os.path.join(cache_dir, cache_filename)
