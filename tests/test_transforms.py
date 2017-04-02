@@ -86,6 +86,7 @@ class FilterPeriodIntersectTest(unittest.TestCase):
 
 class MergeQueriesTest(unittest.TestCase):
     def test_merge_queries_chunk_full(self):
+        # This also excensively tests the merge_chunks transform
         now = datetime.now(timezone.utc)
         eventcount = 8
         events = []
@@ -114,3 +115,23 @@ class MergeQueriesTest(unittest.TestCase):
         assert timedelta(seconds=4) == res_merged["chunks"]["test"]["keyvals"]["key1"]["values"]["val3"]["duration"]
         assert timedelta(seconds=1) == res_merged["chunks"]["test"]["keyvals"]["key2"]["values"]["val4"]["duration"]
         assert timedelta(seconds=1) == res_merged["chunks"]["test2"]["duration"]
+
+    def test_merge_queries_list(self):
+        eventcount = 8
+        events = []
+        for i in range(eventcount):
+            events.append(Event(label="test",
+                                keyvals={"key": "val"},
+                                timestamp=datetime.now(timezone.utc) + timedelta(seconds=i),
+                                duration=timedelta(seconds=1)))
+        res1 = {
+            "duration": {"unit":"s", "value": eventcount},
+            "eventlist": events,
+            "eventcount": eventcount
+        }
+        res2 = res1
+        res_merged = merge_queries(res1, res2)
+        assert 16 == res_merged["eventcount"]
+        assert timedelta(seconds=16) == res_merged["duration"]
+        assert 16 == len(res_merged["eventlist"])
+        assert timedelta(seconds=1) == res_merged["eventlist"][0]["duration"]
