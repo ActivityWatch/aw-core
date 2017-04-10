@@ -42,7 +42,7 @@ def _create_file_handler(name, testing=False, log_json=False) -> logging.Handler
     # Should result in something like:
     # $LOG_DIR/aw-server_testing_2017-01-05T00:21:39.log
     file_ext = ".log.json" if log_json else ".log"
-    now_str = str(datetime.now().replace(microsecond=0).isoformat())
+    now_str = str(datetime.now().replace(microsecond=0).isoformat()).replace(":", "-")
     log_name = name + "_" + ("testing_" if testing else "") + now_str + file_ext
     log_file_path = os.path.join(log_dir, log_name)
 
