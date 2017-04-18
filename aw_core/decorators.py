@@ -4,7 +4,7 @@ import logging
 import time
 
 
-def deprecated(f):
+def deprecated(f):  # pragma: no cover
     """
     This is a decorator which can be used to mark functions
     as deprecated. It will result in a warning being emmitted
@@ -24,7 +24,7 @@ def deprecated(f):
     return g
 
 
-def restart_on_exception(f, delay=1, exception=Exception):
+def restart_on_exception(f, delay=1, exception=Exception):  # pragma: no cover
     @functools.wraps(f)
     def g(*args, **kwargs):
         while True:
