@@ -9,14 +9,16 @@ def get_storage_methods():
     methods = [PeeweeStorage, MemoryStorage]  # BerkeleyDBStorage
 
     # TinyDB doesn't work on Windows
-    if _platform.system() != "Windows":
+    if _platform.system() != "Windows":  # pragma: no branch
         methods.append(TinyDBStorage)
 
-    try:
-        import pymongo
-        methods.append(MongoDBStorage)
-    except ImportError:  # pragma: no cover
-        pass
+    # MongoDB is only supported on Windows or macOS
+    if _platform.system() == "Linux":  # pragma: no branch
+        try:
+            import pymongo
+            methods.append(MongoDBStorage)
+        except ImportError:  # pragma: no cover
+            pass
 
     return methods
 
