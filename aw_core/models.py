@@ -55,7 +55,7 @@ class Event(dict):
         "count": int,
         "duration": timedelta,
         "label": str,
-        "keyvals": dict,
+        "data": dict,
         "note": str,
     }
 
@@ -156,12 +156,12 @@ class Event(dict):
         self["label"] = label
 
     @property
-    def keyvals(self) -> dict:
-        return self["keyvals"] if self._hasprop("keyvals") else {}
+    def data(self) -> dict:
+        return self["data"] if self._hasprop("data") else {}
 
-    @keyvals.setter
-    def keyvals(self, keyvals: dict):
-        self["keyvals"] = keyvals
+    @data.setter
+    def data(self, data: dict):
+        self["data"] = data
 
     @property
     def timestamp(self) -> Optional[datetime]:

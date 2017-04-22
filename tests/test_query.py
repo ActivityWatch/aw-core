@@ -156,7 +156,7 @@ def test_query_filter_labels_with_full_chunking(datastore):
         e1 = Event(label="test1",
                    timestamp=now - timedelta(hours=100),
                    duration=timedelta(seconds=1),
-                   keyvals={"key": "val"})
+                   data={"key": "val"})
         e2 = Event(label="test2",
                    timestamp=now,
                    duration=timedelta(seconds=2))
@@ -182,8 +182,8 @@ def test_query_filter_labels_with_full_chunking(datastore):
         }
         # Test that output is correct
         result = query(example_query, datastore)
-        assert result['chunks']['test1'] == {'duration': {'value': 10.0, 'unit': 's'}, 'keyvals': {'key':{'duration': {'value': 10.0, 'unit': 's'}, 'values': {'val': {'duration': {'value': 10.0, 'unit': 's'}}}}}}
-        assert result['chunks']['test2'] == {'duration': {'value': 20.0, 'unit': 's'}, "keyvals": {}}
+        assert result['chunks']['test1'] == {'duration': {'value': 10.0, 'unit': 's'}, 'data': {'key':{'duration': {'value': 10.0, 'unit': 's'}, 'values': {'val': {'duration': {'value': 10.0, 'unit': 's'}}}}}}
+        assert result['chunks']['test2'] == {'duration': {'value': 20.0, 'unit': 's'}, "data": {}}
         assert result['duration'] == {'value': 30, 'unit': 's'}
         # Test that limit works
         assert 1 == query(example_query, datastore, limit=1)["eventcount"]
@@ -212,7 +212,7 @@ def test_query_filter_labels_with_label_chunking(datastore):
         e1 = Event(label="test1",
                    timestamp=now - timedelta(hours=100),
                    duration=timedelta(seconds=1),
-                   keyvals={"key": "val"})
+                   data={"key": "val"})
         e2 = Event(label="test2",
                    timestamp=now,
                    duration=timedelta(seconds=2))

@@ -83,8 +83,8 @@ def test_view(datastore):
         assert ['exview'] == get_views()
         # Test that output is correct
         result = query_view('exview', datastore)
-        assert result['chunks']['test1'] == {'duration': {'value': 10.0, 'unit': 's'}, "keyvals": {}}
-        assert result['chunks']['test2'] == {'duration': {'value': 20.0, 'unit': 's'}, "keyvals": {}}
+        assert result['chunks']['test1'] == {'duration': {'value': 10.0, 'unit': 's'}, "data": {}}
+        assert result['chunks']['test2'] == {'duration': {'value': 20.0, 'unit': 's'}, "data": {}}
         # Test that starttime works
         assert 10 == query_view('exview', datastore, start=now - timedelta(hours=1))["eventcount"]
         # Test starttime cached which is past now isn't cached

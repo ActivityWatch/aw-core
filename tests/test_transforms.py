@@ -14,7 +14,7 @@ class ChunkTest(unittest.TestCase):
         events = []
         for i in range(eventcount):
             events.append(Event(label="test",
-                                keyvals={"key"+str(i%2): "val"+str(i%4)},
+                                data={"key"+str(i%2): "val"+str(i%4)},
                                 timestamp=datetime.now(timezone.utc) + timedelta(seconds=i),
                                 duration=timedelta(seconds=1)))
         res = full_chunk(events)
@@ -23,13 +23,13 @@ class ChunkTest(unittest.TestCase):
         assert res['duration'] == timedelta(seconds=eventcount)
         print(res)
         assert res['chunks']['test']['duration'] == timedelta(seconds=eventcount)
-        assert res['chunks']['test']['keyvals']['key0']['duration'] == timedelta(seconds=eventcount/2)
-        assert res['chunks']['test']['keyvals']['key0']['values']['val0']['duration'] == timedelta(seconds=eventcount/4)
-        assert res['chunks']['test']['keyvals']['key0']['values']['val2']['duration'] == timedelta(seconds=eventcount/4)
+        assert res['chunks']['test']['data']['key0']['duration'] == timedelta(seconds=eventcount/2)
+        assert res['chunks']['test']['data']['key0']['values']['val0']['duration'] == timedelta(seconds=eventcount/4)
+        assert res['chunks']['test']['data']['key0']['values']['val2']['duration'] == timedelta(seconds=eventcount/4)
         assert res['chunks']['test']['duration'] == timedelta(seconds=eventcount)
-        assert res['chunks']['test']['keyvals']['key1']['duration'] == timedelta(seconds=eventcount/2)
-        assert res['chunks']['test']['keyvals']['key1']['values']['val1']['duration'] == timedelta(seconds=eventcount/4)
-        assert res['chunks']['test']['keyvals']['key1']['values']['val3']['duration'] == timedelta(seconds=eventcount/4)
+        assert res['chunks']['test']['data']['key1']['duration'] == timedelta(seconds=eventcount/2)
+        assert res['chunks']['test']['data']['key1']['values']['val1']['duration'] == timedelta(seconds=eventcount/4)
+        assert res['chunks']['test']['data']['key1']['values']['val3']['duration'] == timedelta(seconds=eventcount/4)
 
 
     def test_chunk_label(self):
@@ -92,12 +92,12 @@ class MergeQueriesTest(unittest.TestCase):
         events = []
         for i in range(eventcount):
             events.append(Event(label="test",
-                                keyvals={"key"+str(i%2): "val"+str(i%4)},
+                                data={"key"+str(i%2): "val"+str(i%4)},
                                 timestamp=now + timedelta(seconds=i),
                                 duration=timedelta(seconds=1)))
         res1 = full_chunk(events)
         events.append(Event(label="test",
-                            keyvals={"key2": "val4"},
+                            data={"key2": "val4"},
                             timestamp=now,
                             duration=timedelta(seconds=1)))
         events.append(Event(label="test2",
@@ -109,11 +109,11 @@ class MergeQueriesTest(unittest.TestCase):
         print(res_merged)
         assert 18 == res_merged["eventcount"]
         assert timedelta(seconds=18) == res_merged["duration"]
-        assert timedelta(seconds=4) == res_merged["chunks"]["test"]["keyvals"]["key0"]["values"]["val0"]["duration"]
-        assert timedelta(seconds=4) == res_merged["chunks"]["test"]["keyvals"]["key1"]["values"]["val1"]["duration"]
-        assert timedelta(seconds=4) == res_merged["chunks"]["test"]["keyvals"]["key0"]["values"]["val2"]["duration"]
-        assert timedelta(seconds=4) == res_merged["chunks"]["test"]["keyvals"]["key1"]["values"]["val3"]["duration"]
-        assert timedelta(seconds=1) == res_merged["chunks"]["test"]["keyvals"]["key2"]["values"]["val4"]["duration"]
+        assert timedelta(seconds=4) == res_merged["chunks"]["test"]["data"]["key0"]["values"]["val0"]["duration"]
+        assert timedelta(seconds=4) == res_merged["chunks"]["test"]["data"]["key1"]["values"]["val1"]["duration"]
+        assert timedelta(seconds=4) == res_merged["chunks"]["test"]["data"]["key0"]["values"]["val2"]["duration"]
+        assert timedelta(seconds=4) == res_merged["chunks"]["test"]["data"]["key1"]["values"]["val3"]["duration"]
+        assert timedelta(seconds=1) == res_merged["chunks"]["test"]["data"]["key2"]["values"]["val4"]["duration"]
         assert timedelta(seconds=1) == res_merged["chunks"]["test2"]["duration"]
 
     def test_merge_queries_list(self):
@@ -121,7 +121,7 @@ class MergeQueriesTest(unittest.TestCase):
         events = []
         for i in range(eventcount):
             events.append(Event(label="test",
-                                keyvals={"key": "val"},
+                                data={"key": "val"},
                                 timestamp=datetime.now(timezone.utc) + timedelta(seconds=i),
                                 duration=timedelta(seconds=1)))
         res1 = {

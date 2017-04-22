@@ -43,7 +43,7 @@ def heartbeat_reduce(events: Event, pulsetime: float) -> List[Event]:
 def heartbeat_merge(last_event: Event, heartbeat: Event, pulsetime: float) -> Optional[Event]:
     """Merges two events together if they have identical labels and are separated by a time smaller than pulsetime."""
     if last_event.label == heartbeat.label \
-       and last_event.keyvals == heartbeat.keyvals \
+       and last_event.data == heartbeat.data \
        and last_event.count == heartbeat.count:
         # print("Passed labels check")
 
@@ -134,7 +134,7 @@ def full_chunk(events: List[Event]) -> dict:
             totduration += event.duration
         if event.label:
             if event.label not in chunks:
-                chunks[event.label] = {"keyvals": {}}
+                chunks[event.label] = {"data": {}}
                 if event.duration:
                     chunks[event.label]["duration"] = copy(event.duration)
             else:
@@ -143,28 +143,28 @@ def full_chunk(events: List[Event]) -> dict:
                         chunks[event.label]["duration"] = copy(event.duration)
                     else:
                         chunks[event.label]["duration"] += event.duration
-            for k, v in event.keyvals.items():
-                if k not in chunks[event.label]["keyvals"]:
+            for k, v in event.data.items():
+                if k not in chunks[event.label]["data"]:
                     kv_info = {"values": {}} # type: dict
                     if event.duration:
                         kv_info["duration"] = copy(event.duration)
-                    chunks[event.label]["keyvals"][k] = kv_info
+                    chunks[event.label]["data"][k] = kv_info
                 else:
                     if event.duration:
-                        if "duration" not in chunks[event.label]["keyvals"][k]:
-                            chunks[event.label]["keyvals"][k]["duration"] = copy(event.duration)
+                        if "duration" not in chunks[event.label]["data"][k]:
+                            chunks[event.label]["data"][k]["duration"] = copy(event.duration)
                         else:
-                            chunks[event.label]["keyvals"][k]["duration"] += event.duration
-                if v not in chunks[event.label]["keyvals"][k]["values"]:
-                    chunks[event.label]["keyvals"][k]["values"][v] = {}
+                            chunks[event.label]["data"][k]["duration"] += event.duration
+                if v not in chunks[event.label]["data"][k]["values"]:
+                    chunks[event.label]["data"][k]["values"][v] = {}
                     if event.duration:
-                        chunks[event.label]["keyvals"][k]["values"][v]["duration"] = event.duration
+                        chunks[event.label]["data"][k]["values"][v]["duration"] = event.duration
                 else:
                     if event.duration:
-                        if "duration" not in chunks[event.label]["keyvals"][k]["values"][v]:
-                            chunks[event.label]["keyvals"][k]["values"][v]["duration"] = event.duration
+                        if "duration" not in chunks[event.label]["data"][k]["values"][v]:
+                            chunks[event.label]["data"][k]["values"][v]["duration"] = event.duration
                         else:
-                            chunks[event.label]["keyvals"][k]["values"][v]["duration"] += event.duration
+                            chunks[event.label]["data"][k]["values"][v]["duration"] += event.duration
     # Package response
     payload = {
         "eventcount": eventcount,
@@ -206,31 +206,31 @@ def merge_chunks(chunk1, chunk2):
     result = {}
     for label in set(chunk1.keys()).union(set(chunk2.keys())):
         if label in chunk1 and label in chunk2:
-            result[label] = {"keyvals":{}}
-            c1kv = chunk1[label]["keyvals"]
-            c2kv = chunk2[label]["keyvals"]
+            result[label] = {"data":{}}
+            c1kv = chunk1[label]["data"]
+            c2kv = chunk2[label]["data"]
             for key in set(c1kv.keys()).union(set(c2kv.keys())):
                 if key in c1kv and key in c2kv:
-                    result[label]["keyvals"][key] = {"values":{}}
+                    result[label]["data"][key] = {"values":{}}
                     c1k = c1kv[key]["values"]
                     c2k = c2kv[key]["values"]
                     for val in set(c1k.keys()).union(set(c2k.keys())):
                         if val in c1k and val in c2k:
                             c1v = c1k[val]
                             c2v = c2k[val]
-                            result[label]["keyvals"][key]["values"][val] = {
+                            result[label]["data"][key]["values"][val] = {
                                 "duration":
                                     c1v["duration"] +
                                     c2v["duration"]
                             }
                         elif val in c1v:
-                            result[label]["keyvals"][key]["values"][val] = c1k[val]
+                            result[label]["data"][key]["values"][val] = c1k[val]
                         elif val in c2v:
-                            result[label]["keyvals"][key]["values"][val] = c2k[val]
+                            result[label]["data"][key]["values"][val] = c2k[val]
                 elif key in c1kv:
-                    result[label]["keyvals"][key] = c1kv[key]
+                    result[label]["data"][key] = c1kv[key]
                 elif key in c2kv:
-                    result[label]["keyvals"][key] = c2kv[key]
+                    result[label]["data"][key] = c2kv[key]
         elif label in chunk1:
             result[label] = chunk1[label]
         elif label in chunk2:

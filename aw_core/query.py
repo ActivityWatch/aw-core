@@ -69,12 +69,12 @@ def full_chunk(events):
     for label, lv in result["chunks"].items():
         if "duration" in lv:
             result["chunks"][label]["duration"] = _timedelta_to_dict(lv["duration"])
-        for key, kv in lv["keyvals"].items():
+        for key, kv in lv["data"].items():
             if "duration" in kv:
-                result["chunks"][label]["keyvals"][key]["duration"] = _timedelta_to_dict(kv["duration"])
+                result["chunks"][label]["data"][key]["duration"] = _timedelta_to_dict(kv["duration"])
             for value, vv in kv["values"].items():
                 if "duration" in vv:
-                    result["chunks"][label]["keyvals"][key]["values"][value]["duration"] = _timedelta_to_dict(vv["duration"])
+                    result["chunks"][label]["data"][key]["values"][value]["duration"] = _timedelta_to_dict(vv["duration"])
     result["duration"] = _timedelta_to_dict(result["duration"])
     return result
 

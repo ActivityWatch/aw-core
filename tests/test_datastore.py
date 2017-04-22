@@ -62,7 +62,7 @@ def test_insert_one(bucket_cm):
     """
     with bucket_cm as bucket:
         l = len(bucket.get())
-        event = Event(label="test", timestamp=now, duration=timedelta(seconds=1), keyvals={"key": "val"})
+        event = Event(label="test", timestamp=now, duration=timedelta(seconds=1), data={"key": "val"})
         bucket.insert(event)
         fetched_events = bucket.get()
         assert l + 1 == len(fetched_events)
@@ -87,7 +87,7 @@ def test_insert_many(bucket_cm):
     Tests that you can insert many events at the same time to a bucket
     """
     with bucket_cm as bucket:
-        events = (2 * [Event(label="test", timestamp=now, duration=timedelta(seconds=1), keyvals={"key": "val"})])
+        events = (2 * [Event(label="test", timestamp=now, duration=timedelta(seconds=1), data={"key": "val"})])
         bucket.insert(events)
         fetched_events = bucket.get()
         assert 2 == len(fetched_events)
