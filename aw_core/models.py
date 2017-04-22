@@ -175,11 +175,3 @@ class Event(dict):
     @duration.setter
     def duration(self, duration: Union[timedelta, dict]) -> None:
         self["duration"] = _duration_parse(duration)
-
-    @property
-    def count(self) -> Optional[int]:
-        return self["count"] if self._hasprop("count") else None
-
-    @count.setter
-    def count(self, count: int) -> None:
-        self["count"] = count

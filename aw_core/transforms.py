@@ -43,8 +43,7 @@ def heartbeat_reduce(events: Event, pulsetime: float) -> List[Event]:
 def heartbeat_merge(last_event: Event, heartbeat: Event, pulsetime: float) -> Optional[Event]:
     """Merges two events together if they have identical labels and are separated by a time smaller than pulsetime."""
     if last_event.label == heartbeat.label \
-       and last_event.data == heartbeat.data \
-       and last_event.count == heartbeat.count:
+       and last_event.data == heartbeat.data:
         # print("Passed labels check")
 
         # Diff between timestamps in seconds, takes into account the duration of the last event
