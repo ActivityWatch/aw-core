@@ -26,7 +26,7 @@ class EventTest(unittest.TestCase):
     def test_invalid_type(self):
         e = Event(label="a", timestamp=datetime.now(timezone.utc))
         assert True == e.verify()
-        e.count = "a"
+        e.data = "a"
         assert False == e.verify()
 
 
