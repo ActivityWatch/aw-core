@@ -15,10 +15,12 @@ def get_storage_methods():
     if _platform.system() != "Windows":
         methods[TinyDBStorage.sid] = TinyDBStorage
 
-    try:
-        import pymongo
-        methods[MongoDBStorage.sid] = MongoDBStorage
-    except ImportError:  # pragma: no cover
-        pass
+    # MongoDB is not supported on Windows or macOS
+    if _platform.system() == "Linux":  # pragma: no branch
+        try:
+            import pymongo
+            methods[MongoDBStorage.sid] = MongoDBStorage
+        except ImportError:  # pragma: no cover
+            pass
 
     return methods

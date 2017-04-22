@@ -12,10 +12,10 @@ services:
 before_install:
  - "pip install pytest pytest-cov coverage"
  - "pip install mypy"
+ - "pip install pymongo"
 
 install:
- - "pip install pymongo"
- - "python setup.py install"
+ - "make build"
 
 script:
  # Run the tests
