@@ -49,14 +49,11 @@ class Event(dict):
     """
 
     # TODO: Use JSONSchema as specification
-    # FIXME: Some other databases (such as Zenobase) use tag instead of label, we should consider changing
     ALLOWED_FIELDS = {
         "timestamp": datetime,
-        "count": int,
         "duration": timedelta,
         "label": str,
         "data": dict,
-        "note": str,
     }
 
     def __init__(self, **kwargs: Any) -> None:
