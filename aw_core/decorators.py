@@ -12,13 +12,18 @@ def deprecated(f):  # pragma: no cover
 
     Taken from: http://stackoverflow.com/a/30253848/965332
     """
+    # Warn only once per deprecated function
+    warned_for = False
 
     @functools.wraps(f)
     def g(*args, **kwargs):
         # TODO: Use logging module instead?
-        warnings.simplefilter('always', DeprecationWarning)  # turn off filter
-        warnings.warn("Call to deprecated function {}.".format(f.__name__), category=DeprecationWarning, stacklevel=2)
-        warnings.simplefilter('default', DeprecationWarning)  # reset filter
+        nonlocal warned_for
+        if not warned_for:
+            warnings.simplefilter('always', DeprecationWarning)  # turn off filter
+            warnings.warn("Call to deprecated function {}, this warning will only show once per function.".format(f.__name__), category=DeprecationWarning, stacklevel=2)
+            warnings.simplefilter('default', DeprecationWarning)  # reset filter
+            warned_for = True
         return f(*args, **kwargs)
 
     return g
