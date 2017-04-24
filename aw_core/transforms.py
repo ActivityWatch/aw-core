@@ -42,8 +42,7 @@ def heartbeat_reduce(events: Event, pulsetime: float) -> List[Event]:
 
 def heartbeat_merge(last_event: Event, heartbeat: Event, pulsetime: float) -> Optional[Event]:
     """Merges two events together if they have identical labels and are separated by a time smaller than pulsetime."""
-    if last_event.label == heartbeat.label \
-       and last_event.data == heartbeat.data:
+    if last_event.data == heartbeat.data:
         # print("Passed labels check")
 
         # Diff between timestamps in seconds, takes into account the duration of the last event
@@ -100,30 +99,30 @@ def filter_period_intersect(events, filterevents):
 
     return filtered_events
 
-def include_labels(events, labels):
+def include_keyvals(events, key, vals):
     filtered_events = []
     for event in events:
         match = False
-        for label in labels:
-            if label in event["label"]:
+        for val in vals:
+            if key in event.data and val == event.data[key]:
                 match = True
         if match:
             filtered_events.append(event)
     return filtered_events
 
-def exclude_labels(events, labels):
+def exclude_keyvals(events, key, vals):
     filtered_events = []
     for event in events:
         match = False
-        for label in labels:
-            if label in event["label"]:
+        for val in vals:
+            if key in event.data and val == event.data[key]:
                 match = True
         if not match:
             filtered_events.append(event)
     return filtered_events
 
 
-def full_chunk(events: List[Event]) -> dict:
+def full_chunk(events: List[Event], chunk_key) -> dict:
     eventcount = 0
     chunks = dict()  # type: Dict[str, Any]
     totduration = timedelta();
@@ -131,67 +130,40 @@ def full_chunk(events: List[Event]) -> dict:
         eventcount += 1
         if event.duration:
             totduration += event.duration
-        if event.label:
-            if event.label not in chunks:
-                chunks[event.label] = {"data": {}}
+        if chunk_key in event.data:
+            if event.data[chunk_key] not in chunks:
+                chunks[event.data[chunk_key]] = {"data": {}}
                 if event.duration:
-                    chunks[event.label]["duration"] = copy(event.duration)
+                    chunks[event.data[chunk_key]]["duration"] = copy(event.duration)
             else:
                 if event.duration:
-                    if "duration" not in chunks[event.label]:
-                        chunks[event.label]["duration"] = copy(event.duration)
+                    if "duration" not in chunks[event.data[chunk_key]]:
+                        chunks[event.data[chunk_key]]["duration"] = copy(event.duration)
                     else:
-                        chunks[event.label]["duration"] += event.duration
+                        chunks[event.data[chunk_key]]["duration"] += event.duration
             for k, v in event.data.items():
-                if k not in chunks[event.label]["data"]:
-                    kv_info = {"values": {}} # type: dict
-                    if event.duration:
-                        kv_info["duration"] = copy(event.duration)
-                    chunks[event.label]["data"][k] = kv_info
-                else:
-                    if event.duration:
-                        if "duration" not in chunks[event.label]["data"][k]:
-                            chunks[event.label]["data"][k]["duration"] = copy(event.duration)
-                        else:
-                            chunks[event.label]["data"][k]["duration"] += event.duration
-                if v not in chunks[event.label]["data"][k]["values"]:
-                    chunks[event.label]["data"][k]["values"][v] = {}
-                    if event.duration:
-                        chunks[event.label]["data"][k]["values"][v]["duration"] = event.duration
-                else:
-                    if event.duration:
-                        if "duration" not in chunks[event.label]["data"][k]["values"][v]:
-                            chunks[event.label]["data"][k]["values"][v]["duration"] = event.duration
-                        else:
-                            chunks[event.label]["data"][k]["values"][v]["duration"] += event.duration
-    # Package response
-    payload = {
-        "eventcount": eventcount,
-        "duration": totduration,
-        "chunks": chunks,
-    }
-    return payload
-
-
-def label_chunk(events: List[Event]) -> dict:
-    eventcount = 0
-    chunks = dict()  # type: Dict[str, Any]
-    totduration = timedelta();
-    for event in events:
-        eventcount += 1
-        if event.duration:
-            totduration += event.duration
-        if event.label:
-            if event.label not in chunks:
-                chunks[event.label] = {}
-                if event.duration:
-                    chunks[event.label]["duration"] = copy(event.duration)
-            else:
-                if event.duration:
-                    if "duration" not in chunks[event.label]:
-                        chunks[event.label]["duration"] = copy(event.duration)
+                if k != chunk_key:
+                    if k not in chunks[event.data[chunk_key]]["data"]:
+                        kv_info = {"values": {}} # type: dict
+                        if event.duration:
+                            kv_info["duration"] = copy(event.duration)
+                        chunks[event.data[chunk_key]]["data"][k] = kv_info
                     else:
-                        chunks[event.label]["duration"] += event.duration
+                        if event.duration:
+                            if "duration" not in chunks[event.data[chunk_key]]["data"][k]:
+                                chunks[event.data[chunk_key]]["data"][k]["duration"] = copy(event.duration)
+                            else:
+                                chunks[event.data[chunk_key]]["data"][k]["duration"] += event.duration
+                    if v not in chunks[event.data[chunk_key]]["data"][k]["values"]:
+                        chunks[event.data[chunk_key]]["data"][k]["values"][v] = {}
+                        if event.duration:
+                            chunks[event.data[chunk_key]]["data"][k]["values"][v]["duration"] = event.duration
+                    else:
+                        if event.duration:
+                            if "duration" not in chunks[event.data[chunk_key]]["data"][k]["values"][v]:
+                                chunks[event.data[chunk_key]]["data"][k]["values"][v]["duration"] = event.duration
+                            else:
+                                chunks[event.data[chunk_key]]["data"][k]["values"][v]["duration"] += event.duration
     # Package response
     payload = {
         "eventcount": eventcount,

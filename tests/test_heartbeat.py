@@ -13,7 +13,7 @@ def test_heartbeat_merge():
     now = datetime.now()
     td_1s = timedelta(seconds=1)
 
-    last_event, heartbeat = Event(timestamp=now, label="test"), Event(timestamp=now + td_1s, label="test")
+    last_event, heartbeat = Event(timestamp=now), Event(timestamp=now + td_1s)
     merged = transforms.heartbeat_merge(last_event, heartbeat, pulsetime=2)
     assert merged is not None
 
@@ -24,12 +24,12 @@ def test_heartbeat_merge_fail():
     td_1s = timedelta(seconds=1)
 
     # timestamp of heartbeat more than pulsetime away
-    last_event, heartbeat = Event(timestamp=now, label="test"), Event(timestamp=now + 3*td_1s, label="test")
+    last_event, heartbeat = Event(timestamp=now, data={"label": "test"}), Event(timestamp=now + 3*td_1s, data={"label": "test"})
     merged = transforms.heartbeat_merge(last_event, heartbeat, pulsetime=2)
     assert merged is None
 
     # labels not identical
-    last_event, heartbeat = Event(timestamp=now, label="test"), Event(timestamp=now + td_1s, label="test2")
+    last_event, heartbeat = Event(timestamp=now, data={"label": "test"}), Event(timestamp=now + td_1s, data={"label": "test2"})
     merged = transforms.heartbeat_merge(last_event, heartbeat, pulsetime=2)
     assert merged is None
 

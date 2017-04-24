@@ -14,20 +14,22 @@ example_view = {
     'name': 'exview',
     'created': '2016-09-03',
     'query': {
-        'chunk': 'full',
+        'chunk': 'label',
         'cache': True,
         'transforms': [
             {
                 'bucket': bid1,
                 'filters': [{
-                    'name': 'include_labels',
-                    'labels': ['test1'],
+                    'name': 'include_keyvals',
+                    'key': 'label',
+                    'vals': ['test1'],
                 }],
             }, {
                 'bucket': bid2,
                 'filters': [{
-                    'name': 'exclude_labels',
-                    'labels': ['test1'],
+                    'name': 'exclude_keyvals',
+                    'key': 'label',
+                    'vals': ['test1'],
                 }],
             }
         ]
@@ -67,10 +69,10 @@ def test_view(datastore):
     try:
         bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
         bucket2 = datastore.create_bucket(bucket_id=bid2, type="test", client="test", hostname="test", name=name)
-        e1 = Event(label="test1",
+        e1 = Event(data={"label": "test1"},
                    timestamp=now - timedelta(hours=100),
                    duration=timedelta(seconds=1))
-        e2 = Event(label="test2",
+        e2 = Event(data={"label": "test2"},
                    timestamp=now,
                    duration=timedelta(seconds=2))
         bucket1.insert(10 * [e1])
@@ -83,8 +85,8 @@ def test_view(datastore):
         assert ['exview'] == get_views()
         # Test that output is correct
         result = query_view('exview', datastore)
-        assert result['chunks']['test1'] == {'duration': {'value': 10.0, 'unit': 's'}, "data": {}}
-        assert result['chunks']['test2'] == {'duration': {'value': 20.0, 'unit': 's'}, "data": {}}
+        assert result['chunks']['test1']['data']['label']['values'] == {'test1': {'duration': 10.0}}
+        assert result['chunks']['test2']['data']['label']['values'] == {'test2': {'duration': 20.0}}
         # Test that starttime works
         assert 10 == query_view('exview', datastore, start=now - timedelta(hours=1))["eventcount"]
         # Test starttime cached which is past now isn't cached

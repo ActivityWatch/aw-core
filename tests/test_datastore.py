@@ -174,15 +174,15 @@ def test_replace_last(bucket_cm):
     """
     with bucket_cm as bucket:
         # Create two events
-        bucket.insert(Event(label="test1", timestamp=now))
-        bucket.insert(Event(label="test2", timestamp=now + timedelta(seconds=1)))
+        bucket.insert(Event(data={"label": "test1"}, timestamp=now))
+        bucket.insert(Event(data={"label": "test2"}, timestamp=now + timedelta(seconds=1)))
         # Create second event to replace with the second one
-        bucket.replace_last(Event(label="test2-replaced",
+        bucket.replace_last(Event(data={"label": "test2-replaced"},
                                   timestamp=now + timedelta(seconds=1)))
-        bucket.insert(Event(label="test3", timestamp=now + timedelta(seconds=2)))
+        bucket.insert(Event(data={"label": "test3"}, timestamp=now + timedelta(seconds=2)))
         # Assert length
         assert 3 == len(bucket.get(-1))
-        assert bucket.get(-1)[1].label == "test2-replaced"
+        assert bucket.get(-1)[1]["data"]["label"] == "test2-replaced"
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
@@ -212,14 +212,14 @@ def test_get_last(bucket_cm):
     now = datetime.now()
     second = timedelta(seconds=1)
     with bucket_cm as bucket:
-        events = [Event(label="test", timestamp=ts) for ts in [now + second, now + second * 2, now + second * 3]]
+        events = [Event(data={"label": "test"}, timestamp=ts) for ts in [now + second, now + second * 2, now + second * 3]]
 
         for event in events:
             bucket.insert(event)
 
         assert bucket.get(limit=1)[0] == events[-1]
         for event in bucket.get(limit=5):
-            print(event.timestamp, event.label)
+            print(event.timestamp, event.data["label"])
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())

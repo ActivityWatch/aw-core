@@ -11,19 +11,6 @@ import iso8601
 logger = logging.getLogger("aw.client.models")
 
 
-def _duration_parse(duration: Union[dict, timedelta]) -> timedelta:
-    """
-    Takes something representing a timestamp and
-    returns a timestamp in the representation we want.
-    """
-    if isinstance(duration, dict):
-        if duration["unit"] == "s":
-            duration = timedelta(seconds=duration["value"])
-        else:
-            raise Exception("Unknown unit '{}'".format(duration["unit"]))
-    return duration
-
-
 def _timestamp_parse(ts: Union[str, datetime]) -> datetime:
     """
     Takes something representing a timestamp and
@@ -52,7 +39,6 @@ class Event(dict):
     ALLOWED_FIELDS = {
         "timestamp": datetime,
         "duration": timedelta,
-        "label": str,
         "data": dict,
     }
 
@@ -104,53 +90,22 @@ class Event(dict):
     def to_json_dict(self) -> dict:
         """Useful when sending data over the wire.
         Any mongodb interop should not use do this as it accepts datetimes."""
-        data = self.copy()
-        data["timestamp"] = self["timestamp"].astimezone().isoformat()
-        if "duration" in data:
-            data["duration"] = {"value": self["duration"].total_seconds(), "unit": "s"}
-        return data
+        json_data = self.copy()
+        if "timestamp" in json_data:
+            json_data["timestamp"] = self["timestamp"].astimezone().isoformat()
+        if "duration" in json_data:
+            json_data["duration"] = self["duration"].total_seconds()
+        return json_data
 
     def to_json_str(self) -> str:
         # TODO: Extend serializers in aw_core.json instead of using self.to_json_dict
         data = self.to_json_dict()
         return json.dumps(data)
 
-    """
-    def __getattr__(self, attr):
-        # NOTE: Major downside of using this solution is getting zero ability to typecheck
-        if attr in self.ALLOWED_FIELDS:
-            return self[attr][0] if attr in self and self[attr] else None
-        elif attr[:-1] in self.ALLOWED_FIELDS:
-            # For pluralized versions of properties
-            attr = attr[:-1]
-            return self[attr] if attr in self else []
-        else:
-            return dict.__getattr__(self, attr)
-
-    def __setattr__(self, attr, value):
-        # NOTE: Major downside of using this solution is getting zero ability to typecheck
-        if attr in self.ALLOWED_FIELDS:
-            self[attr] = [value]
-        elif attr[:-1] in self.ALLOWED_FIELDS:
-            # For pluralized versions of setters
-            attr = attr[:-1]
-            self[attr] = value
-        else:
-            raise AttributeError
-    """
-
     def _hasprop(self, propname):
         """Badly named, but basically checks if the underlying
         dict has a prop, and if it is a non-empty list"""
         return propname in self and self[propname]
-
-    @property
-    def label(self) -> Optional[str]:
-        return self["label"] if self._hasprop("label") else None
-
-    @label.setter
-    def label(self, label: str) -> None:
-        self["label"] = label
 
     @property
     def data(self) -> dict:
@@ -173,5 +128,10 @@ class Event(dict):
         return self["duration"] if self._hasprop("duration") else timedelta(0)
 
     @duration.setter
-    def duration(self, duration: Union[timedelta, dict]) -> None:
-        self["duration"] = _duration_parse(duration)
+    def duration(self, duration: Union[timedelta, float]) -> None:
+        if type(duration) == timedelta:
+            self["duration"] = duration
+        elif type(duration) == float:
+            self["duration"] = timedelta(seconds=duration)
+        else:
+            logger.error("Couldn't parse duration of invalid type {}".format(type(duration)))

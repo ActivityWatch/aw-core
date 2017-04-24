@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from aw_core.models import Event
-from aw_core.transforms import full_chunk, label_chunk, filter_period_intersect, include_labels, exclude_labels, merge_queries
+from aw_core.transforms import full_chunk, filter_period_intersect, include_keyvals, exclude_keyvals, merge_queries
 
 
 class ChunkTest(unittest.TestCase):
@@ -13,11 +13,10 @@ class ChunkTest(unittest.TestCase):
         eventcount = 8
         events = []
         for i in range(eventcount):
-            events.append(Event(label="test",
-                                data={"key"+str(i%2): "val"+str(i%4)},
+            events.append(Event(data={"label": "test", "key"+str(i%2): "val"+str(i%4)},
                                 timestamp=datetime.now(timezone.utc) + timedelta(seconds=i),
                                 duration=timedelta(seconds=1)))
-        res = full_chunk(events)
+        res = full_chunk(events, "label")
         logging.debug(res)
         assert res['eventcount'] == eventcount
         assert res['duration'] == timedelta(seconds=eventcount)
@@ -32,33 +31,18 @@ class ChunkTest(unittest.TestCase):
         assert res['chunks']['test']['data']['key1']['values']['val3']['duration'] == timedelta(seconds=eventcount/4)
 
 
-    def test_chunk_label(self):
-        eventcount = 8
-        events = []
-        for i in range(eventcount):
-            events.append(Event(label="test",
-                                timestamp=datetime.now(timezone.utc) + timedelta(seconds=i),
-                                duration=timedelta(seconds=1)))
-        res = label_chunk(events)
-        logging.debug(res)
-        assert res['eventcount'] == eventcount
-        assert res['duration'] == timedelta(seconds=eventcount)
-        print(res)
-        assert res['chunks']['test']['duration'] == timedelta(seconds=eventcount)
-
-
 class IncludeLabelsTest(unittest.TestCase):
-    def test_include_labels(self):
+    def test_include_keyval(self):
         labels = ["a","c"]
         events = [
-            Event(label="a"),
-            Event(label="b"),
-            Event(label="c"),
+            Event(data={"label": "a"}),
+            Event(data={"label": "b"}),
+            Event(data={"label": "c"}),
         ]
-        included_labels = include_labels(events, labels)
-        excluded_labels = exclude_labels(events, labels)
-        assert len(included_labels) == 2
-        assert len(excluded_labels) == 1
+        included_events = include_keyvals(events, "label", labels)
+        excluded_events = exclude_keyvals(events, "label", labels)
+        assert len(included_events) == 2
+        assert len(excluded_events) == 1
 
 
 class FilterPeriodIntersectTest(unittest.TestCase):
@@ -91,19 +75,17 @@ class MergeQueriesTest(unittest.TestCase):
         eventcount = 8
         events = []
         for i in range(eventcount):
-            events.append(Event(label="test",
-                                data={"key"+str(i%2): "val"+str(i%4)},
+            events.append(Event(data={"label": "test", "key"+str(i%2): "val"+str(i%4)},
                                 timestamp=now + timedelta(seconds=i),
                                 duration=timedelta(seconds=1)))
-        res1 = full_chunk(events)
-        events.append(Event(label="test",
-                            data={"key2": "val4"},
+        res1 = full_chunk(events, "label")
+        events.append(Event(data={"label": "test", "key2": "val4"},
                             timestamp=now,
                             duration=timedelta(seconds=1)))
-        events.append(Event(label="test2",
+        events.append(Event(data={"label": "test2"},
                             timestamp=now,
                             duration=timedelta(seconds=1)))
-        res2 = full_chunk(events)
+        res2 = full_chunk(events, "label")
         print(res1)
         res_merged = merge_queries(res1, res2)
         print(res_merged)

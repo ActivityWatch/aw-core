@@ -30,10 +30,6 @@ def bucket_transform(btransform, ds, limit=-1, start=None, end=None):
     return events
 
 
-def _timedelta_to_dict(td: timedelta):
-    return {"value": td.total_seconds(), "unit": "s"}
-
-
 def query(query, ds, limit=-1, start=None, end=None):
     events = []
     if "transforms" not in query:
@@ -42,9 +38,7 @@ def query(query, ds, limit=-1, start=None, end=None):
         events += bucket_transform(transform, ds, limit, start, end)
 
     if "chunk" in query and query["chunk"]:
-        if query["chunk"] not in chunkers:
-            raise QueryException("Query has a invalid chunking method: {}".format(query["chunk"]))
-        result = chunkers[query["chunk"]](events)
+        result = chunk(events, query["chunk"])
     else:
         result = {}
         result["eventcount"] = len(events)
@@ -53,7 +47,7 @@ def query(query, ds, limit=-1, start=None, end=None):
         for event in events:
             result["duration"] += event.duration
             result["eventlist"].append(event.to_json_dict())
-        result["duration"] = _timedelta_to_dict(result["duration"])
+        result["duration"] = result["duration"].total_seconds()
     return result
 
 
@@ -63,34 +57,20 @@ CHUNKERS
 
 """
 
-def full_chunk(events):
-    result = transforms.full_chunk(events)
+def chunk(events, chunk_key):
+    result = transforms.full_chunk(events, chunk_key)
     # Turn all timedeltas into duration-dicts
     for label, lv in result["chunks"].items():
         if "duration" in lv:
-            result["chunks"][label]["duration"] = _timedelta_to_dict(lv["duration"])
+            result["chunks"][label]["duration"] = lv["duration"].total_seconds()
         for key, kv in lv["data"].items():
             if "duration" in kv:
-                result["chunks"][label]["data"][key]["duration"] = _timedelta_to_dict(kv["duration"])
+                result["chunks"][label]["data"][key]["duration"] = kv["duration"].total_seconds()
             for value, vv in kv["values"].items():
                 if "duration" in vv:
-                    result["chunks"][label]["data"][key]["values"][value]["duration"] = _timedelta_to_dict(vv["duration"])
-    result["duration"] = _timedelta_to_dict(result["duration"])
+                    result["chunks"][label]["data"][key]["values"][value]["duration"] = vv["duration"].total_seconds()
+    result["duration"] = result["duration"].total_seconds()
     return result
-
-def label_chunk(events):
-    result = transforms.label_chunk(events)
-    # Turn all timedeltas into duration-dicts
-    for label, lv in result["chunks"].items():
-        if "duration" in lv:
-            result["chunks"][label]["duration"] = _timedelta_to_dict(lv["duration"])
-    result["duration"] = _timedelta_to_dict(result["duration"])
-    return result
-
-chunkers = {
-    'label': label_chunk,
-    'full': full_chunk,
-}
 
 """
 
@@ -99,20 +79,26 @@ FILTERS
 """
 
 
-def include_labels(tfilter, events, ds, limit=-1, start=None, end=None):
-    if "labels" not in tfilter:
-        return []
+def include_keyvals(tfilter, events, ds, limit=-1, start=None, end=None):
+    if "key" not in tfilter:
+        raise QueryException("include_keyvals filter misses key field: {}".format(btransform))
+    elif "vals" not in tfilter:
+        raise QueryException("include_keyvals filter misses vals field: {}".format(btransform))
     else:
-        labels = tfilter["labels"]  # type: list
-        return transforms.include_labels(events, labels)
+        key = tfilter["key"] # type: str
+        vals = tfilter["vals"]  # type: list
+        return transforms.include_keyvals(events, key, vals)
 
 
-def exclude_labels(tfilter, events, ds, limit=-1, start=None, end=None):
-    if "labels" not in tfilter:
-        return events
+def exclude_keyvals(tfilter, events, ds, limit=-1, start=None, end=None):
+    if "key" not in tfilter:
+        raise QueryException("exclude_keyvals filter misses key field: {}".format(btransform))
+    elif "vals" not in tfilter:
+        raise QueryException("exclude_keyvals filter misses vals field: {}".format(btransform))
     else:
-        labels = tfilter["labels"]  # type: list
-        return transforms.exclude_labels(events, labels)
+        key = tfilter["key"] # type: str
+        vals = tfilter["vals"]  # type: list
+        return transforms.exclude_keyvals(events, key, vals)
 
 
 def timeperiod_intersect(tfilter, events, ds, limit=-1, start=None, end=None):
@@ -123,7 +109,7 @@ def timeperiod_intersect(tfilter, events, ds, limit=-1, start=None, end=None):
     return events
 
 filters = {
-    'exclude_labels': exclude_labels,
-    'include_labels': include_labels,
+    'exclude_keyvals': exclude_keyvals,
+    'include_keyvals': include_keyvals,
     'timeperiod_intersect': timeperiod_intersect,
 }
