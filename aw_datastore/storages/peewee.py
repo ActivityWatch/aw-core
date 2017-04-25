@@ -4,7 +4,7 @@ import json
 import os
 import logging
 
-from peewee import Model, CharField, DateTimeField, Database
+from peewee import Model, CharField, DateTimeField
 from playhouse.sqlite_ext import SqliteExtDatabase
 
 from aw_core.models import Event
@@ -19,12 +19,16 @@ logger = logger.getChild("peewee")
 peewee_logger = logging.getLogger("peewee")
 peewee_logger.setLevel(logging.INFO)
 
+# Init'd later in the PeeweeStorage constructor.
+#   See: http://docs.peewee-orm.com/en/latest/peewee/database.html#run-time-database-configuration
+# Another option would be to use peewee's Proxy.
+#   See: http://docs.peewee-orm.com/en/latest/peewee/database.html#dynamic-db
+_db = SqliteExtDatabase(None)
+
 
 class BaseModel(Model):
     class Meta:
-        # The following is set in the PeeweeStorage constructor (`BaseModel._meta.database`)
-        # See: https://peewee.readthedocs.io/en/latest/peewee/models.html#model-options-and-table-metadata
-        database = None  # type: Database
+        database = _db
 
 
 class BucketModel(BaseModel):
@@ -61,12 +65,9 @@ class PeeweeStorage(AbstractStorage):
         self.logger = logger.getChild(self.sid)
 
         filename = 'peewee-sqlite' + ('-testing' if testing else '') + '.db'
-        self.db = SqliteExtDatabase(os.path.join(get_data_dir("aw-server"), filename))
-
-        # It's not beautiful, but it works.
-        BaseModel._meta.database = self.db
-        BucketModel._meta.database = self.db
-        EventModel._meta.database = self.db
+        filepath = os.path.join(get_data_dir("aw-server"), filename)
+        self.db = _db
+        self.db.init(filepath)
 
         # db.connect()
 
