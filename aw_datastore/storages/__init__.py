@@ -6,5 +6,4 @@ from .abstract import AbstractStorage
 
 from .memory import MemoryStorage
 from .mongodb import MongoDBStorage
-from .tinydb import TinyDBStorage
 from .peewee import PeeweeStorage
