@@ -91,7 +91,7 @@ class MongoDBStorage(AbstractStorage):
 
     def _transform_event(self, event: dict) -> dict:
         if "duration" in event:
-            event["duration"] = {"value": event["duration"].total_seconds(), "unit": "s"}
+            event["duration"] = event["duration"].total_seconds()
         return event
 
     def insert_one(self, bucket: str, event: Event):
