@@ -19,4 +19,7 @@ setup(name='aw-core',
           'tinydb-serialization>=1.0.3',
           'python-json-logger>=0.1.5',
           'takethetime>=0.3.0',
+      ],
+      classifiers=[
+          'Programming Language :: Python :: 3'
       ])
