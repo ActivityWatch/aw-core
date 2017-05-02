@@ -14,9 +14,10 @@ class EventTest(unittest.TestCase):
         Event(label="test", timestamp=datetime.now(timezone.utc), duration=timedelta(hours=13, minutes=37), data={"key": "val"})
 
     def test_invalid_type(self):
-        e = Event(label=1, timestamp=datetime.now(timezone.utc))
+        e = Event(label=1, duration="test", timestamp=datetime.now(timezone.utc))
         # Field containing invalid type should be dropped
         assert "label" not in e
+        assert "duration" not in e
 
     def test_invalid_field(self):
         e = Event(label="test", timestamp=datetime.now(timezone.utc), invalid_field="What am I doing here?")
@@ -28,7 +29,6 @@ class EventTest(unittest.TestCase):
         assert True == e.verify()
         e.data = "a"
         assert False == e.verify()
-
 
     def test_json_serialization(self):
         e = Event(label="test", timestamp=datetime.now(timezone.utc), duration=timedelta(hours=13, minutes=37), data={"key": "val"})
