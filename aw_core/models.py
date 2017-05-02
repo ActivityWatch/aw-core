@@ -132,6 +132,6 @@ class Event(dict):
         if type(duration) == timedelta:
             self["duration"] = duration
         elif type(duration) == float:
-            self["duration"] = timedelta(seconds=duration)
+            self["duration"] = timedelta(seconds=duration) # type: ignore
         else:
             logger.error("Couldn't parse duration of invalid type {}".format(type(duration)))
