@@ -192,11 +192,11 @@ def test_replace_last_complex(bucket_cm):
     """
     with bucket_cm as bucket:
         # Create first event
-        event1 = Event(label="test1", timestamp=now)
+        event1 = Event(data={"label": "test1"}, timestamp=now, duration=timedelta(0))
         bucket.insert(event1)
         eventcount = len(bucket.get(-1))
         # Create second event to replace with the first one
-        event2 = Event(label="test2",
+        event2 = Event(data={"label": "test2"}, duration=timedelta(0),
                        timestamp=now + timedelta(seconds=1))
         bucket.replace_last(event2)
         # Assert length and content
@@ -212,7 +212,7 @@ def test_get_last(bucket_cm):
     now = datetime.now()
     second = timedelta(seconds=1)
     with bucket_cm as bucket:
-        events = [Event(data={"label": "test"}, timestamp=ts) for ts in [now + second, now + second * 2, now + second * 3]]
+        events = [Event(data={"label": "test"}, timestamp=ts, duration=timedelta(0)) for ts in [now + second, now + second * 2, now + second * 3]]
 
         for event in events:
             bucket.insert(event)
