@@ -91,10 +91,8 @@ class Event(dict):
         """Useful when sending data over the wire.
         Any mongodb interop should not use do this as it accepts datetimes."""
         json_data = self.copy()
-        if "timestamp" in json_data:
-            json_data["timestamp"] = self["timestamp"].astimezone().isoformat()
-        if "duration" in json_data:
-            json_data["duration"] = self["duration"].total_seconds()
+        json_data["timestamp"] = self["timestamp"].astimezone().isoformat()
+        json_data["duration"] = self["duration"].total_seconds()
         return json_data
 
     def to_json_str(self) -> str:

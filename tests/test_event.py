@@ -14,24 +14,21 @@ class EventTest(unittest.TestCase):
         Event(label="test", timestamp=datetime.now(timezone.utc), duration=timedelta(hours=13, minutes=37), data={"key": "val"})
 
     def test_invalid_type(self):
-        e = Event(label=1, duration="test", timestamp=datetime.now(timezone.utc))
+        e = Event(duration="test", timestamp=datetime.now(timezone.utc))
         # Field containing invalid type should be dropped
-        assert "label" not in e
         assert "duration" not in e
+        assert e.data == {}
+        e.data = "a"
+        e.verify()
+        assert e.data == {}
 
     def test_invalid_field(self):
-        e = Event(label="test", timestamp=datetime.now(timezone.utc), invalid_field="What am I doing here?")
+        e = Event(timestamp=datetime.now(timezone.utc), invalid_field="What am I doing here?")
         # Invalid field should be dropped
         assert "invalid_field" not in e
 
-    def test_invalid_type(self):
-        e = Event(label="a", timestamp=datetime.now(timezone.utc))
-        assert True == e.verify()
-        e.data = "a"
-        assert False == e.verify()
-
     def test_json_serialization(self):
-        e = Event(label="test", timestamp=datetime.now(timezone.utc), duration=timedelta(hours=13, minutes=37), data={"key": "val"})
+        e = Event(timestamp=datetime.now(timezone.utc), duration=timedelta(hours=13, minutes=37), data={"key": "val"})
         json_str = e.to_json_str()
         logging.error(json_str)
         assert e == Event(**json.loads(json_str))
