@@ -47,7 +47,7 @@ class BucketModel(BaseModel):
 
 
 class EventModel(BaseModel):
-    bucket = ForeignKeyField(BucketModel, related_name='events')
+    bucket = ForeignKeyField(BucketModel, related_name='events', index=True)
     timestamp = DateTimeField(index=True, default=datetime.now)
     duration = DecimalField()
     datastr = CharField()
