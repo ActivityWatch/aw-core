@@ -107,13 +107,12 @@ class MergeQueriesTest(unittest.TestCase):
                                 timestamp=datetime.now(timezone.utc) + timedelta(seconds=i),
                                 duration=timedelta(seconds=1)))
         res1 = {
-            "duration": {"unit":"s", "value": eventcount},
+            "duration": eventcount,
             "eventlist": events,
             "eventcount": eventcount
         }
-        res2 = res1
-        res_merged = merge_queries(res1, res2)
+        res_merged = merge_queries(res1, res1)
         assert 16 == res_merged["eventcount"]
-        assert timedelta(seconds=16) == res_merged["duration"]
+        assert 16 == res_merged["duration"]
         assert 16 == len(res_merged["eventlist"])
         assert timedelta(seconds=1) == res_merged["eventlist"][0]["duration"]

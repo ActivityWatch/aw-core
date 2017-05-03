@@ -191,7 +191,6 @@ def merge_chunks(chunk1, chunk2):
         elif label in chunk2:
             result[label] = chunk2[label]
 
-
     return result
 
 
@@ -201,11 +200,7 @@ def merge_queries(q1, q2):
     result["eventcount"] = q1["eventcount"] + q2["eventcount"]
     # Duration
     d1 = q1["duration"]
-    if type(d1) is dict:
-        d1 = timedelta(seconds=d1["value"])
     d2 = q2["duration"]
-    if type(d2) is dict:
-        d2 = timedelta(seconds=d2["value"])
     result["duration"] = d1 + d2
     # Data (eventlist/chunks)
     if "chunks" in q1 and "chunks" in q2:
