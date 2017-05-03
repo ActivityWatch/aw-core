@@ -48,7 +48,7 @@ class BucketModel(BaseModel):
 class EventModel(BaseModel):
     bucket = ForeignKeyField(BucketModel, related_name='events')
     timestamp = DateTimeField(index=True, default=datetime.now)
-    duration = DecimalField(null=True)
+    duration = DecimalField()
     datastr = CharField()
 
     @classmethod
@@ -121,6 +121,7 @@ class PeeweeStorage(AbstractStorage):
     def replace_last(self, bucket_id, event):
         e = self._get_last(bucket_id, event)
         e.timestamp = event.timestamp
+        e.duration = event.duration.total_seconds()
         e.datastr = json.dumps(event.data)
         e.save()
 

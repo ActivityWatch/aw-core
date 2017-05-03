@@ -192,7 +192,7 @@ def test_replace_last_complex(bucket_cm):
     """
     with bucket_cm as bucket:
         # Create first event
-        event1 = Event(data={"label": "test1"}, timestamp=now, duration=timedelta(0))
+        event1 = Event(data={"label": "test1"}, timestamp=now, duration=timedelta(1))
         bucket.insert(event1)
         eventcount = len(bucket.get(-1))
         # Create second event to replace with the first one
