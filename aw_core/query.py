@@ -81,9 +81,9 @@ FILTERS
 
 def include_keyvals(tfilter, events, ds, limit=-1, start=None, end=None):
     if "key" not in tfilter:
-        raise QueryException("include_keyvals filter misses key field: {}".format(btransform))
+        raise QueryException("include_keyvals filter misses key field: {}".format(tfilter))
     elif "vals" not in tfilter:
-        raise QueryException("include_keyvals filter misses vals field: {}".format(btransform))
+        raise QueryException("include_keyvals filter misses vals field: {}".format(tfilter))
     else:
         key = tfilter["key"] # type: str
         vals = tfilter["vals"]  # type: list
@@ -92,9 +92,9 @@ def include_keyvals(tfilter, events, ds, limit=-1, start=None, end=None):
 
 def exclude_keyvals(tfilter, events, ds, limit=-1, start=None, end=None):
     if "key" not in tfilter:
-        raise QueryException("exclude_keyvals filter misses key field: {}".format(btransform))
+        raise QueryException("exclude_keyvals filter misses key field: {}".format(tfilter))
     elif "vals" not in tfilter:
-        raise QueryException("exclude_keyvals filter misses vals field: {}".format(btransform))
+        raise QueryException("exclude_keyvals filter misses vals field: {}".format(tfilter))
     else:
         key = tfilter["key"] # type: str
         vals = tfilter["vals"]  # type: list
