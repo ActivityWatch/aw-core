@@ -10,7 +10,7 @@ services:
  - mongodb
 
 before_install:
- - "pip install pytest pytest-cov coverage"
+ - "pip install pytest pytest-cov"
  - "pip install mypy"
  - "pip install pymongo"
 
@@ -18,25 +18,7 @@ install:
  - "make build"
 
 script:
- # Run the tests
- - "pytest -v --cov=aw_core --cov=aw_datastore"
-
- # Run the benchmark
- # - "python -m aw_datastore.benchmark"
-
- # Forgiving checking
- - "export MYPYPATH=$TRAVIS_BUILD_DIR/stubs"
- - "mypy aw_core --ignore-missing-imports --follow-imports=skip"
- - "mypy aw_datastore --ignore-missing-imports --follow-imports=skip"
-
- # The following typechecking won't fail the build
- # Don't silence missing imports
- - "mypy aw_core; echo 'Not a failing step'"
- - "mypy aw_datastore; echo 'Not a failing step'"
- # Strict checking
- - "mypy --check-untyped-defs --disallow-untyped-defs aw_core; echo 'Not a failing step'"
- # Super strict checking
- - "mypy --check-untyped-defs --disallow-untyped-defs --disallow-untyped-calls aw_core; echo 'Not a failing step'"
+ - "make test"
 
 after_success:
  - "bash <(curl -s https://codecov.io/bash)"
