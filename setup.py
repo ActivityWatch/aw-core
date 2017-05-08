@@ -3,12 +3,12 @@
 from setuptools import setup, find_packages
 
 setup(name='aw-core',
-      version='0.2',
+      version='0.3',
       description='Core library for ActivityWatch',
-      author='Erik Bjäreholt',
-      author_email='erik@bjareho.lt',
+      author='Erik Bjäreholt, Johan Bjäreholt',
+      author_email='erik@bjareho.lt, johan@bjareho.lt',
       url='https://github.com/ActivityWatch/aw-core',
-      packages=set(find_packages()) - set(["tests"]),
+      packages=set(["aw_core", "aw_database"]),
       install_requires=[
           'jsonschema',
           'peewee>=2.8.5',
