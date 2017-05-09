@@ -74,6 +74,7 @@ class PeeweeStorage(AbstractStorage):
         filepath = os.path.join(get_data_dir("aw-server"), filename)
         self.db = _db
         self.db.init(filepath)
+        self.logger.info("Using database file: {}".format(filepath))
 
         # db.connect()
 
