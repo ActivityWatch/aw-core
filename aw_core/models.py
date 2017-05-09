@@ -11,19 +11,6 @@ import iso8601
 logger = logging.getLogger("aw.client.models")
 
 
-def _duration_parse(duration: Union[dict, timedelta]) -> timedelta:
-    """
-    Takes something representing a timestamp and
-    returns a timestamp in the representation we want.
-    """
-    if isinstance(duration, dict):
-        if duration["unit"] == "s":
-            duration = timedelta(seconds=duration["value"])
-        else:
-            raise Exception("Unknown unit '{}'".format(duration["unit"]))
-    return duration
-
-
 def _timestamp_parse(ts: Union[str, datetime]) -> datetime:
     """
     Takes something representing a timestamp and
@@ -49,14 +36,10 @@ class Event(dict):
     """
 
     # TODO: Use JSONSchema as specification
-    # FIXME: tags and label have similar/same meaning, pick one
-    # FIXME: Some other databases (such as Zenobase) use tag instead of label, we should consider changing
     ALLOWED_FIELDS = {
         "timestamp": datetime,
-        "count": int,
         "duration": timedelta,
-        "label": str,
-        "note": str,
+        "data": dict,
     }
 
     def __init__(self, **kwargs: Any) -> None:
@@ -70,93 +53,54 @@ class Event(dict):
 
         # Set all the kwargs
         for arg in kwargs:
-            # Use the pluralized setter when kwarg value is a list
-            if isinstance(kwargs[arg], list):
-                setattr(self, arg + "s", kwargs[arg])
-            else:
-                setattr(self, arg, kwargs[arg])
+            setattr(self, arg, kwargs[arg])
 
         self.verify()
 
-        if not self.timestamp:
+
+    def verify(self):
+        success = True
+
+        if not self._hasprop("timestamp"):
             logger.warning("Event did not have a timestamp, using now as timestamp")
             # The typing.cast here was required for mypy to shut up, weird...
             self.timestamp = datetime.now(typing.cast(timezone, timezone.utc))
 
-        self._drop_invalid_types()
-        self._drop_empty_keys()
-
-    @classmethod
-    def from_json_obj(cls, json_obj: Union[List, Dict]) -> List["Event"]:
-        "Checks if json object is a list or a single event and returns a list of events"
-        if isinstance(json_obj, dict):
-            return [Event(**json_obj)]
-        elif isinstance(json_obj, list):
-            return [Event(**e) for e in json_obj]
-        else:
-            raise TypeError("json_obj was neither a dict nor list: {}".format(json_obj))
-
-    def verify(self):
         for k in self.ALLOWED_FIELDS.keys():
             if k in self:
                 t = type(getattr(self, k))
-                if t != self.ALLOWED_FIELDS[k] and isinstance(t, type(None)):
+                if t != self.ALLOWED_FIELDS[k] and not isinstance(t, type(None)):
+                    success = False
                     logger.warning("Event from models.py was unable to set attribute {} to correct type\n Supposed to be {}, while actual is {}".format(k, self.ALLOWED_FIELDS[k], type(getattr(self, k))))
+
+        self._drop_invalid_types()
+        return success
 
     def _drop_invalid_types(self):
         # Check for invalid types
+        invalid_keys = []
         for k in self.keys():
-            for i, v in reversed(list(enumerate(self[k]))):
-                if not isinstance(v, self.ALLOWED_FIELDS[k]):
-                    if v != None: # FIXME: Optionals are invalidly defaulted to None, this is just a workaround so the logs don't get spammed
-                        logger.error("Found value {} in field {} that was not of proper instance ({}, expected: {}). Event: {}"
-                                 .format(v, k, type(v), self.ALLOWED_FIELDS[k], self))
-                    self[k].pop(i)
-
-    def _drop_empty_keys(self):
-        # Drop dict keys whose values are only an empty list
-        for k in list(self.keys()):
-            if not self[k]:
-                del self[k]
+            v = self[k]
+            if not isinstance(v, self.ALLOWED_FIELDS[k]):
+                if v != None: # FIXME: Optionals are invalidly defaulted to None, this is just a workaround so the logs don't get spammed
+                    logger.error("Found value {} in field {} that was not of proper instance ({}, expected: {}). Event: {}"
+                             .format(v, k, type(v), self.ALLOWED_FIELDS[k], self))
+                invalid_keys.append(k)
+        for k in invalid_keys:
+            del self[k]
 
     def to_json_dict(self) -> dict:
         """Useful when sending data over the wire.
         Any mongodb interop should not use do this as it accepts datetimes."""
-        data = self.copy()
-        if "timestamp" in data:
-            data["timestamp"] = [dt.astimezone().isoformat() for dt in data["timestamp"]]
-        if "duration" in data:
-            data["duration"] = [{"value": td.total_seconds(), "unit": "s"} for td in data["duration"]]
-        return data
+        json_data = self.copy()
+        json_data["timestamp"] = self.timestamp.astimezone().isoformat()
+        json_data["duration"] = self.duration.total_seconds()
+        return json_data
 
     def to_json_str(self) -> str:
         # TODO: Extend serializers in aw_core.json instead of using self.to_json_dict
         data = self.to_json_dict()
         return json.dumps(data)
-
-    """
-    def __getattr__(self, attr):
-        # NOTE: Major downside of using this solution is getting zero ability to typecheck
-        if attr in self.ALLOWED_FIELDS:
-            return self[attr][0] if attr in self and self[attr] else None
-        elif attr[:-1] in self.ALLOWED_FIELDS:
-            # For pluralized versions of properties
-            attr = attr[:-1]
-            return self[attr] if attr in self else []
-        else:
-            return dict.__getattr__(self, attr)
-
-    def __setattr__(self, attr, value):
-        # NOTE: Major downside of using this solution is getting zero ability to typecheck
-        if attr in self.ALLOWED_FIELDS:
-            self[attr] = [value]
-        elif attr[:-1] in self.ALLOWED_FIELDS:
-            # For pluralized versions of setters
-            attr = attr[:-1]
-            self[attr] = value
-        else:
-            raise AttributeError
-    """
 
     def _hasprop(self, propname):
         """Badly named, but basically checks if the underlying
@@ -164,69 +108,30 @@ class Event(dict):
         return propname in self and self[propname]
 
     @property
-    def label(self) -> Optional[str]:
-        return self["label"][0] if self._hasprop("label") else None
+    def data(self) -> dict:
+        return self["data"] if self._hasprop("data") else {}
 
-    @label.setter
-    def label(self, label: str) -> None:
-        self["label"] = [label]
+    @data.setter
+    def data(self, data: dict):
+        self["data"] = data
 
     @property
     def timestamp(self) -> Optional[datetime]:
-        return self["timestamp"][0] if self._hasprop("timestamp") else None
+        return self["timestamp"]
 
     @timestamp.setter
     def timestamp(self, timestamp: Union[str, datetime]) -> None:
-        self["timestamp"] = [_timestamp_parse(timestamp)]
+        self["timestamp"] = _timestamp_parse(timestamp)
 
     @property
     def duration(self) -> timedelta:
-        return self["duration"][0] if self._hasprop("duration") else timedelta(0)
+        return self["duration"] if self._hasprop("duration") else timedelta(0)
 
     @duration.setter
-    def duration(self, duration: Union[timedelta, dict]) -> None:
-        self["duration"] = [_duration_parse(duration)]
-
-    @property
-    def count(self) -> Optional[int]:
-        return self["count"][0] if self._hasprop("count") else None
-
-    @count.setter
-    def count(self, count: int) -> None:
-        self["count"] = [count]
-
-    """
-    Below comes all the plural-versions of the above
-    """
-
-    @property
-    def labels(self) -> List[int]:
-        return self["label"] if "label" in self else []
-
-    @labels.setter
-    def labels(self, labels: List[str]) -> None:
-        self["label"] = labels
-
-    @property
-    def timestamps(self) -> List[datetime]:
-        return self["timestamp"] if "timestamp" in self else []
-
-    @timestamps.setter
-    def timestamps(self, timestamps: List[Union[str, datetime]]) -> None:
-        self["timestamp"] = list(map(_timestamp_parse, timestamps))
-
-    @property
-    def durations(self) -> List[timedelta]:
-        return self["duration"] if "duration" in self else []
-
-    @durations.setter
-    def durations(self, durations: List[Union[dict, timedelta]]) -> None:
-        self["duration"] = list(map(_duration_parse, durations))
-
-    @property
-    def counts(self) -> List[int]:
-        return self["count"] if "count" in self else []
-
-    @counts.setter
-    def counts(self, counts: List[int]) -> None:
-        self["count"] = counts
+    def duration(self, duration: Union[timedelta, float]) -> None:
+        if type(duration) == timedelta:
+            self["duration"] = duration
+        elif type(duration) == float:
+            self["duration"] = timedelta(seconds=duration) # type: ignore
+        else:
+            logger.error("Couldn't parse duration of invalid type {}".format(type(duration)))

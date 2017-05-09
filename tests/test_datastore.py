@@ -7,7 +7,7 @@ import pytest
 from . import context
 
 from aw_core.models import Event
-from aw_datastore import get_storage_method_names
+from aw_datastore import get_storage_methods
 
 from .utils import param_datastore_objects, param_testing_buckets_cm
 
@@ -18,8 +18,8 @@ logging.basicConfig(level=logging.DEBUG)
 now = datetime.now(timezone.utc)
 
 
-def test_get_storage_method_names():
-    assert get_storage_method_names()
+def test_get_storage_methods():
+    assert get_storage_methods()
 
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
@@ -62,12 +62,12 @@ def test_insert_one(bucket_cm):
     """
     with bucket_cm as bucket:
         l = len(bucket.get())
-        event = Event(label="test", timestamp=now, duration=timedelta(seconds=1))
+        event = Event(label="test", timestamp=now, duration=timedelta(seconds=1), data={"key": "val"})
         bucket.insert(event)
         fetched_events = bucket.get()
         assert l + 1 == len(fetched_events)
         assert Event == type(fetched_events[0])
-        assert event == Event(**fetched_events[0])
+        assert event == fetched_events[0]
         logging.info(event)
         logging.info(fetched_events[0].to_json_str())
 
@@ -87,7 +87,7 @@ def test_insert_many(bucket_cm):
     Tests that you can insert many events at the same time to a bucket
     """
     with bucket_cm as bucket:
-        events = (2 * [Event(label="test", timestamp=now, duration=timedelta(seconds=1))])
+        events = (2 * [Event(label="test", timestamp=now, duration=timedelta(seconds=1), data={"key": "val"})])
         bucket.insert(events)
         fetched_events = bucket.get()
         assert 2 == len(fetched_events)
@@ -174,14 +174,15 @@ def test_replace_last(bucket_cm):
     """
     with bucket_cm as bucket:
         # Create two events
-        bucket.insert(Event(label="test1", timestamp=now))
-        bucket.insert(Event(label="test2", timestamp=now + timedelta(seconds=1)))
-        # Create second event to replace with the first one
-        bucket.replace_last(Event(label="test2-replaced",
+        bucket.insert(Event(data={"label": "test1"}, timestamp=now))
+        bucket.insert(Event(data={"label": "test2"}, timestamp=now + timedelta(seconds=1)))
+        # Create second event to replace with the second one
+        bucket.replace_last(Event(data={"label": "test2-replaced"},
                                   timestamp=now + timedelta(seconds=1)))
+        bucket.insert(Event(data={"label": "test3"}, timestamp=now + timedelta(seconds=2)))
         # Assert length
-        assert 2 == len(bucket.get(-1))
-        assert bucket.get(-1)[0].label == "test2-replaced"
+        assert 3 == len(bucket.get(-1))
+        assert bucket.get(-1)[1]["data"]["label"] == "test2-replaced"
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
@@ -191,11 +192,11 @@ def test_replace_last_complex(bucket_cm):
     """
     with bucket_cm as bucket:
         # Create first event
-        event1 = Event(label="test1", timestamp=now)
+        event1 = Event(data={"label": "test1"}, timestamp=now, duration=timedelta(1))
         bucket.insert(event1)
         eventcount = len(bucket.get(-1))
         # Create second event to replace with the first one
-        event2 = Event(label="test2",
+        event2 = Event(data={"label": "test2"}, duration=timedelta(0),
                        timestamp=now + timedelta(seconds=1))
         bucket.replace_last(event2)
         # Assert length and content
@@ -211,14 +212,14 @@ def test_get_last(bucket_cm):
     now = datetime.now()
     second = timedelta(seconds=1)
     with bucket_cm as bucket:
-        events = [Event(label="test", timestamp=ts) for ts in [now + second, now + second * 2, now + second * 3]]
+        events = [Event(data={"label": "test"}, timestamp=ts, duration=timedelta(0)) for ts in [now + second, now + second * 2, now + second * 3]]
 
         for event in events:
             bucket.insert(event)
 
         assert bucket.get(limit=1)[0] == events[-1]
         for event in bucket.get(limit=5):
-            print(event.timestamp, event.labels)
+            print(event.timestamp, event.data["label"])
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())

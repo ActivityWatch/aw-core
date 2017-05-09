@@ -32,10 +32,10 @@ _storage_methods = get_storage_methods()
 
 def param_datastore_objects():
     return [Datastore(storage_strategy=strategy, testing=True)
-            for strategy in _storage_methods]
+            for name, strategy in _storage_methods.items()]
 
 
 def param_testing_buckets_cm():
     datastores = [Datastore(storage_strategy=strategy, testing=True)
-                  for strategy in _storage_methods]
+                  for name, strategy in _storage_methods.items()]
     return [TempTestBucket(ds) for ds in datastores]

@@ -21,7 +21,7 @@ def test_query_unspecified_bucket(datastore):
         Asserts that a exception is raised when a query doesn't have a specified bucket
     """
     example_query = {
-        'chunk': True,
+        'chunk': 'label',
         'transforms': [{}]
     }
     # Query and handle QueryException
@@ -35,7 +35,7 @@ def test_query_invalid_bucket(datastore):
         Asserts that a exception is raised when a query has specified a bucket that is not a string
     """
     example_query = {
-        'chunk': True,
+        'chunk': 'label',
         'transforms': [{
             'bucket': 123,
         }]
@@ -52,7 +52,7 @@ def test_query_nonexisting_bucket(datastore):
     """
     print(datastore)
     example_query = {
-        'chunk': True,
+        'chunk': 'label',
         'transforms': [{
             'bucket': "There is no bucket with this name",
         }]
@@ -77,7 +77,7 @@ def test_query_unspecified_filter(datastore):
     try:
         bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
         example_query = {
-            'chunk': True,
+            'chunk': 'label',
             'transforms': [{
                 'bucket': bid1,
                 'filters': [{}],
@@ -100,7 +100,7 @@ def test_query_invalid_filter(datastore):
     try:
         bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
         example_query = {
-            'chunk': True,
+            'chunk': 'label',
             'transforms': [{
                 'bucket': bid1,
                 'filters': [{
@@ -125,7 +125,7 @@ def test_query_nonexisting_filter(datastore):
     try:
         bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
         example_query = {
-            'chunk': True,
+            'chunk': 'label',
             'transforms': [{
                 'bucket': bid1,
                 'filters': [{
@@ -141,7 +141,7 @@ def test_query_nonexisting_filter(datastore):
 
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
-def test_query_filter_labels_with_chunking(datastore):
+def test_query_filter_labels_with_full_chunking(datastore):
     """
         Test include/exclude label filters as well as eventcount limit and start/end filtering
     """
@@ -153,10 +153,10 @@ def test_query_filter_labels_with_chunking(datastore):
     try:
         bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
         bucket2 = datastore.create_bucket(bucket_id=bid2, type="test", client="test", hostname="test", name=name)
-        e1 = Event(label=["test1"],
+        e1 = Event(data={"label": "test1", "key": "val"},
                    timestamp=now - timedelta(hours=100),
                    duration=timedelta(seconds=1))
-        e2 = Event(label=["test2"],
+        e2 = Event(data={"label": "test2"},
                    timestamp=now,
                    duration=timedelta(seconds=2))
         bucket1.insert(10 * [e1])
@@ -164,26 +164,29 @@ def test_query_filter_labels_with_chunking(datastore):
         bucket2.insert(5 * [e1])
         bucket2.insert(10 * [e2])
         example_query = {
-            'chunk': True,
+            'chunk': 'label',
             'transforms': [{
                 'bucket': bid1,
                 'filters': [{
-                    'name': 'include_labels',
-                    'labels': ['test1'],
+                    'name': 'include_keyvals',
+                    'key': 'label',
+                    'vals': ['test1'],
                 }]
             }, {
                 'bucket': bid2,
                 'filters': [{
-                    'name': 'exclude_labels',
-                    'labels': ['test1'],
+                    'name': 'exclude_keyvals',
+                    'key': 'label',
+                    'vals': ['test1'],
                 }],
             }]
         }
         # Test that output is correct
         result = query(example_query, datastore)
-        assert result['chunks']['test1'] == {'other_labels': [], 'duration': {'value': 10, 'unit': 's'}}
-        assert result['chunks']['test2'] == {'other_labels': [], 'duration': {'value': 20, 'unit': 's'}}
-        assert result['duration'] == {'value': 30, 'unit': 's'}
+        print(result)
+        assert result['chunks']['test1'] == {'duration': 10.0, 'data': {'key':{'duration': 10.0, 'values': {'val': {'duration': 10.0}}}}}
+        assert result['chunks']['test2'] == {'duration': 20.0, 'data': {}}
+        assert result['duration'] == 30.0
         # Test that limit works
         assert 1 == query(example_query, datastore, limit=1)["eventcount"]
         # Test that starttime works
@@ -208,13 +211,13 @@ def test_query_filter_labels(datastore):
         bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
         bucket2 = datastore.create_bucket(bucket_id=bid2, type="test", client="test", hostname="test", name=name)
         currtime = datetime.now(timezone.utc)
-        e1 = Event(label=["test1"],
+        e1 = Event(data={"label": "test1"},
                    timestamp=currtime,
                    duration=timedelta(seconds=1))
-        e2 = Event(label=["test2"],
+        e2 = Event(data={"label": "test2"},
                    timestamp=currtime + timedelta(seconds=2),
                    duration=timedelta(seconds=1))
-        et = Event(label=["intersect-label"],
+        et = Event(data={"label": "intersect-label"},
                    timestamp=currtime,
                    duration=timedelta(seconds=1))
 
@@ -222,7 +225,6 @@ def test_query_filter_labels(datastore):
         bucket1.insert(e2)
         bucket2.insert(et)
         example_query = {
-            'chunk': False,
             'transforms': [{
                 'bucket': bid1,
                 'filters': [{
@@ -238,7 +240,7 @@ def test_query_filter_labels(datastore):
         print(result)
         assert 1 == len(result['eventlist'])
         assert result['eventlist'][0] == e1.to_json_dict()
-        assert result['duration'] == {'value': 1.0, 'unit': 's'}
+        assert result['duration'] == 1.0
     finally:
         datastore.delete_bucket(bid1)
         datastore.delete_bucket(bid2)

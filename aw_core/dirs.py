@@ -25,6 +25,11 @@ def get_data_dir(module_name: str) -> str:
 
 
 @ensure_returned_path_exists
+def get_cache_dir(module_name: str) -> str:
+    return os.path.join(_get_global_cache_dir(), module_name)
+
+
+@ensure_returned_path_exists
 def get_config_dir(module_name: str) -> str:
     return os.path.join(_get_global_config_dir(), module_name)
 
@@ -35,3 +40,7 @@ def _get_global_data_dir() -> str:
 
 def _get_global_config_dir() -> str:
     return appdirs.user_config_dir("activitywatch")
+
+
+def _get_global_cache_dir() -> str:
+    return appdirs.user_cache_dir("activitywatch")

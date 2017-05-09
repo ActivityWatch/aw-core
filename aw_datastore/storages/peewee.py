@@ -4,7 +4,7 @@ import json
 import os
 import logging
 
-from peewee import Model, CharField, DateTimeField
+from peewee import Model, CharField, IntegerField, DecimalField, DateTimeField, ForeignKeyField
 from playhouse.sqlite_ext import SqliteExtDatabase
 
 from aw_core.models import Event
@@ -32,6 +32,7 @@ class BaseModel(Model):
 
 
 class BucketModel(BaseModel):
+    key = IntegerField(primary_key=True)
     id = CharField(unique=True)
     created = DateTimeField(default=datetime.now)
     name = CharField(null=True)
@@ -46,16 +47,21 @@ class BucketModel(BaseModel):
 
 
 class EventModel(BaseModel):
-    bucket_id = CharField(index=True)
+    bucket = ForeignKeyField(BucketModel, related_name='events', index=True)
     timestamp = DateTimeField(index=True, default=datetime.now)
-    jsonstr = CharField()
+    duration = DecimalField()
+    datastr = CharField()
 
     @classmethod
-    def from_event(cls, bucket_id, event: Event):
-        return cls(bucket_id=bucket_id, timestamp=event.timestamp, jsonstr=event.to_json_str())
+    def from_event(cls, bucket_key, event: Event):
+        return cls(bucket=bucket_key, timestamp=event.timestamp, duration=event.duration.total_seconds(), datastr=json.dumps(event.data))
 
     def json(self):
-        return json.loads(self.jsonstr)
+        return {
+            "timestamp": self.timestamp,
+            "duration": float(self.duration),
+            "data": json.loads(self.datastr)
+        }
 
 
 class PeeweeStorage(AbstractStorage):
@@ -71,10 +77,16 @@ class PeeweeStorage(AbstractStorage):
 
         # db.connect()
 
+        self.bucket_keys = {}
         if not BucketModel.table_exists():
             BucketModel.create_table()
         if not EventModel.table_exists():
             EventModel.create_table()
+        self.update_bucket_keys()
+
+    def update_bucket_keys(self):
+        buckets = BucketModel.select()
+        self.bucket_keys = {bucket.id: bucket.key for bucket in buckets}
 
     def buckets(self):
         buckets = {bucket.id: bucket.json() for bucket in BucketModel.select()}
@@ -84,30 +96,33 @@ class PeeweeStorage(AbstractStorage):
                       hostname: str, created: str, name: Optional[str] = None):
         BucketModel.create(id=bucket_id, type=type_id, client=client,
                            hostname=hostname, created=created, name=name)
+        self.update_bucket_keys()
 
     def delete_bucket(self, bucket_id: str):
-        BucketModel.delete().where(BucketModel.id == bucket_id).execute()
-        EventModel.delete().where(EventModel.bucket_id == bucket_id).execute()
+        EventModel.delete().where(EventModel.bucket == self.bucket_keys[bucket_id]).execute()
+        BucketModel.delete().where(BucketModel.key == self.bucket_keys[bucket_id]).execute()
+        self.update_bucket_keys()
 
     def get_metadata(self, bucket_id: str):
-        return BucketModel.get(BucketModel.id == bucket_id).json()
+        return BucketModel.get(BucketModel.key == self.bucket_keys[bucket_id]).json()
 
     def insert_one(self, bucket_id: str, event: Event):
-        e = EventModel.from_event(bucket_id, event)
+        e = EventModel.from_event(self.bucket_keys[bucket_id], event)
         e.save()
 
     def insert_many(self, bucket_id, events: List[Event]):
         # FIXME: Breaks for 10**5 events, use chunking when inserting
-        events_dict = [{"bucket_id": bucket_id,
+        events_dict = [{"bucket": self.bucket_keys[bucket_id],
                         "timestamp": event.timestamp,
-                        "jsonstr": event.to_json_str()}
+                        "duration": event.duration.total_seconds(),
+                        "datastr": json.dumps(event.data)}
                        for event in events]
         with self.db.atomic():
             EventModel.insert_many(events_dict).execute()
 
     def _get_last(self, bucket_id, event):
         return EventModel.select() \
-                         .where(EventModel.bucket_id == bucket_id) \
+                         .where(EventModel.bucket == self.bucket_keys[bucket_id]) \
                          .order_by(EventModel.timestamp.desc()) \
                          .limit(1) \
                          .get()
@@ -115,13 +130,14 @@ class PeeweeStorage(AbstractStorage):
     def replace_last(self, bucket_id, event):
         e = self._get_last(bucket_id, event)
         e.timestamp = event.timestamp
-        e.jsonstr = event.to_json_str()
+        e.duration = event.duration.total_seconds()
+        e.datastr = json.dumps(event.data)
         e.save()
 
     def get_events(self, bucket_id: str, limit: int,
                    starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
         q = EventModel.select() \
-                      .where(EventModel.bucket_id == bucket_id) \
+                      .where(EventModel.bucket == self.bucket_keys[bucket_id]) \
                       .order_by(EventModel.timestamp.desc()) \
                       .limit(limit)
         if starttime:
