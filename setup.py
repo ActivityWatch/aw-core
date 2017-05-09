@@ -27,13 +27,13 @@ if False:
         long_description = "\n".join([long_description, changelog])
 
 
-setup(name              =about["__title__"],
-      version           =about["__version__"],
-      description       =about["__summary__"],
-      long_description  =long_description,
-      author            =about["__author__"],
-      author_email      =about["__email__"],
-      url               =about["__uri__"],
+setup(name=about["__title__"],
+      version=about["__version__"],
+      description=about["__summary__"],
+      long_description=long_description,
+      author=about["__author__"],
+      author_email=about["__email__"],
+      url=about["__uri__"],
       packages=set(["aw_core", "aw_datastore"]),
       install_requires=[
           'jsonschema',
@@ -41,11 +41,8 @@ setup(name              =about["__title__"],
           'strict-rfc3339',
           'appdirs>=1.4.0',
           'iso8601',
-          'tinydb>=3.2.1',
-          'tinydb-serialization>=1.0.3',
           'python-json-logger>=0.1.5',
-          'takethetime>=0.3.0',
-      ],
+          'takethetime>=0.3.0'],
       classifiers=[
-          'Programming Language :: Python :: 3'
-      ])
+          'Programming Language :: Python :: 3']
+      )
