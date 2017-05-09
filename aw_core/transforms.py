@@ -1,7 +1,6 @@
 import logging
-import json
 from datetime import datetime, timedelta
-from typing import List, Any, Dict, Optional
+from typing import List, Dict, Optional, Any
 from copy import copy, deepcopy
 
 from aw_core.models import Event
@@ -99,27 +98,18 @@ def filter_period_intersect(events, filterevents):
 
     return filtered_events
 
-def include_keyvals(events, key, vals):
-    filtered_events = []
-    for event in events:
-        match = False
-        for val in vals:
-            if key in event.data and val == event.data[key]:
-                match = True
-        if match:
-            filtered_events.append(event)
-    return filtered_events
 
-def exclude_keyvals(events, key, vals):
-    filtered_events = []
-    for event in events:
-        match = False
+def filter_keyvals(events, key, vals, exclude=False):
+    def predicate(event):
         for val in vals:
             if key in event.data and val == event.data[key]:
-                match = True
-        if not match:
-            filtered_events.append(event)
-    return filtered_events
+                return True
+        return False
+
+    if exclude:
+        return list(filter(lambda e: not predicate(e), events))
+    else:
+        return list(filter(lambda e: predicate(e), events))
 
 
 def full_chunk(events: List[Event], chunk_key) -> dict:

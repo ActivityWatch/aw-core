@@ -79,26 +79,25 @@ FILTERS
 """
 
 
+def filter_keyvals(tfilter, events, ds, limit=-1, start=None, end=None, exclude=False):
+    if "key" not in tfilter:
+        raise QueryException("filter_keyvals filter misses key field: {}".format(tfilter))
+    elif "vals" not in tfilter:
+        raise QueryException("filter_keyvals filter misses vals field: {}".format(tfilter))
+    else:
+        key = tfilter["key"] # type: str
+        vals = tfilter["vals"]  # type: list
+        return transforms.filter_keyvals(events, key, vals, exclude=exclude)
+
+
+# @deprecated
 def include_keyvals(tfilter, events, ds, limit=-1, start=None, end=None):
-    if "key" not in tfilter:
-        raise QueryException("include_keyvals filter misses key field: {}".format(tfilter))
-    elif "vals" not in tfilter:
-        raise QueryException("include_keyvals filter misses vals field: {}".format(tfilter))
-    else:
-        key = tfilter["key"] # type: str
-        vals = tfilter["vals"]  # type: list
-        return transforms.include_keyvals(events, key, vals)
+    return filter_keyvals(tfilter, events, ds, limit=limit, start=start, end=end)
 
 
+# @deprecated
 def exclude_keyvals(tfilter, events, ds, limit=-1, start=None, end=None):
-    if "key" not in tfilter:
-        raise QueryException("exclude_keyvals filter misses key field: {}".format(tfilter))
-    elif "vals" not in tfilter:
-        raise QueryException("exclude_keyvals filter misses vals field: {}".format(tfilter))
-    else:
-        key = tfilter["key"] # type: str
-        vals = tfilter["vals"]  # type: list
-        return transforms.exclude_keyvals(events, key, vals)
+    return filter_keyvals(tfilter, events, ds, limit=limit, start=start, end=end, exclude=True)
 
 
 def timeperiod_intersect(tfilter, events, ds, limit=-1, start=None, end=None):

@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from aw_core.models import Event
-from aw_core.transforms import full_chunk, filter_period_intersect, include_keyvals, exclude_keyvals, merge_queries
+from aw_core.transforms import full_chunk, filter_period_intersect, filter_keyvals, merge_queries
 
 
 class ChunkTest(unittest.TestCase):
@@ -32,15 +32,15 @@ class ChunkTest(unittest.TestCase):
 
 
 class IncludeLabelsTest(unittest.TestCase):
-    def test_include_keyval(self):
-        labels = ["a","c"]
+    def test_filter_keyval(self):
+        labels = ["a", "c"]
         events = [
             Event(data={"label": "a"}),
             Event(data={"label": "b"}),
             Event(data={"label": "c"}),
         ]
-        included_events = include_keyvals(events, "label", labels)
-        excluded_events = exclude_keyvals(events, "label", labels)
+        included_events = filter_keyvals(events, "label", labels)
+        excluded_events = filter_keyvals(events, "label", labels, exclude=True)
         assert len(included_events) == 2
         assert len(excluded_events) == 1
 
