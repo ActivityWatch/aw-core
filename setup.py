@@ -34,7 +34,7 @@ setup(name=about["__title__"],
       author=about["__author__"],
       author_email=about["__email__"],
       url=about["__uri__"],
-      packages=set(["aw_core", "aw_datastore"]),
+      packages=set(["aw_core", "aw_datastore", "aw_datastore.storages"]),
       install_requires=[
           'jsonschema',
           'peewee>=2.8.5',
