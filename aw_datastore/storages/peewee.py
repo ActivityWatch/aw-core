@@ -91,13 +91,12 @@ class PeeweeStorage(AbstractStorage):
 
         data_dir = get_data_dir("aw-server")
         current_db_version = detect_db_version(data_dir, max_version=LATEST_VERSION)
-        if current_db_version:
-            # DB file found
-            if current_db_version <= LATEST_VERSION:
-                # Latest DB file was old
-                self.logger.info("Latest version database file found was of an older version")
-                self.logger.info("Creating database file for new version {}".format(LATEST_VERSION))
-                self.logger.warning("ActivityWatch does not currently support database migrations, new database file will be empty")
+
+        if current_db_version is not None and current_db_version < LATEST_VERSION:
+            # DB file found but was of an older version
+            self.logger.info("Latest version database file found was of an older version")
+            self.logger.info("Creating database file for new version {}".format(LATEST_VERSION))
+            self.logger.warning("ActivityWatch does not currently support database migrations, new database file will be empty")
 
         filename = 'peewee-sqlite' + ('-testing' if testing else '') + ".v{}".format(LATEST_VERSION) + '.db'
         filepath = os.path.join(data_dir, filename)
