@@ -1,4 +1,4 @@
-from typing import Union, List
+from typing import Union, List, Callable
 
 from aw_datastore import Datastore
 
@@ -26,6 +26,7 @@ class BucketTransform:
         self.filters = filters
 
 
+# TODO: Do we really need limit, start and end all the way down?
 # TODO: Get rid of union here?
 def bucket_transform(btransform: Union[BucketTransform, dict], ds: Datastore,
                      limit: int=-1, start: datetime=None, end: datetime=None):
@@ -114,30 +115,54 @@ FILTERS
 """
 
 
-def filter_keyvals(tfilter, events: List[Event], ds: Datastore, limit=-1, start: datetime=None, end: datetime=None, exclude: bool=False):
-    if "key" not in tfilter:
-        raise QueryException("filter_keyvals filter misses key field: {}".format(tfilter))
-    elif "vals" not in tfilter:
-        raise QueryException("filter_keyvals filter misses vals field: {}".format(tfilter))
-    else:
-        key = tfilter["key"] # type: str
-        vals = tfilter["vals"]  # type: list
-        return transforms.filter_keyvals(events, key, vals, exclude=exclude)
+class KeyVals:
+    def __init__(self, key: str, vals: List[str]) -> None:
+        self.key = key
+        self.vals = vals
+
+    @classmethod
+    def from_dict(cls, d) -> "KeyVals":
+        if "key" not in d:
+            raise QueryException("filter_keyvals filter misses key field: {}".format(d))
+        elif "vals" not in d:
+            raise QueryException("filter_keyvals filter misses vals field: {}".format(d))
+        return cls(d["key"], d["vals"])
+
+
+def filter_keyvals(tfilter: Union[KeyVals, dict], events: List[Event], ds: Datastore,
+                   limit=-1, start: datetime=None, end: datetime=None, exclude: bool=False):
+    if isinstance(tfilter, dict):
+        tfilter = KeyVals.from_dict(tfilter)
+    return transforms.filter_keyvals(events, tfilter.key, tfilter.vals, exclude=exclude)
 
 
 # @deprecated
-def include_keyvals(tfilter, events, ds, limit=-1, start=None, end=None):
+def include_keyvals(tfilter: Union[KeyVals, dict], events: List[Event], ds: Datastore,
+                    limit=-1, start=None, end=None):
     return filter_keyvals(tfilter, events, ds, limit=limit, start=start, end=end)
 
 
 # @deprecated
-def exclude_keyvals(tfilter, events, ds, limit=-1, start=None, end=None):
+def exclude_keyvals(tfilter: Union[KeyVals, dict], events: List[Event], ds: Datastore,
+                    limit=-1, start=None, end=None):
     return filter_keyvals(tfilter, events, ds, limit=limit, start=start, end=end, exclude=True)
 
 
-def timeperiod_intersect(tfilter, events, ds, limit=-1, start=None, end=None):
-    filterevents = []
-    for btransform in tfilter["transforms"]:
+class TimeperiodIntersect:
+    def __init__(self, transforms):
+        self.transforms = transforms
+
+    @classmethod
+    def from_dict(cls, d) -> "TimeperiodIntersect":
+        return cls(d["transforms"])
+
+
+def timeperiod_intersect(tfilter: Union[TimeperiodIntersect, dict], events: List[Event], ds: Datastore,
+                         limit=-1, start: datetime=None, end: datetime=None):
+    if isinstance(tfilter, dict):
+        tfilter = TimeperiodIntersect.from_dict(tfilter)
+    filterevents = []  # type: List[Event]
+    for btransform in tfilter.transforms:
         filterevents += bucket_transform(btransform, ds, limit, start, end)
     events = transforms.filter_period_intersect(events, filterevents)
     return events
@@ -147,4 +172,4 @@ filters = {
     'exclude_keyvals': exclude_keyvals,
     'include_keyvals': include_keyvals,
     'timeperiod_intersect': timeperiod_intersect,
-}
+}  # type: Dict[str, Callable[..., List[Event]]]
