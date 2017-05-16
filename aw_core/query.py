@@ -1,3 +1,7 @@
+from typing import Union, List
+
+from .models import Event
+
 from . import transforms
 
 from datetime import datetime, timedelta
@@ -5,6 +9,13 @@ from datetime import datetime, timedelta
 
 class QueryException(Exception):
     pass
+
+
+class Query:
+    def __init__(self, transforms, chunk=False, cache=False):
+        self.transforms = transforms
+        self.chunk = chunk
+        self.cache = cache
 
 
 def bucket_transform(btransform, ds, limit=-1, start=None, end=None):
@@ -30,7 +41,7 @@ def bucket_transform(btransform, ds, limit=-1, start=None, end=None):
     return events
 
 
-def query(query, ds, limit=-1, start=None, end=None):
+def query(query: Union[Query, dict], ds, limit=-1, start=None, end=None):
     events = []
     if "transforms" not in query:
         raise QueryException("Query does not contain a transform: {}".format(query))
@@ -57,7 +68,7 @@ CHUNKERS
 
 """
 
-def chunk(events, chunk_key):
+def chunk(events: List[Event], chunk_key: str):
     result = transforms.full_chunk(events, chunk_key)
     # Turn all timedeltas into duration-dicts
     for label, lv in result["chunks"].items():
