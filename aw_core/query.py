@@ -93,7 +93,7 @@ CHUNKERS
 """
 
 
-def chunk(events: List[Event], chunk_key: str):
+def chunk(events: List[Event], chunk_key: str) -> dict:
     result = transforms.full_chunk(events, chunk_key)
     # Turn all timedeltas into duration-dicts
     for label, lv in result["chunks"].items():
