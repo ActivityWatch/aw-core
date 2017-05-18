@@ -1,4 +1,4 @@
-from typing import Union, List, Callable
+from typing import Union, List, Callable, Dict
 
 from aw_datastore import Datastore
 
