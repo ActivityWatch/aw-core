@@ -53,8 +53,9 @@ class ViewException(Exception):
     pass
 
 
-# TODO: The type annotation "Datastore" here is a string because an import would lead to a mutual-recursion import
-def query_view(viewname: str, ds: "Datastore", start: datetime=None, end: datetime=None):
+# TODO: We'd want to type annotate with Datastore here (on ds) but
+#       an import would lead to a mutual-recursion import.
+def query_view(viewname: str, ds, start: datetime=None, end: datetime=None):
     if viewname not in _views:
         raise ViewException("Tried to query non-existing view named {}".format(viewname))
 
