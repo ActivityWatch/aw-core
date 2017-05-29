@@ -66,7 +66,7 @@ def bucket_transform(btransform: Union[BucketTransform, dict], ds,
 def query(query: Union[Query, dict], ds,
           limit: int=-1, start: datetime=None, end: datetime=None):
     if isinstance(query, dict):
-        if "transforms" not in query:
+        if "transforms" not in query:  # pragma: no cover
             raise QueryException("Query does not contain a transform: {}".format(query))
         query = Query(query["transforms"], chunk=query["chunk"] if "chunk" in query else False)
 
@@ -123,9 +123,9 @@ class KeyVals:
 
     @classmethod
     def from_dict(cls, d) -> "KeyVals":
-        if "key" not in d:
+        if "key" not in d:  # pragma: no cover
             raise QueryException("filter_keyvals filter misses key field: {}".format(d))
-        elif "vals" not in d:
+        elif "vals" not in d:  # pragma: no cover
             raise QueryException("filter_keyvals filter misses vals field: {}".format(d))
         return cls(d["key"], d["vals"])
 
