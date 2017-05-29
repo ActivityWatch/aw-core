@@ -5,8 +5,6 @@ from .query import query
 from .transforms import merge_queries
 from .cached_views import get_cached_query, cache_query
 
-from aw_datastore import Datastore
-
 logger = logging.getLogger("aw.core.views")
 
 _views = {}
@@ -55,7 +53,8 @@ class ViewException(Exception):
     pass
 
 
-def query_view(viewname: str, ds: Datastore, start: datetime=None, end: datetime=None):
+# TODO: The type annotation "Datastore" here is a string because an import would lead to a mutual-recursion import
+def query_view(viewname: str, ds: "Datastore", start: datetime=None, end: datetime=None):
     if viewname not in _views:
         raise ViewException("Tried to query non-existing view named {}".format(viewname))
 
