@@ -19,6 +19,7 @@ install:
 
 script:
  - "make test"
+ - "make typecheck"
 
 after_success:
  - "bash <(curl -s https://codecov.io/bash)"
