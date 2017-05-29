@@ -50,9 +50,11 @@ install:
   # done from inside the powershell script as it would require to restart
   # the parent CMD process).
   - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
+  - "copy %PYTHON%\\python.exe %PYTHON%\\python3.exe"
 
   # Check that we have the expected version and architecture for Python
   - "python --version"
+  - "python3 --version"
   - "python -c \"import struct; print(struct.calcsize('P') * 8)\""
 
   # Upgrade to the latest version of pip to avoid it displaying warnings
