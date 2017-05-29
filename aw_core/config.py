@@ -6,6 +6,7 @@ from aw_core import dirs
 
 logger = logging.getLogger("aw.core.config")
 
+
 def load_config(appname, default_config):
     """
     Take the defaults, and if a config file exists, use the settings specified
@@ -25,6 +26,7 @@ def load_config(appname, default_config):
     save_config(appname, config)
 
     return config
+
 
 def save_config(appname, config):
     config_dir = dirs.get_config_dir(appname)

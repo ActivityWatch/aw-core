@@ -24,7 +24,7 @@ def _replace_event_period(event: Event, period: TimePeriod) -> Event:
 
 
 def heartbeat_reduce(events: Event, pulsetime: float) -> List[Event]:
-    """Merges consequtive events together according to the rules of `heartbeat_merge`."""
+    """Merges consecutive events together according to the rules of `heartbeat_merge`."""
     reduced = []
     if len(events) > 0:
         reduced.append(events.pop(0))
@@ -56,7 +56,7 @@ def heartbeat_merge(last_event: Event, heartbeat: Event, pulsetime: float) -> Op
     return None
 
 
-def filter_period_intersect(events, filterevents):
+def filter_period_intersect(events: List[Event], filterevents: List[Event]) -> List[Event]:
     """
     Filters away all events or time periods of events in which a
     filterevent does not have an intersecting time period.
@@ -99,7 +99,7 @@ def filter_period_intersect(events, filterevents):
     return filtered_events
 
 
-def filter_keyvals(events, key, vals, exclude=False):
+def filter_keyvals(events, key, vals, exclude=False) -> List[Event]:
     def predicate(event):
         for val in vals:
             if key in event.data and val == event.data[key]:
@@ -112,23 +112,44 @@ def filter_keyvals(events, key, vals, exclude=False):
         return list(filter(lambda e: predicate(e), events))
 
 
-def full_chunk(events: List[Event], chunk_key) -> dict:
+class ChunkResult(dict):
+    def __init__(self, chunks: dict, duration: timedelta, eventcount: int) -> None:
+        dict.__init__(self)
+        self["chunks"] = chunks
+        self["duration"] = duration
+        self["eventcount"] = eventcount
+
+    @property
+    def chunks(self) -> dict:
+        return self["chunks"]
+
+    @property
+    def duration(self) -> timedelta:
+        return self["duration"]
+
+    @property
+    def eventcount(self) -> int:
+        return self["eventcount"]
+
+
+def full_chunk(events: List[Event], chunk_key: str) -> ChunkResult:
+    from collections import defaultdict
     eventcount = 0
-    chunks = dict()  # type: Dict[str, Any]
-    totduration = timedelta();
+    chunks = defaultdict(lambda: {
+        "data": {},
+        "duration": timedelta(0)
+    })  # type: Dict[str, dict]
+    totduration = timedelta()
     for event in events:
         eventcount += 1
         totduration += event.duration
         if chunk_key in event.data:
-            if event.data[chunk_key] not in chunks:
-                chunks[event.data[chunk_key]] = {"data": {}}
-                chunks[event.data[chunk_key]]["duration"] = copy(event.duration)
-            else:
-                chunks[event.data[chunk_key]]["duration"] += event.duration
+            chunks[event.data[chunk_key]]["duration"] += event.duration
+
             for k, v in event.data.items():
                 if k != chunk_key:
                     if k not in chunks[event.data[chunk_key]]["data"]:
-                        kv_info = {"values": {}} # type: dict
+                        kv_info = {"values": {}}  # type: dict
                         kv_info["duration"] = copy(event.duration)
                         chunks[event.data[chunk_key]]["data"][k] = kv_info
                     else:
@@ -139,12 +160,7 @@ def full_chunk(events: List[Event], chunk_key) -> dict:
                     else:
                         chunks[event.data[chunk_key]]["data"][k]["values"][v]["duration"] += event.duration
     # Package response
-    payload = {
-        "eventcount": eventcount,
-        "duration": totduration,
-        "chunks": chunks,
-    }
-    return payload
+    return ChunkResult(chunks, totduration, eventcount)
 
 
 def merge_chunks(chunk1, chunk2):
@@ -198,5 +214,3 @@ def merge_queries(q1, q2):
     if "eventlist" in q1 and "eventlist" in q2:
         result["eventlist"] = q1["eventlist"] + q2["eventlist"]
     return result
-
-

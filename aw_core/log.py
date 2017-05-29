@@ -1,7 +1,7 @@
 import os
 import sys
 import logging
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 from pythonjsonlogger import jsonlogger
@@ -24,6 +24,20 @@ def setup_logging(name: str, testing=False, verbose=False,
         root_logger.addHandler(_create_stderr_handler())
     if log_file:
         root_logger.addHandler(_create_file_handler(name, testing=testing, log_json=log_file_json))
+
+
+def _get_latest_log_files(name, testing=False) -> List[str]:
+    """Returns a list with the filenames (not full paths) of all available logfiles for `name` sorted by latest first."""
+    files = filter(lambda filename: name in filename, os.listdir(dirs.get_log_dir()))
+    files = filter(lambda filename: "testing" in filename if testing else "testing" not in filename, files)
+    return sorted(files, reverse=True)
+
+
+def get_latest_log_file(name, testing=False) -> Optional[str]:
+    """Returns the filename of the last logfile with `name`.
+       Useful when you want to read the logfile of another ActivityWatch service."""
+    last_logs = _get_latest_log_files(name, testing=testing)
+    return last_logs[0] if last_logs else None
 
 
 def _create_stderr_handler() -> logging.Handler:
