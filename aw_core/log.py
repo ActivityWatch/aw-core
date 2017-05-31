@@ -70,7 +70,7 @@ def _create_file_handler(name, testing=False, log_json=False) -> logging.Handler
 
 
 def _create_human_formatter() -> logging.Formatter:
-    return logging.Formatter('%(asctime)-15s [%(levelname)-5s]: %(message)s (%(filename)s:%(lineno)s)')
+    return logging.Formatter('%(asctime)-15s [%(levelname)-5s]: %(message)s  (%(name)s:%(lineno)s)')
 
 
 def _create_json_formatter() -> logging.Formatter:
