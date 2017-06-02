@@ -7,6 +7,7 @@ logger = logging.getLogger("aw_core")
 from .timeperiod import TimePeriod
 
 from . import decorators
+from . import util
 
 from . import dirs
 from . import config
