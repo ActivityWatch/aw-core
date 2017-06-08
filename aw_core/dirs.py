@@ -33,6 +33,6 @@ def get_config_dir(module_name: str) -> str:
 
 
 @ensure_returned_path_exists
-def get_log_dir(module_name: str) -> str:
+def get_log_dir(module_name: str) -> str:  # pragma: no cover
     user_log_dir = appdirs.user_log_dir("activitywatch")
     return os.path.join(user_log_dir, module_name)
