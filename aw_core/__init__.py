@@ -2,6 +2,7 @@ import logging
 
 logger = logging.getLogger("aw_core")
 
+from . import __about__
 
 # TODO timeperiod should be moved to a seperate library, has uses outside of ActivityWatch
 from .timeperiod import TimePeriod

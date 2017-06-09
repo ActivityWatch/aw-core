@@ -1,6 +1,8 @@
 # .coveragerc to control coverage.py
 [run]
 branch = True
+omit =
+    aw_datastore/benchmark.py
 
 [report]
 # Regexes for lines to exclude from consideration

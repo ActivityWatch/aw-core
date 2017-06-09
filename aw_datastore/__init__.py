@@ -1,15 +1,16 @@
+from typing import Dict, Callable, Any
 import platform as _platform
 
 from . import storages
 from .datastore import Datastore
 
 
-def get_storage_methods():
+def get_storage_methods() -> Dict[str, Callable[..., storages.AbstractStorage]]:
     from .storages import MemoryStorage, MongoDBStorage, PeeweeStorage
     methods = {
         PeeweeStorage.sid: PeeweeStorage,
         MemoryStorage.sid: MemoryStorage,
-    }
+    }  # type: Dict[str, Callable[..., storages.AbstractStorage]]
 
     # MongoDB is not supported on Windows or macOS
     if _platform.system() == "Linux":  # pragma: no branch
