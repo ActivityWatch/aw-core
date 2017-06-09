@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from . import dirs
 
-logger = logging.getLogger("aw.core.views")
+logger = logging.getLogger(__name__)
 
 @dirs.ensure_returned_path_exists
 def get_view_cache_directory(viewname, dsname):

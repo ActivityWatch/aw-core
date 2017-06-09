@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("aw_core")
+logger = logging.getLogger(__name__)
 
 from . import __about__
 

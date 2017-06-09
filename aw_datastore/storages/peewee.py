@@ -10,10 +10,9 @@ from playhouse.sqlite_ext import SqliteExtDatabase
 from aw_core.models import Event
 from aw_core.dirs import get_data_dir
 
-from . import logger
 from .abstract import AbstractStorage
 
-logger = logger.getChild("peewee")
+logger = logging.getLogger(__name__)
 
 # Prevent debug output from propagating
 peewee_logger = logging.getLogger("peewee")

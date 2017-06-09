@@ -5,7 +5,7 @@ from .query import query
 from .transforms import merge_queries
 from .cached_views import get_cached_query, cache_query
 
-logger = logging.getLogger("aw.core.views")
+logger = logging.getLogger(__name__)
 
 _views = {}
 

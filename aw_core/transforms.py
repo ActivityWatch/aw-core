@@ -6,7 +6,7 @@ from copy import copy, deepcopy
 from aw_core.models import Event
 from aw_core import TimePeriod
 
-logger = logging.getLogger("aw.core.transform")
+logger = logging.getLogger(__name__)
 
 
 def _get_event_period(event: Event) -> TimePeriod:

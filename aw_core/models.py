@@ -8,7 +8,7 @@ from typing import Any, List, Dict, Union, Optional
 
 import iso8601
 
-logger = logging.getLogger("aw.client.models")
+logger = logging.getLogger(__name__)
 
 
 def _timestamp_parse(ts: Union[str, datetime]) -> datetime:
