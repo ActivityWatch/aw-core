@@ -7,11 +7,11 @@ def _this_dir() -> str:
 
 
 def _schema_dir() -> str:
-    return os.path.dirname(_this_dir())
+    return os.path.join(os.path.dirname(_this_dir()), "aw_core", "schemas")
 
 
 def get_json_schema(name: str) -> dict:
-    with open(os.path.join(_schema_dir(), "schemas", name + ".json")) as f:
+    with open(os.path.join(_schema_dir(), name + ".json")) as f:
         data = json.load(f)
     return data
 
