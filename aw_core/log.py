@@ -7,11 +7,16 @@ from datetime import datetime
 from pythonjsonlogger import jsonlogger
 
 from . import dirs
+from .decorators import deprecated
 
+# NOTE: Will be removed in a future version since it's not compatible with running a multi-service process
+# TODO: prefix with `_`
 log_file_path = None
 
 
+@deprecated
 def get_log_file_path() -> Optional[str]:  # pragma: no cover
+    """DEPRECATED: Use get_latest_log_file instead."""
     return log_file_path
 
 
@@ -27,10 +32,11 @@ def setup_logging(name: str, testing=False, verbose=False,
 
 
 def _get_latest_log_files(name, testing=False) -> List[str]:  # pragma: no cover
-    """Returns a list with the filenames (not full paths) of all available logfiles for `name` sorted by latest first."""
-    files = filter(lambda filename: name in filename, os.listdir(dirs.get_log_dir()))
+    """Returns a list with the paths of all available logfiles for `name` sorted by latest first."""
+    log_dir = dirs.get_log_dir(name)
+    files = filter(lambda filename: name in filename, os.listdir(log_dir))
     files = filter(lambda filename: "testing" in filename if testing else "testing" not in filename, files)
-    return sorted(files, reverse=True)
+    return [os.path.join(log_dir, filename) for filename in sorted(files, reverse=True)]
 
 
 def get_latest_log_file(name, testing=False) -> Optional[str]:  # pragma: no cover
@@ -48,7 +54,7 @@ def _create_stderr_handler() -> logging.Handler:  # pragma: no cover
 
 
 def _create_file_handler(name, testing=False, log_json=False) -> logging.Handler:  # pragma: no cover
-    log_dir = dirs.get_log_dir()
+    log_dir = dirs.get_log_dir(name)
 
     # Set logfile path and name
     global log_file_path

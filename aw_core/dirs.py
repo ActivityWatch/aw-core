@@ -15,32 +15,24 @@ def ensure_returned_path_exists(f):
 
 
 @ensure_returned_path_exists
-def get_log_dir() -> str:
-    return os.path.join(_get_global_data_dir(), "logs")
-
-
-@ensure_returned_path_exists
 def get_data_dir(module_name: str) -> str:
-    return os.path.join(_get_global_data_dir(), module_name)
+    user_data_dir = appdirs.user_data_dir("activitywatch")
+    return os.path.join(user_data_dir, module_name)
 
 
 @ensure_returned_path_exists
 def get_cache_dir(module_name: str) -> str:
-    return os.path.join(_get_global_cache_dir(), module_name)
+    user_cache_dir = appdirs.user_cache_dir("activitywatch")
+    return os.path.join(user_cache_dir, module_name)
 
 
 @ensure_returned_path_exists
 def get_config_dir(module_name: str) -> str:
-    return os.path.join(_get_global_config_dir(), module_name)
+    user_config_dir = appdirs.user_config_dir("activitywatch")
+    return os.path.join(user_config_dir, module_name)
 
 
-def _get_global_data_dir() -> str:
-    return appdirs.user_data_dir("activitywatch")
-
-
-def _get_global_config_dir() -> str:
-    return appdirs.user_config_dir("activitywatch")
-
-
-def _get_global_cache_dir() -> str:
-    return appdirs.user_cache_dir("activitywatch")
+@ensure_returned_path_exists
+def get_log_dir(module_name: str) -> str:  # pragma: no cover
+    user_log_dir = appdirs.user_log_dir("activitywatch")
+    return os.path.join(user_log_dir, module_name)
