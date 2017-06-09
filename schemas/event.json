@@ -1,84 +1,19 @@
 {
 	"$schema": "http://json-schema.org/draft-04/schema#",
 	"title": "Event",
-	"description": "Basic event for ActivityWatch",
+	"description": "The Event model that is used in ActivityWatch",
 	"type": "object",
+	"required": ["timestamp"],
 	"properties": {
 		"timestamp": {
-            "type": "array",
-            "items": {
-                "type": "string",
-                "format": "date-time"
-            },
-            "minItems": 1
+            "type": "string",
+            "format": "date-time"
 		},
-		"label": {
-            "type": "array",
-            "items": {
-                "type": "string"
-            }
-		},
-        "note": {
-            "type": "array",
-            "items": {
-                "type": "string"
-            }
-        },
 		"duration": {
-			"type": "array",
-            "items": {
-                "properties": {
-                    "value": {
-                        "type": "number"
-                    },
-                    "unit": {
-                        "enum": ["s", "ms", "h", "seconds", "minutes", "hours"]
-                    },
-                    "label": {
-                        "type": "string"
-                    }
-                },
-			    "required": ["value", "unit"]
-            }
+            "type": "number"
 		},
-        "count": {
-            "type": "array",
-            "items": {
-                "type": "number"
-            }
-        },
-		"distance": {
-			"type": "array",
-            "items": {
-                "properties": {
-                    "value": {
-                        "type": "number"
-                    },
-                    "unit": {
-                        "enum": ["m", "km", "mi", "ft", "in", "ly", "au"]
-                    }
-                },
-			    "required": ["value", "unit"]
-            }
-		},
-		"temperature": {
-			"type": "array",
-            "items": {
-                "properties": {
-                    "value": {
-                        "type": "number"
-                    },
-                    "unit": {
-                        "enum": ["k", "c", "f"]
-                    }
-                },
-                "required": ["value", "unit"]
-            }
-		},
-		"age": {
-			"description": "Age in years",
-			"type": "integer",
-			"minimum": 0
+		"data": {
+			"type": "object"
 		}
 	}
 }
