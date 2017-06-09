@@ -11,26 +11,29 @@ from . import get_storage_methods, Datastore
 from .storages import AbstractStorage
 
 
-def create_test_events(n):  # pragma: no cover
+def create_test_events(n):
     now = datetime.now(timezone.utc)
 
     events = [None] * n
     for i in range(n):
-        events[i] = Event(label="asd", timestamp=now + i * timedelta(hours=1))
+        events[i] = Event(timestamp=now + i * timedelta(hours=1), data={"label": "asd"})
 
     return events
 
 
 @contextmanager
-def temporary_bucket(ds):  # pragma: no cover
+def temporary_bucket(ds):
     bucket_id = "test_bucket"
-    ds.delete_bucket(bucket_id)
+    try:
+        ds.delete_bucket(bucket_id)
+    except KeyError:
+        pass
     bucket = ds.create_bucket(bucket_id, "testingtype", "test-client", "testing-box")
     yield bucket
     ds.delete_bucket(bucket_id)
 
 
-def benchmark(storage: Callable[..., AbstractStorage]):  # pragma: no cover
+def benchmark(storage: Callable[..., AbstractStorage]):
     ds = Datastore(storage, testing=True)
     num_events = 5 * 10**4
     events = create_test_events(num_events)
@@ -39,8 +42,8 @@ def benchmark(storage: Callable[..., AbstractStorage]):  # pragma: no cover
 
     with temporary_bucket(ds) as bucket:
         with ttt(" sum"):
-            with ttt(" insert {} events".format(num_events - 1)):
-                bucket.insert(events[:-1])
+            with ttt(" insert {} events".format(num_events)):
+                bucket.insert(events)
 
             with ttt(" insert 1 event"):
                 bucket.insert(events[-1])
@@ -51,8 +54,18 @@ def benchmark(storage: Callable[..., AbstractStorage]):  # pragma: no cover
 
             with ttt(" get all"):
                 events_tmp = bucket.get(limit=num_events)
+                print(len(events_tmp))
                 assert len(events_tmp) == num_events
-                assert events_tmp == sorted(events, reverse=True, key=lambda e: e.timestamp)
+                for e1, e2 in zip(events, sorted(events_tmp, key=lambda e: e.timestamp)):
+                    try:
+                        # Can't do direct comparison since tz will differ in object type (but have identical meaning)
+                        # TODO: Fix the above by overriding __eq__ on Event
+                        assert e1.timestamp.second == e2.timestamp.second
+                        assert e1.timestamp.microsecond == e2.timestamp.microsecond
+                    except AssertionError as e:
+                        print(e1)
+                        print(e2)
+                        raise e
                 # print("Total number of events: {}".format(len(events)))
 
             def events_in_interval(n):
@@ -67,7 +80,7 @@ def benchmark(storage: Callable[..., AbstractStorage]):  # pragma: no cover
             events_in_interval(10)
 
 
-if __name__ == "__main__":  # pragma: no cover
-    for storage in get_storage_methods():
+if __name__ == "__main__":
+    for storage in get_storage_methods().values():
         if len(sys.argv) <= 1 or storage.__name__ in sys.argv:
             benchmark(storage)
