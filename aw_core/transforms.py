@@ -2,6 +2,9 @@ import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Any
 from copy import copy, deepcopy
+import operator
+from functools import reduce
+from collections import defaultdict
 
 from aw_core.models import Event
 from aw_core import TimePeriod
@@ -132,70 +135,117 @@ class ChunkResult(dict):
         return self["eventcount"]
 
 
-def full_chunk(events: List[Event], chunk_key: str) -> ChunkResult:
-    from collections import defaultdict
-    eventcount = 0
-    chunks = defaultdict(lambda: {
-        "data": {},
-        "duration": timedelta(0)
-    })  # type: Dict[str, dict]
-    totduration = timedelta()
-    for event in events:
-        eventcount += 1
-        totduration += event.duration
-        if chunk_key in event.data:
-            chunks[event.data[chunk_key]]["duration"] += event.duration
+def full_chunk(events: List[Event], chunk_key: str, include_subchunks=True) -> ChunkResult:
+    """
+    Takes a list of events, returns them chunked by key.
 
+    Example Input:
+        full_chunk([
+            {ts: now,       duration: 120, data: {"app": "chrome", "title": "ActivityWatch"}},
+            {ts: now + 120, duration: 120, data: {"app": "chrome", "title": "GitHub"}},
+        ], "app")
+
+    Example Output:
+        {"chrome": {
+           "duration": 240,
+           "data": {"title": {
+              "values": {
+                 "ActivityWatch": { "duration": 120 },
+                 "GitHub": { "duration": 120 },
+              }
+           }}
+        }}
+    """
+    # TODO: Rename the function to just `chunk`.
+    # TODO: Rename the "data" key to the more descriptive "subchunks".
+    # TODO: Move everything in ["data"][key]["values"] to just ["data"][key]
+    #       This makes the dict expressable as a recursive datatype.
+    #       Approximate Haskell equivalent:
+    #           data Chunk = Chunk String Duration [Chunk]
+    # New proposed output:
+    #   {"chrome": {
+    #      "duration": 240,
+    #      "subchunks": {"title": {
+    #         "ActivityWatch": { duration: 120 },
+    #         "GitHub": { duration: 120 },
+    #      }}
+    #   }}
+
+    if include_subchunks:
+        def default_dict_constructor():
+            return {"duration": timedelta(0),
+                    "data": defaultdict(lambda: {
+                        "values": defaultdict(lambda: defaultdict(lambda: timedelta(0))),
+                        "duration": timedelta(0)
+                    })}
+    else:
+        def default_dict_constructor():
+            return {"duration": timedelta(0)}
+
+    chunks = defaultdict(default_dict_constructor)  # type: Dict[str, dict]
+
+    for event in filter(lambda e: chunk_key in list(e.data.keys()), events):
+        chunk = chunks[event.data[chunk_key]]
+        chunk["duration"] += event.duration
+
+        if include_subchunks:
+            # Merge all the data keys that are not chunk_key
             for k, v in event.data.items():
                 if k != chunk_key:
-                    if k not in chunks[event.data[chunk_key]]["data"]:
-                        kv_info = {"values": {}}  # type: dict
-                        kv_info["duration"] = copy(event.duration)
-                        chunks[event.data[chunk_key]]["data"][k] = kv_info
-                    else:
-                        chunks[event.data[chunk_key]]["data"][k]["duration"] += event.duration
-                    if v not in chunks[event.data[chunk_key]]["data"][k]["values"]:
-                        chunks[event.data[chunk_key]]["data"][k]["values"][v] = {}
-                        chunks[event.data[chunk_key]]["data"][k]["values"][v]["duration"] = copy(event.duration)
-                    else:
-                        chunks[event.data[chunk_key]]["data"][k]["values"][v]["duration"] += event.duration
+                    chunk["data"][k]["duration"] += event.duration
+                    chunk["data"][k]["values"][v]["duration"] += event.duration
+
+    # Convert all the defaultdicts into normal dicts
+    chunks = dict(chunks)
+    if include_subchunks:
+        for chunk in chunks.values():
+            chunk["data"] = dict(chunk["data"])
+            for subchunk in chunk["data"].values():
+                subchunk["values"] = dict(subchunk["values"])
+
     # Package response
-    return ChunkResult(chunks, totduration, eventcount)
+    total_duration = reduce(operator.add, (event.duration for event in events), timedelta(0))
+    return ChunkResult(chunks, total_duration, len(events))
 
 
-def merge_chunks(chunk1, chunk2):
-    result = {}
-    for label in set(chunk1.keys()).union(set(chunk2.keys())):
-        if label in chunk1 and label in chunk2:
-            result[label] = {"data":{}}
-            c1kv = chunk1[label]["data"]
-            c2kv = chunk2[label]["data"]
-            for key in set(c1kv.keys()).union(set(c2kv.keys())):
-                if key in c1kv and key in c2kv:
-                    result[label]["data"][key] = {"values":{}}
-                    c1k = c1kv[key]["values"]
-                    c2k = c2kv[key]["values"]
-                    for val in set(c1k.keys()).union(set(c2k.keys())):
-                        if val in c1k and val in c2k:
-                            c1v = c1k[val]
-                            c2v = c2k[val]
-                            result[label]["data"][key]["values"][val] = {
-                                "duration":
-                                    c1v["duration"] +
-                                    c2v["duration"]
-                            }
-                        elif val in c1v:
-                            result[label]["data"][key]["values"][val] = c1k[val]
-                        elif val in c2v:
-                            result[label]["data"][key]["values"][val] = c2k[val]
-                elif key in c1kv:
-                    result[label]["data"][key] = c1kv[key]
-                elif key in c2kv:
-                    result[label]["data"][key] = c2kv[key]
-        elif label in chunk1:
-            result[label] = chunk1[label]
-        elif label in chunk2:
-            result[label] = chunk2[label]
+def merge_chunks(chunk1: ChunkResult, chunk2: ChunkResult):
+    """What exactly is chunk1 and chunk2?"""
+    result = defaultdict(lambda: {"data": {}})
+
+    keys_intersection = set(chunk1.keys()).intersection(set(chunk2.keys()))
+    for key in keys_intersection:
+        c1_subchunks = chunk1[key]["data"]
+        c2_subchunks = chunk2[key]["data"]
+        subchunk_keys_union = set(c1_subchunks.keys()).union(set(c2_subchunks.keys()))
+
+        subchunks = result[key]["data"]
+        for subkey in subchunk_keys_union:
+            result[key]["data"][subkey] = {"values": {}}
+
+            if subkey in c1_subchunks and subkey in c2_subchunks:
+                c1_subchunk_values = c1_subchunks[subkey]["values"]
+                c2_subchunk_values = c2_subchunks[subkey]["values"]
+                subchunk_values_union = set(c1_subchunk_values.keys()).union(set(c2_subchunk_values.keys()))
+
+                subchunk_values = subchunks[subkey]["values"]
+                for val in subchunk_values_union:
+                    if val in c1_subchunk_values and val in c2_subchunk_values:
+                        v1_duration = c1_subchunk_values[val]["duration"]
+                        v2_duration = c2_subchunk_values[val]["duration"]
+                        subchunk_values[val] = {
+                            "duration": v1_duration + v2_duration
+                        }
+                    else:
+                        source = c1_subchunk_values if val in c1_subchunk_values else c2_subchunk_values
+                        subchunk_values[val] = source[val]
+            else:
+                source = c1_subchunks if subkey in c1_subchunks else c2_subchunks
+                result[key]["data"][subkey] = source[subkey]
+
+    keys_xor = set(chunk1.keys()).symmetric_difference(set(chunk2.keys()))
+    for key in keys_xor:
+        source_chunk = chunk1 if key in chunk1 else chunk2
+        result[key] = source_chunk[key]
 
     return result
 
