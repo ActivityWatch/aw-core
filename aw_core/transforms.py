@@ -210,7 +210,7 @@ def full_chunk(events: List[Event], chunk_key: str, include_subchunks=True) -> C
 
 def merge_chunks(chunk1: ChunkResult, chunk2: ChunkResult):
     """What exactly is chunk1 and chunk2?"""
-    result = defaultdict(lambda: {"data": {}})
+    result = defaultdict(lambda: {"data": {}})  # type: Dict[str, dict]
 
     keys_intersection = set(chunk1.keys()).intersection(set(chunk2.keys()))
     for key in keys_intersection:
