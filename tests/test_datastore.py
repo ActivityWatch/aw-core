@@ -86,11 +86,12 @@ def test_insert_many(bucket_cm):
     """
     Tests that you can insert many events at the same time to a bucket
     """
+    num_events = 5000
     with bucket_cm as bucket:
-        events = (2 * [Event(label="test", timestamp=now, duration=timedelta(seconds=1), data={"key": "val"})])
+        events = (num_events * [Event(label="test", timestamp=now, duration=timedelta(seconds=1), data={"key": "val"})])
         bucket.insert(events)
-        fetched_events = bucket.get()
-        assert 2 == len(fetched_events)
+        fetched_events = bucket.get(limit=-1)
+        assert num_events == len(fetched_events)
         for e, fe in zip(events, fetched_events):
             assert e == fe
 

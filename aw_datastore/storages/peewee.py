@@ -28,6 +28,13 @@ _db = SqliteExtDatabase(None)
 LATEST_VERSION=2
 
 
+def chunks(l, n):
+    """Yield successive n-sized chunks from l.
+    From: https://stackoverflow.com/a/312464/965332"""
+    for i in range(0, len(l), n):
+        yield l[i:i + n]
+
+
 class BaseModel(Model):
     class Meta:
         database = _db
@@ -137,14 +144,16 @@ class PeeweeStorage(AbstractStorage):
         e.save()
 
     def insert_many(self, bucket_id, events: List[Event]):
-        # FIXME: Breaks for 10**5 events, use chunking when inserting
-        events_dict = [{"bucket": self.bucket_keys[bucket_id],
-                        "timestamp": event.timestamp,
-                        "duration": event.duration.total_seconds(),
-                        "datastr": json.dumps(event.data)}
-                       for event in events]
+        events_dictlist = [{"bucket": self.bucket_keys[bucket_id],
+                            "timestamp": event.timestamp,
+                            "duration": event.duration.total_seconds(),
+                            "datastr": json.dumps(event.data)}
+                           for event in events]
         with self.db.atomic():
-            EventModel.insert_many(events_dict).execute()
+            # Chunking into lists of length 500 is needed here
+            # due to SQLITE_MAX_COMPOUND_SELECT.
+            for chunk in chunks(events_dictlist, 500):
+                EventModel.insert_many(chunk).execute()
 
     def _get_last(self, bucket_id, event):
         return EventModel.select() \
