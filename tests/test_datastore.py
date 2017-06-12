@@ -169,43 +169,6 @@ def test_insert_invalid(bucket_cm):
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
-def test_replace_last(bucket_cm):
-    """
-    Tests the replace last event in bucket functionality (simple)
-    """
-    with bucket_cm as bucket:
-        # Create two events
-        bucket.insert(Event(data={"label": "test1"}, timestamp=now))
-        bucket.insert(Event(data={"label": "test2"}, timestamp=now + timedelta(seconds=1)))
-        # Create second event to replace with the second one
-        bucket.replace_last(Event(data={"label": "test2-replaced"},
-                                  timestamp=now + timedelta(seconds=1)))
-        bucket.insert(Event(data={"label": "test3"}, timestamp=now + timedelta(seconds=2)))
-        # Assert length
-        assert 3 == len(bucket.get(-1))
-        assert bucket.get(-1)[1]["data"]["label"] == "test2-replaced"
-
-
-@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
-def test_replace_last_complex(bucket_cm):
-    """
-    Tests the replace last event in bucket functionality (complex)
-    """
-    with bucket_cm as bucket:
-        # Create first event
-        event1 = Event(data={"label": "test1"}, timestamp=now, duration=timedelta(1))
-        bucket.insert(event1)
-        eventcount = len(bucket.get(-1))
-        # Create second event to replace with the first one
-        event2 = Event(data={"label": "test2"}, duration=timedelta(0),
-                       timestamp=now + timedelta(seconds=1))
-        bucket.replace_last(event2)
-        # Assert length and content
-        assert eventcount == len(bucket.get(-1))
-        assert event2 == bucket.get(-1)[0]
-
-
-@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_get_last(bucket_cm):
     """
     Tests setting the result limit when fetching events

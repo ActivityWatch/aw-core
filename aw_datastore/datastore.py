@@ -89,6 +89,3 @@ class Bucket:
                 self.logger.warning("Inserting event that has a older timestamp than previous event!" +
                                     "\nPrevious:" + str(last_event) +
                                     "\nInserted:" + str(oldest_event))
-
-    def replace_last(self, event):
-        return self.ds.storage_strategy.replace_last(self.bucket_id, event)
