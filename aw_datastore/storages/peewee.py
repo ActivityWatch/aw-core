@@ -150,9 +150,10 @@ class PeeweeStorage(AbstractStorage):
                             "datastr": json.dumps(event.data)}
                            for event in events]
         with self.db.atomic():
-            # Chunking into lists of length 500 is needed here
-            # due to SQLITE_MAX_COMPOUND_SELECT.
-            for chunk in chunks(events_dictlist, 500):
+            # Chunking into lists of length 100 is needed here due to SQLITE_MAX_COMPOUND_SELECT
+            # and SQLITE_LIMIT_VARIABLE_NUMBER under Windows.
+            # See: https://github.com/coleifer/peewee/issues/948
+            for chunk in chunks(events_dictlist, 100):
                 EventModel.insert_many(chunk).execute()
 
     def get_events(self, bucket_id: str, limit: int,
