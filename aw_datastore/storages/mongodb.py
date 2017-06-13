@@ -104,3 +104,7 @@ class MongoDBStorage(AbstractStorage):
         # .copy is needed because otherwise mongodb inserts a _id field into the event
         dict_events = [self._transform_event(event.copy()) for event in events]  # type: List[dict]
         self.db[bucket]["events"].insert_many(dict_events)
+
+    def replace_last(self, bucket_id: str, event: Event):
+        last_event = list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(1))[0]
+        self.db[bucket_id]["events"].replace_one({"_id": last_event["_id"]}, self._transform_event(event.copy()))

@@ -73,3 +73,6 @@ class MemoryStorage(AbstractStorage):
 
     def insert_one(self, bucket: str, event: Event):
         self.db[bucket].append(Event(**event))
+
+    def replace_last(self, bucket_id, event):
+        self.db[bucket_id][-1] = event

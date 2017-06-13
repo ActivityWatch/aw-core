@@ -156,6 +156,20 @@ class PeeweeStorage(AbstractStorage):
             for chunk in chunks(events_dictlist, 100):
                 EventModel.insert_many(chunk).execute()
 
+    def _get_last(self, bucket_id, event):
+        return EventModel.select() \
+                         .where(EventModel.bucket == self.bucket_keys[bucket_id]) \
+                         .order_by(EventModel.timestamp.desc()) \
+                         .limit(1) \
+                         .get()
+
+    def replace_last(self, bucket_id, event):
+        e = self._get_last(bucket_id, event)
+        e.timestamp = event.timestamp
+        e.duration = event.duration.total_seconds()
+        e.datastr = json.dumps(event.data)
+        e.save()
+
     def get_events(self, bucket_id: str, limit: int,
                    starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
         q = EventModel.select() \
