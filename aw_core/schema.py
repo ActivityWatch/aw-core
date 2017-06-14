@@ -2,18 +2,19 @@ import os
 import json
 
 
-def this_dir() -> str:
+def _this_dir() -> str:
     return os.path.dirname(os.path.abspath(__file__))
 
 
-def schema_dir() -> str:
-    return os.path.dirname(this_dir())
+def _schema_dir() -> str:
+    return os.path.join(os.path.dirname(_this_dir()), "aw_core", "schemas")
 
 
 def get_json_schema(name: str) -> dict:
-    with open(os.path.join(schema_dir(), "schemas", name + ".json")) as f:
+    with open(os.path.join(_schema_dir(), name + ".json")) as f:
         data = json.load(f)
     return data
+
 
 if __name__ == "__main__":
     print(get_json_schema("event"))

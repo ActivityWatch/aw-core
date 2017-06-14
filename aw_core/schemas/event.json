@@ -1,0 +1,19 @@
+{
+	"$schema": "http://json-schema.org/draft-04/schema#",
+	"title": "Event",
+	"description": "The Event model that is used in ActivityWatch",
+	"type": "object",
+	"required": ["timestamp"],
+	"properties": {
+		"timestamp": {
+            "type": "string",
+            "format": "date-time"
+		},
+		"duration": {
+            "type": "number"
+		},
+		"data": {
+			"type": "object"
+		}
+	}
+}

@@ -8,7 +8,7 @@ from typing import Any, List, Dict, Union, Optional
 
 import iso8601
 
-logger = logging.getLogger("aw.client.models")
+logger = logging.getLogger(__name__)
 
 
 def _timestamp_parse(ts: Union[str, datetime]) -> datetime:
@@ -48,22 +48,23 @@ class Event(dict):
                 kwargs.pop(k)
                 logger.warning("Removed invalid field {} from Event kwargs: {}".format(k, kwargs))
 
-        # FIXME: If I remove **kwargs here, tests start failing... Troubling.
-        dict.__init__(self, **kwargs)
-
         # Set all the kwargs
         for arg in kwargs:
             setattr(self, arg, kwargs[arg])
 
         self.verify()
 
+    def __eq__(self, other):
+        return self.timestamp == other.timestamp\
+            and self.duration == other.duration\
+            and self.data == other.data
 
     def verify(self):
         success = True
 
         if not self._hasprop("timestamp"):
             logger.warning("Event did not have a timestamp, using now as timestamp")
-            # The typing.cast here was required for mypy to shut up, weird...
+            # FIXME: The typing.cast here was required for mypy to shut up, weird...
             self.timestamp = datetime.now(typing.cast(timezone, timezone.utc))
 
         for k in self.ALLOWED_FIELDS.keys():
@@ -82,9 +83,10 @@ class Event(dict):
         for k in self.keys():
             v = self[k]
             if not isinstance(v, self.ALLOWED_FIELDS[k]):
-                if v != None: # FIXME: Optionals are invalidly defaulted to None, this is just a workaround so the logs don't get spammed
+                # FIXME: Optionals are invalidly defaulted to None, this is just a workaround so the logs don't get spammed
+                if v is not None:
                     logger.error("Found value {} in field {} that was not of proper instance ({}, expected: {}). Event: {}"
-                             .format(v, k, type(v), self.ALLOWED_FIELDS[k], self))
+                                 .format(v, k, type(v), self.ALLOWED_FIELDS[k], self))
                 invalid_keys.append(k)
         for k in invalid_keys:
             del self[k]
@@ -93,12 +95,11 @@ class Event(dict):
         """Useful when sending data over the wire.
         Any mongodb interop should not use do this as it accepts datetimes."""
         json_data = self.copy()
-        json_data["timestamp"] = self.timestamp.astimezone().isoformat()
+        json_data["timestamp"] = self.timestamp.astimezone(timezone.utc).isoformat()
         json_data["duration"] = self.duration.total_seconds()
         return json_data
 
     def to_json_str(self) -> str:
-        # TODO: Extend serializers in aw_core.json instead of using self.to_json_dict
         data = self.to_json_dict()
         return json.dumps(data)
 
@@ -121,7 +122,7 @@ class Event(dict):
 
     @timestamp.setter
     def timestamp(self, timestamp: Union[str, datetime]) -> None:
-        self["timestamp"] = _timestamp_parse(timestamp)
+        self["timestamp"] = _timestamp_parse(timestamp).astimezone(timezone.utc)
 
     @property
     def duration(self) -> timedelta:

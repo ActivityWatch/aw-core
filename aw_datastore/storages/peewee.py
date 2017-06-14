@@ -10,10 +10,9 @@ from playhouse.sqlite_ext import SqliteExtDatabase
 from aw_core.models import Event
 from aw_core.dirs import get_data_dir
 
-from . import logger
 from .abstract import AbstractStorage
 
-logger = logger.getChild("peewee")
+logger = logging.getLogger(__name__)
 
 # Prevent debug output from propagating
 peewee_logger = logging.getLogger("peewee")
@@ -27,6 +26,13 @@ _db = SqliteExtDatabase(None)
 
 
 LATEST_VERSION=2
+
+
+def chunks(l, n):
+    """Yield successive n-sized chunks from l.
+    From: https://stackoverflow.com/a/312464/965332"""
+    for i in range(0, len(l), n):
+        yield l[i:i + n]
 
 
 class BaseModel(Model):
@@ -87,22 +93,20 @@ class PeeweeStorage(AbstractStorage):
     sid = "peewee"
 
     def __init__(self, testing):
-        self.logger = logger.getChild(self.sid)
-
         data_dir = get_data_dir("aw-server")
         current_db_version = detect_db_version(data_dir, max_version=LATEST_VERSION)
 
         if current_db_version is not None and current_db_version < LATEST_VERSION:
             # DB file found but was of an older version
-            self.logger.info("Latest version database file found was of an older version")
-            self.logger.info("Creating database file for new version {}".format(LATEST_VERSION))
-            self.logger.warning("ActivityWatch does not currently support database migrations, new database file will be empty")
+            logger.info("Latest version database file found was of an older version")
+            logger.info("Creating database file for new version {}".format(LATEST_VERSION))
+            logger.warning("ActivityWatch does not currently support database migrations, new database file will be empty")
 
         filename = 'peewee-sqlite' + ('-testing' if testing else '') + ".v{}".format(LATEST_VERSION) + '.db'
         filepath = os.path.join(data_dir, filename)
         self.db = _db
         self.db.init(filepath)
-        self.logger.info("Using database file: {}".format(filepath))
+        logger.info("Using database file: {}".format(filepath))
 
         # db.connect()
 
@@ -140,14 +144,17 @@ class PeeweeStorage(AbstractStorage):
         e.save()
 
     def insert_many(self, bucket_id, events: List[Event]):
-        # FIXME: Breaks for 10**5 events, use chunking when inserting
-        events_dict = [{"bucket": self.bucket_keys[bucket_id],
-                        "timestamp": event.timestamp,
-                        "duration": event.duration.total_seconds(),
-                        "datastr": json.dumps(event.data)}
-                       for event in events]
+        events_dictlist = [{"bucket": self.bucket_keys[bucket_id],
+                            "timestamp": event.timestamp,
+                            "duration": event.duration.total_seconds(),
+                            "datastr": json.dumps(event.data)}
+                           for event in events]
         with self.db.atomic():
-            EventModel.insert_many(events_dict).execute()
+            # Chunking into lists of length 100 is needed here due to SQLITE_MAX_COMPOUND_SELECT
+            # and SQLITE_LIMIT_VARIABLE_NUMBER under Windows.
+            # See: https://github.com/coleifer/peewee/issues/948
+            for chunk in chunks(events_dictlist, 100):
+                EventModel.insert_many(chunk).execute()
 
     def _get_last(self, bucket_id, event):
         return EventModel.select() \

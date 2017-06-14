@@ -5,12 +5,14 @@ from . import storages
 from .datastore import Datastore
 
 
-def get_storage_methods() -> Dict[str, Callable[..., storages.AbstractStorage]]:
+# The Callable[[Any], ...] here should be Callable[..., ...] but Python 3.5.2 doesn't
+# like ellipsises. See here: https://github.com/python/typing/issues/259
+def get_storage_methods() -> Dict[str, Callable[[Any], storages.AbstractStorage]]:
     from .storages import MemoryStorage, MongoDBStorage, PeeweeStorage
     methods = {
         PeeweeStorage.sid: PeeweeStorage,
         MemoryStorage.sid: MemoryStorage,
-    }  # type: Dict[str, Callable[..., storages.AbstractStorage]]
+    }  # type: Dict[str, Callable[[Any], storages.AbstractStorage]]
 
     # MongoDB is not supported on Windows or macOS
     if _platform.system() == "Linux":  # pragma: no branch

@@ -6,7 +6,7 @@ from aw_core.models import Event
 
 from .storages import AbstractStorage
 
-logger = logging.getLogger("aw.datastore")
+logger = logging.getLogger(__name__)
 
 
 class Datastore:

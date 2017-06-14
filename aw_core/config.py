@@ -4,7 +4,7 @@ from configparser import ConfigParser
 
 from aw_core import dirs
 
-logger = logging.getLogger("aw.core.config")
+logger = logging.getLogger(__name__)
 
 
 def load_config(appname, default_config):

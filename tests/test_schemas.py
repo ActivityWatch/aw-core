@@ -4,6 +4,7 @@ from jsonschema import validate as _validate, FormatChecker
 from jsonschema.exceptions import ValidationError
 
 from aw_core import schema
+from aw_core.models import Event
 
 # TODO: Include date-time format
 # https://python-jsonschema.readthedocs.io/en/latest/validate/#jsonschema.FormatChecker
@@ -24,19 +25,19 @@ class EventSchemaTest(unittest.TestCase):
     def validate(self, obj):
         _validate(obj, self.schema, format_checker=fc)
 
-    def test_label(self):
-        self.validate({"label": ["test-label"]})
+    def test_event(self):
+        event = Event(timestamp=valid_timestamp, data={"label": "test"})
+        self.validate(event.to_json_dict())
+
+    def test_data(self):
         self.validate({
-            "timestamp": [valid_timestamp],
-            "label": ["test", "test2"]
+            "timestamp": valid_timestamp,
+            "data": {"label": "test",
+                     "number": 1.1}
         })
 
-    def test_count(self):
-        self.validate({"timestamp": [valid_timestamp], "count": [10]})
-
     def test_timestamp(self):
-        self.validate({"timestamp": [valid_timestamp]})
-        self.validate({"timestamp": 2 * [valid_timestamp]})
+        self.validate({"timestamp": valid_timestamp})
 
     def test_timestamp_invalid_string(self):
         with self.assertRaises(ValidationError):
@@ -44,27 +45,26 @@ class EventSchemaTest(unittest.TestCase):
         with self.assertRaises(ValidationError):
             self.validate({"timestamp": "123"})
 
-    def test_timestamp_invalid_array(self):
-        with self.assertRaises(ValidationError):
-            self.validate({"timestamp": [""]})
-        with self.assertRaises(ValidationError):
-            self.validate({"timestamp": ["123"]})
-
     def test_timestamp_invalid_number(self):
         with self.assertRaises(ValidationError):
             self.validate({"timestamp": 2})
 
-    def test_timestamp_empty_array(self):
-        with self.assertRaises(ValidationError):
-            self.validate({"timestamp": []})
-
     def test_duration(self):
-        self.validate({"duration": [{"value": 1000, "unit": "s"}]})
-        self.validate({"duration": [{"value": 3.13, "unit": "s", "label": "Bad approximation of pi"}]})
+        self.validate({
+            "timestamp": valid_timestamp,
+            "duration": 1000
+        })
+        self.validate({
+            "timestamp": valid_timestamp,
+            "duration": 3.13
+        })
 
-    def test_duration_invalid_unit(self):
+    def test_duration_invalid_string(self):
         with self.assertRaises(ValidationError):
-            self.validate({"duration": {"value": 1000, "unit": "rainbows"}})
+            self.validate({
+                "timestamp": valid_timestamp,
+                "duration": "not a number"
+            })
 
 
 if __name__ == "__main__":
