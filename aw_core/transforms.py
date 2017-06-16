@@ -189,8 +189,10 @@ def full_chunk(events: List[Event], chunk_key: str, include_subchunks=True) -> C
             # Merge all the data keys that are not chunk_key
             for k, v in event.data.items():
                 if k != chunk_key:
-                    chunk["data"][k]["duration"] += event.duration
                     chunk["data"][k]["values"][v]["duration"] += event.duration
+                    # TODO: This probably lacks any meaningful uses, should be removed for simplicity
+                    #       Would also make the datastructure simpler to express recursively.
+                    chunk["data"][k]["duration"] += event.duration
 
     # Convert all the defaultdicts into normal dicts
     chunks = dict(chunks)
