@@ -7,11 +7,12 @@ from . import dirs
 
 logger = logging.getLogger(__name__)
 
-@dirs.ensure_returned_path_exists
+
 def get_view_cache_directory(viewname, dsname):
     cache_dir = dirs.get_cache_dir("view_cache")
     cache_dir = os.path.join(cache_dir, dsname)
     cache_dir = os.path.join(cache_dir, viewname)
+    dirs.ensure_path_exists(cache_dir)
     return cache_dir
 
 
@@ -19,7 +20,7 @@ def get_view_cache_file(viewname, ds, start, end):
     if start:
         start = start.astimezone(timezone.utc).strftime("%Y%m%dT%H%m%SZ")
     if end:
-        end   = end.astimezone(timezone.utc).strftime("%Y%m%dT%H%m%SZ")
+        end = end.astimezone(timezone.utc).strftime("%Y%m%dT%H%m%SZ")
     cache_filename = "{}_to_{}".format(start, end)
     cache_dir = get_view_cache_directory(viewname, ds.storage_strategy.sid)
     cache_file = os.path.join(cache_dir, cache_filename)
