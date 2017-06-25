@@ -60,6 +60,12 @@ class Bucket:
     def get(self, limit: int = -1,
             starttime: datetime=None, endtime: datetime=None) -> List[Event]:
         """Returns events sorted in descending order by timestamp"""
+        # Resolution is rounded down since not all datastores like microsecond precision
+        if starttime:
+            starttime = starttime.replace(microsecond=1000 * int(starttime.microsecond / 1000))
+        if endtime:
+            endtime = endtime.replace(microsecond=1000 * int(endtime.microsecond / 1000 + 1))
+
         return self.ds.storage_strategy.get_events(self.bucket_id, limit, starttime, endtime)
 
     def insert(self, events: Union[Event, List[Event]]):

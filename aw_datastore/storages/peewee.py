@@ -177,7 +177,7 @@ class PeeweeStorage(AbstractStorage):
                       .order_by(EventModel.timestamp.desc()) \
                       .limit(limit)
         if starttime:
-            q = q.where(starttime < EventModel.timestamp)
+            q = q.where(starttime <= EventModel.timestamp)
         if endtime:
-            q = q.where(EventModel.timestamp < endtime)
+            q = q.where(EventModel.timestamp <= endtime)
         return [Event(**e) for e in list(map(EventModel.json, q.execute()))]

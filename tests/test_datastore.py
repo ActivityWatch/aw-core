@@ -146,18 +146,18 @@ def test_get_datefilter(bucket_cm):
         # Starttime
         for i in range(eventcount):
             fetched_events = bucket.get(-1, starttime=events[i].timestamp)
-            assert eventcount - i - 1 == len(fetched_events)
+            assert eventcount - i == len(fetched_events)
 
         # Endtime
         for i in range(eventcount):
             fetched_events = bucket.get(-1, endtime=events[i].timestamp)
-            assert i == len(fetched_events)
+            assert i + 1 == len(fetched_events)
 
         # Both
         for i in range(eventcount):
             for j in range(i + 1, eventcount):
                 fetched_events = bucket.get(starttime=events[i].timestamp, endtime=events[j].timestamp)
-                assert j - i - 1 == len(fetched_events)
+                assert j - i + 1 == len(fetched_events)
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
