@@ -70,10 +70,8 @@ class MongoDBStorage(AbstractStorage):
         if starttime or endtime:
             query_filter["timestamp"] = {}
             if starttime:
-                print(starttime)
                 query_filter["timestamp"]["$gte"] = starttime
             if endtime:
-                print(endtime)
                 query_filter["timestamp"]["$lte"] = endtime
 
         if limit == 0:
