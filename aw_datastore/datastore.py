@@ -64,7 +64,11 @@ class Bucket:
         if starttime:
             starttime = starttime.replace(microsecond=1000 * int(starttime.microsecond / 1000))
         if endtime:
-            endtime = endtime.replace(microsecond=1000 * int(endtime.microsecond / 1000 + 1))
+            microseconds = 1000 * int(endtime.microsecond / 1000 + 1)
+            if microseconds > 999999:
+                endtime = endtime.replace(second=endtime.second + 1, microsecond=0)
+            else:
+                endtime = endtime.replace(microsecond=microseconds)
 
         return self.ds.storage_strategy.get_events(self.bucket_id, limit, starttime, endtime)
 
