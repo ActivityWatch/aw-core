@@ -43,6 +43,8 @@ class Event(dict):
     }
 
     def __init__(self, **kwargs: Any) -> None:
+        self.id = kwargs["id"] if "id" in kwargs else None
+
         for k, v in list(kwargs.items()):
             if k not in self.ALLOWED_FIELDS:
                 kwargs.pop(k)

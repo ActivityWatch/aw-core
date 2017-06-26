@@ -169,6 +169,35 @@ def test_insert_invalid(bucket_cm):
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
+def test_replace(bucket_cm):
+    """
+    Tests the replace event event in bucket functionality
+    """
+    with bucket_cm as bucket:
+        # Create two events
+        e1 = bucket.insert(Event(data={"label": "test1"}, timestamp=now))
+        assert e1
+        assert e1.id is not None
+        e2 = bucket.insert(Event(data={"label": "test2"}, timestamp=now + timedelta(seconds=1)))
+        assert e2
+        assert e2.id is not None
+
+        e1.data["label"] = "test1-replaced"
+        bucket.replace(e1.id, e1)
+
+        bucket.insert(Event(data={"label": "test3"}, timestamp=now + timedelta(seconds=2)))
+
+        e2.data["label"] = "test2-replaced"
+        bucket.replace(e2.id, e2)
+
+        # Assert length
+        assert 3 == len(bucket.get(-1))
+        assert bucket.get(-1)[0]["data"]["label"] == "test3"
+        assert bucket.get(-1)[1]["data"]["label"] == "test2-replaced"
+        assert bucket.get(-1)[2]["data"]["label"] == "test1-replaced"
+
+
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_replace_last(bucket_cm):
     """
     Tests the replace last event in bucket functionality (simple)
