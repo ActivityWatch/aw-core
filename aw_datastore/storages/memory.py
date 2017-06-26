@@ -8,6 +8,7 @@ from aw_core.models import Event
 from . import logger
 from .abstract import AbstractStorage
 
+
 class MemoryStorage(AbstractStorage):
     """For storage of data in-memory, useful primarily in testing"""
     sid = "memory"
@@ -71,8 +72,13 @@ class MemoryStorage(AbstractStorage):
     def get_metadata(self, bucket_id: str):
         return self._metadata[bucket_id]
 
-    def insert_one(self, bucket: str, event: Event):
+    def insert_one(self, bucket: str, event: Event) -> Event:
         self.db[bucket].append(Event(**event))
+        event.id = len(self.db[bucket]) - 1
+        return event
+
+    def replace(self, bucket_id, event_id, event):
+        self.db[bucket_id][event_id] = event
 
     def replace_last(self, bucket_id, event):
         self.db[bucket_id][-1] = event

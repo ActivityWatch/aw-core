@@ -73,7 +73,12 @@ class Bucket:
 
         return self.ds.storage_strategy.get_events(self.bucket_id, limit, starttime, endtime)
 
-    def insert(self, events: Union[Event, List[Event]]):
+    def insert(self, events: Union[Event, List[Event]]) -> Union[Event, List[Event]]:
+        """
+        Inserts one or several events.
+        If a single event is inserted, return the event with its id assigned.
+        If several events are inserted, returns None. (This is due to there being no efficient way of getting ids out when doing bulk inserts with some datastores such as peewee/SQLite)
+        """
         # NOTE: Should we keep the timestamp checking?
         # Get last event for timestamp check after insert
         last_event_list = self.get(1)
@@ -81,16 +86,19 @@ class Bucket:
         if len(last_event_list) > 0:
             last_event = last_event_list[0]
 
+        inserted = None  # type: Union[Event, List[Event]]
+
         # Call insert
         if isinstance(events, Event):
             oldest_event = events
-            self.ds.storage_strategy.insert_one(self.bucket_id, events)
+            inserted = self.ds.storage_strategy.insert_one(self.bucket_id, events)
+            assert inserted
         elif isinstance(events, list):
             if len(events) > 0:
                 oldest_event = sorted(events, key=lambda k: k['timestamp'])[0]
             else:
                 oldest_event = None
-            self.ds.storage_strategy.insert_many(self.bucket_id, events)
+            inserted = self.ds.storage_strategy.insert_many(self.bucket_id, events)
         else:
             raise TypeError
 
@@ -101,5 +109,10 @@ class Bucket:
                                     "\nPrevious:" + str(last_event) +
                                     "\nInserted:" + str(oldest_event))
 
+        return inserted
+
     def replace_last(self, event):
         return self.ds.storage_strategy.replace_last(self.bucket_id, event)
+
+    def replace(self, event_id, event):
+        return self.ds.storage_strategy.replace(self.bucket_id, event_id, event)
