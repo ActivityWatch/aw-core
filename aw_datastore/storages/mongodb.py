@@ -94,11 +94,13 @@ class MongoDBStorage(AbstractStorage):
             event["duration"] = event["duration"].total_seconds()
         return event
 
-    def insert_one(self, bucket: str, event: Event):
+    def insert_one(self, bucket: str, event: Event) -> Event:
         # .copy is needed because otherwise mongodb inserts a _id field into the event
         dict_event = event.copy()
         dict_event = self._transform_event(dict_event)
-        self.db[bucket]["events"].insert_one(dict_event)
+        returned = self.db[bucket]["events"].insert_one(dict_event)
+        event.id = returned.inserted_id
+        return event
 
     def insert_many(self, bucket: str, events: List[Event]):
         # .copy is needed because otherwise mongodb inserts a _id field into the event
@@ -108,3 +110,8 @@ class MongoDBStorage(AbstractStorage):
     def replace_last(self, bucket_id: str, event: Event):
         last_event = list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(1))[0]
         self.db[bucket_id]["events"].replace_one({"_id": last_event["_id"]}, self._transform_event(event.copy()))
+
+    def replace(self, bucket_id: str, event_id, event: Event) -> Event:
+        self.db[bucket_id]["events"].replace_one({"_id": event_id}, self._transform_event(event.copy()))
+        event.id = event_id
+        return event
