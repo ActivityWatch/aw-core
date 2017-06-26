@@ -146,18 +146,18 @@ def test_get_datefilter(bucket_cm):
         # Starttime
         for i in range(eventcount):
             fetched_events = bucket.get(-1, starttime=events[i].timestamp)
-            assert eventcount - i - 1 == len(fetched_events)
+            assert eventcount - i == len(fetched_events)
 
         # Endtime
         for i in range(eventcount):
             fetched_events = bucket.get(-1, endtime=events[i].timestamp)
-            assert i == len(fetched_events)
+            assert i + 1 == len(fetched_events)
 
         # Both
         for i in range(eventcount):
             for j in range(i + 1, eventcount):
                 fetched_events = bucket.get(starttime=events[i].timestamp, endtime=events[j].timestamp)
-                assert j - i - 1 == len(fetched_events)
+                assert j - i + 1 == len(fetched_events)
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
@@ -166,6 +166,35 @@ def test_insert_invalid(bucket_cm):
         event = "not a real event"
         with pytest.raises(TypeError):
             bucket.insert(event)
+
+
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
+def test_replace(bucket_cm):
+    """
+    Tests the replace event event in bucket functionality
+    """
+    with bucket_cm as bucket:
+        # Create two events
+        e1 = bucket.insert(Event(data={"label": "test1"}, timestamp=now))
+        assert e1
+        assert e1.id is not None
+        e2 = bucket.insert(Event(data={"label": "test2"}, timestamp=now + timedelta(seconds=1)))
+        assert e2
+        assert e2.id is not None
+
+        e1.data["label"] = "test1-replaced"
+        bucket.replace(e1.id, e1)
+
+        bucket.insert(Event(data={"label": "test3"}, timestamp=now + timedelta(seconds=2)))
+
+        e2.data["label"] = "test2-replaced"
+        bucket.replace(e2.id, e2)
+
+        # Assert length
+        assert 3 == len(bucket.get(-1))
+        assert bucket.get(-1)[0]["data"]["label"] == "test3"
+        assert bucket.get(-1)[1]["data"]["label"] == "test2-replaced"
+        assert bucket.get(-1)[2]["data"]["label"] == "test1-replaced"
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())

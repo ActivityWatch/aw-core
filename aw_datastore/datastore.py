@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Union, Callable, Optional
 
 from aw_core.models import Event
@@ -60,9 +60,19 @@ class Bucket:
     def get(self, limit: int = -1,
             starttime: datetime=None, endtime: datetime=None) -> List[Event]:
         """Returns events sorted in descending order by timestamp"""
+        # Resolution is rounded down since not all datastores like microsecond precision
+        if starttime:
+            starttime = starttime.replace(microsecond=1000 * int(starttime.microsecond / 1000))
+        if endtime:
+            microseconds = 1000 * int(endtime.microsecond / 1000 + 1)
+            if microseconds > 999999:
+                endtime = endtime.replace(microsecond=0) + timedelta(seconds=1)
+            else:
+                endtime = endtime.replace(microsecond=microseconds)
+
         return self.ds.storage_strategy.get_events(self.bucket_id, limit, starttime, endtime)
 
-    def insert(self, events: Union[Event, List[Event]]):
+    def insert(self, events: Union[Event, List[Event]]) -> Union[Event, List[Event]]:
         # NOTE: Should we keep the timestamp checking?
         # Get last event for timestamp check after insert
         last_event_list = self.get(1)
@@ -70,16 +80,20 @@ class Bucket:
         if len(last_event_list) > 0:
             last_event = last_event_list[0]
 
+        inserted = None  # type: Union[Event, List[Event]]
+
         # Call insert
         if isinstance(events, Event):
             oldest_event = events
-            self.ds.storage_strategy.insert_one(self.bucket_id, events)
+            inserted = self.ds.storage_strategy.insert_one(self.bucket_id, events)
+            assert inserted
         elif isinstance(events, list):
             if len(events) > 0:
                 oldest_event = sorted(events, key=lambda k: k['timestamp'])[0]
             else:
                 oldest_event = None
-            self.ds.storage_strategy.insert_many(self.bucket_id, events)
+            inserted = self.ds.storage_strategy.insert_many(self.bucket_id, events)
+            # assert inserted
         else:
             raise TypeError
 
@@ -90,5 +104,10 @@ class Bucket:
                                     "\nPrevious:" + str(last_event) +
                                     "\nInserted:" + str(oldest_event))
 
+        return inserted
+
     def replace_last(self, event):
         return self.ds.storage_strategy.replace_last(self.bucket_id, event)
+
+    def replace(self, event_id, event):
+        return self.ds.storage_strategy.replace(self.bucket_id, event_id, event)

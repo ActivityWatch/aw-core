@@ -39,12 +39,15 @@ class AbstractStorage(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def insert_one(self, bucket_id: str, event: Event) -> None:
+    def insert_one(self, bucket_id: str, event: Event) -> Event:
         raise NotImplementedError
 
-    def insert_many(self, bucket_id: str, events: List[Event]) -> None:
-        for event in events:
-            self.insert_one(bucket_id, event)
+    def insert_many(self, bucket_id: str, events: List[Event]) -> List[Event]:
+        return [self.insert_one(bucket_id, event) for event in events]
+
+    @abstractmethod
+    def replace(self, bucket_id: str, event_id: int, event: Event) -> Event:
+        raise NotImplementedError
 
     @abstractmethod
     def replace_last(self, bucket_id: str, event: Event) -> None:
