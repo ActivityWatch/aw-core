@@ -52,13 +52,13 @@ class MemoryStorage(AbstractStorage):
         if starttime:
             e = []
             for event in events:
-                if event.timestamp > starttime:
+                if event.timestamp >= starttime:
                     e.append(event)
             events = e
         if endtime:
             e = []
             for event in events:
-                if event.timestamp < endtime:
+                if event.timestamp <= endtime:
                     e.append(event)
             events = e
         # Limit

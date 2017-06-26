@@ -62,44 +62,50 @@ def test_bad_query(datastore):
         datastore.delete_bucket(bid1)
         datastore.delete_bucket(bid2)
 
+
 @pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_view(datastore):
     name = "A test bucket"
     now = datetime.now(timezone.utc)
+    now_minus_1h = now - timedelta(hours=1)
+    now_minus_100h = now - timedelta(hours=100)
+    now_plus_1h = now + timedelta(hours=1)
+
     try:
         bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
         bucket2 = datastore.create_bucket(bucket_id=bid2, type="test", client="test", hostname="test", name=name)
         e1 = Event(data={"label": "test1"},
-                   timestamp=now - timedelta(hours=100),
+                   timestamp=now_minus_100h,
                    duration=timedelta(seconds=1))
         e2 = Event(data={"label": "test2"},
-                   timestamp=now,
+                   timestamp=now_plus_1h,
                    duration=timedelta(seconds=2))
         bucket1.insert(10 * [e1])
         bucket1.insert(5 * [e2])
         bucket2.insert(5 * [e1])
         bucket2.insert(10 * [e2])
+
         # Test creating view
         create_view(example_view)
         assert example_view == get_view('exview')
         assert ['exview'] == get_views()
+
         # Test that output is correct
         result = query_view('exview', datastore)
         assert result['eventcount'] == 20
         assert result['duration'] == 30
         assert result['chunks']['test1'] == {'data': {}, 'duration': 10.0}
         assert result['chunks']['test2'] == {'data': {}, 'duration': 20.0}
+
         # Test that starttime works
-        assert 10 == query_view('exview', datastore, start=now - timedelta(hours=1))["eventcount"]
-        # Test starttime cached which is past now isn't cached
-        assert 10 == query_view('exview', datastore, start=now - timedelta(hours=1))["eventcount"]
+        assert 10 == query_view('exview', datastore, start=now_minus_1h)["eventcount"]
+
         # Test that endtime works
-        assert 10 == query_view('exview', datastore, start=now-timedelta(hours=200), end=now - timedelta(hours=1))["eventcount"]
-        # Test endtime cached
-        assert 10 == query_view('exview', datastore, start=now-timedelta(hours=200), end=now - timedelta(hours=1))["eventcount"]
+        assert 10 == query_view('exview', datastore, end=now_minus_1h)["eventcount"]
+
         # Test that multiquery works
-        starts = [now-timedelta(hours=1), now-timedelta(hours=100)]
-        ends = [now+timedelta(hours=1),now+timedelta(hours=1)]
+        starts = [now_minus_1h, now_minus_1h]
+        ends = [now_plus_1h, now_plus_1h]
         assert 20 == query_multiview('exview', datastore, starts, ends)["eventcount"]
     finally:
         datastore.delete_bucket(bid1)

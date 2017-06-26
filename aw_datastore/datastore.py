@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Union, Callable, Optional
 
 from aw_core.models import Event
@@ -60,6 +60,17 @@ class Bucket:
     def get(self, limit: int = -1,
             starttime: datetime=None, endtime: datetime=None) -> List[Event]:
         """Returns events sorted in descending order by timestamp"""
+        # Resolution is rounded down since not all datastores like microsecond precision
+        if starttime:
+            starttime = starttime.replace(microsecond=1000 * int(starttime.microsecond / 1000))
+        if endtime:
+            # Rounding up here in order to ensure events aren't missed
+            # second_offset and microseconds modulo required since replace() only takes microseconds up to 999999 (doesn't handle overflow)
+            milliseconds = 1 + int(endtime.microsecond / 1000)
+            second_offset = int(milliseconds / 1000)  # usually 0, rarely 1
+            microseconds = (1000 * milliseconds) % 1000000  # will likely just be 1000 * milliseconds, if it overflows it would become zero
+            endtime = endtime.replace(microsecond=microseconds) + timedelta(seconds=second_offset)
+
         return self.ds.storage_strategy.get_events(self.bucket_id, limit, starttime, endtime)
 
     def insert(self, events: Union[Event, List[Event]]):
