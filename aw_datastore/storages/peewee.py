@@ -144,12 +144,10 @@ class PeeweeStorage(AbstractStorage):
     def insert_one(self, bucket_id: str, event: Event) -> Event:
         e = EventModel.from_event(self.bucket_keys[bucket_id], event)
         e.save()
-        print(e)
-        print(e.id)
         event.id = e.id
         return event
 
-    def insert_many(self, bucket_id, events: List[Event]):
+    def insert_many(self, bucket_id, events: List[Event], fast=False) -> None:
         events_dictlist = [{"bucket": self.bucket_keys[bucket_id],
                             "timestamp": event.timestamp,
                             "duration": event.duration.total_seconds(),
@@ -160,8 +158,7 @@ class PeeweeStorage(AbstractStorage):
             # and SQLITE_LIMIT_VARIABLE_NUMBER under Windows.
             # See: https://github.com/coleifer/peewee/issues/948
             for chunk in chunks(events_dictlist, 100):
-                result = EventModel.insert_many(chunk).execute()
-                print(result)
+                EventModel.insert_many(chunk).execute()
 
     def _get_event(self, bucket_id, event_id) -> EventModel:
         return EventModel.select() \

@@ -63,6 +63,11 @@ class Bucket:
         return self.ds.storage_strategy.get_events(self.bucket_id, limit, starttime, endtime)
 
     def insert(self, events: Union[Event, List[Event]]) -> Union[Event, List[Event]]:
+        """
+        Inserts one or several events.
+        If a single event is inserted, return the event with its id assigned.
+        If several events are inserted, returns None. (This is due to there being no efficient way of getting ids out when doing bulk inserts with some datastores such as peewee/SQLite)
+        """
         # NOTE: Should we keep the timestamp checking?
         # Get last event for timestamp check after insert
         last_event_list = self.get(1)
@@ -83,7 +88,6 @@ class Bucket:
             else:
                 oldest_event = None
             inserted = self.ds.storage_strategy.insert_many(self.bucket_id, events)
-            # assert inserted
         else:
             raise TypeError
 

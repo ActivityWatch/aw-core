@@ -8,6 +8,7 @@ from aw_core.models import Event
 from . import logger
 from .abstract import AbstractStorage
 
+
 class MemoryStorage(AbstractStorage):
     """For storage of data in-memory, useful primarily in testing"""
     sid = "memory"
