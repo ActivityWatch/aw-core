@@ -30,68 +30,33 @@ def _timestamp_parse(ts: Union[str, datetime]) -> datetime:
     return ts
 
 
+Id = Union[int, str]
+Timestamp = Union[datetime, str]
+Duration = Union[timedelta, float]
+Data = Dict[str, Any]
+
+
 class Event(dict):
     """
     Used to represents an event.
     """
 
-    # TODO: Use JSONSchema as specification
-    ALLOWED_FIELDS = {
-        "timestamp": datetime,
-        "duration": timedelta,
-        "data": dict,
-    }
-
-    def __init__(self, **kwargs: Any) -> None:
-        self.id = kwargs["id"] if "id" in kwargs else None
-
-        for k, v in list(kwargs.items()):
-            if k not in self.ALLOWED_FIELDS:
-                kwargs.pop(k)
-                logger.warning("Removed invalid field {} from Event kwargs: {}".format(k, kwargs))
-
-        # Set all the kwargs
-        for arg in kwargs:
-            setattr(self, arg, kwargs[arg])
-
-        self.verify()
+    def __init__(self, id: Id = None, timestamp: Timestamp = None,
+                 duration: Duration = 0, data: Data = dict()) -> None:
+        self.id = id
+        if timestamp is None:
+            logger.warning("Event initializer did not receive a timestamp argument, using now as timestamp")
+            # FIXME: The typing.cast here was required for mypy to shut up, weird...
+            self.timestamp = datetime.now(typing.cast(timezone, timezone.utc))
+        else:
+            self.timestamp = timestamp
+        self.duration = duration
+        self.data = data
 
     def __eq__(self, other):
         return self.timestamp == other.timestamp\
             and self.duration == other.duration\
             and self.data == other.data
-
-    def verify(self):
-        success = True
-
-        if not self._hasprop("timestamp"):
-            logger.warning("Event did not have a timestamp, using now as timestamp")
-            # FIXME: The typing.cast here was required for mypy to shut up, weird...
-            self.timestamp = datetime.now(typing.cast(timezone, timezone.utc))
-
-        for k in self.ALLOWED_FIELDS.keys():
-            if k in self:
-                t = type(getattr(self, k))
-                if t != self.ALLOWED_FIELDS[k] and not isinstance(t, type(None)):
-                    success = False
-                    logger.warning("Event from models.py was unable to set attribute {} to correct type\n Supposed to be {}, while actual is {}".format(k, self.ALLOWED_FIELDS[k], type(getattr(self, k))))
-
-        self._drop_invalid_types()
-        return success
-
-    def _drop_invalid_types(self):
-        # Check for invalid types
-        invalid_keys = []
-        for k in self.keys():
-            v = self[k]
-            if not isinstance(v, self.ALLOWED_FIELDS[k]):
-                # FIXME: Optionals are invalidly defaulted to None, this is just a workaround so the logs don't get spammed
-                if v is not None:
-                    logger.error("Found value {} in field {} that was not of proper instance ({}, expected: {}). Event: {}"
-                                 .format(v, k, type(v), self.ALLOWED_FIELDS[k], self))
-                invalid_keys.append(k)
-        for k in invalid_keys:
-            del self[k]
 
     def to_json_dict(self) -> dict:
         """Useful when sending data over the wire.
@@ -109,6 +74,14 @@ class Event(dict):
         """Badly named, but basically checks if the underlying
         dict has a prop, and if it is a non-empty list"""
         return propname in self and self[propname]
+
+    @property
+    def id(self) -> Any:
+        return self["id"] if self._hasprop("id") else None
+
+    @id.setter
+    def id(self, id: Any):
+        self["id"] = id
 
     @property
     def data(self) -> dict:
@@ -135,6 +108,6 @@ class Event(dict):
         if type(duration) == timedelta:
             self["duration"] = duration
         elif type(duration) == float:
-            self["duration"] = timedelta(seconds=duration) # type: ignore
+            self["duration"] = timedelta(seconds=duration)  # type: ignore
         else:
             logger.error("Couldn't parse duration of invalid type {}".format(type(duration)))
