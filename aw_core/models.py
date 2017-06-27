@@ -11,7 +11,13 @@ import iso8601
 logger = logging.getLogger(__name__)
 
 
-def _timestamp_parse(ts: Union[str, datetime]) -> datetime:
+Id = Optional[Union[int, str]]
+ConvertableTimestamp = Union[datetime, str]
+Duration = Union[timedelta, float]
+Data = Dict[str, Any]
+
+
+def _timestamp_parse(ts: ConvertableTimestamp) -> datetime:
     """
     Takes something representing a timestamp and
     returns a timestamp in the representation we want.
@@ -30,18 +36,12 @@ def _timestamp_parse(ts: Union[str, datetime]) -> datetime:
     return ts
 
 
-Id = Union[int, str]
-Timestamp = Union[datetime, str]
-Duration = Union[timedelta, float]
-Data = Dict[str, Any]
-
-
 class Event(dict):
     """
     Used to represents an event.
     """
 
-    def __init__(self, id: Id = None, timestamp: Timestamp = None,
+    def __init__(self, id: Id = None, timestamp: ConvertableTimestamp = None,
                  duration: Duration = 0, data: Data = dict()) -> None:
         self.id = id
         if timestamp is None:
@@ -49,7 +49,8 @@ class Event(dict):
             # FIXME: The typing.cast here was required for mypy to shut up, weird...
             self.timestamp = datetime.now(typing.cast(timezone, timezone.utc))
         else:
-            self.timestamp = timestamp
+            # The conversion needs to be explicit here for mypy to pick it up (lacks support for properties)
+            self.timestamp = _timestamp_parse(timestamp)
         self.duration = duration
         self.data = data
 
@@ -73,7 +74,7 @@ class Event(dict):
     def _hasprop(self, propname):
         """Badly named, but basically checks if the underlying
         dict has a prop, and if it is a non-empty list"""
-        return propname in self and self[propname]
+        return propname in self and self[propname] is not None
 
     @property
     def id(self) -> Any:
@@ -96,7 +97,7 @@ class Event(dict):
         return self["timestamp"]
 
     @timestamp.setter
-    def timestamp(self, timestamp: Union[str, datetime]) -> None:
+    def timestamp(self, timestamp: ConvertableTimestamp) -> None:
         self["timestamp"] = _timestamp_parse(timestamp).astimezone(timezone.utc)
 
     @property

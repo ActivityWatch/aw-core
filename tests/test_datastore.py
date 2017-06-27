@@ -62,11 +62,11 @@ def test_insert_one(bucket_cm):
     """
     with bucket_cm as bucket:
         l = len(bucket.get())
-        event = Event(label="test", timestamp=now, duration=timedelta(seconds=1), data={"key": "val"})
+        event = Event(timestamp=now, duration=timedelta(seconds=1), data={"key": "val"})
         bucket.insert(event)
         fetched_events = bucket.get()
         assert l + 1 == len(fetched_events)
-        assert Event == type(fetched_events[0])
+        assert isinstance(fetched_events[0], Event)
         assert event == fetched_events[0]
         logging.info(event)
         logging.info(fetched_events[0].to_json_str())
@@ -88,7 +88,7 @@ def test_insert_many(bucket_cm):
     """
     num_events = 5000
     with bucket_cm as bucket:
-        events = (num_events * [Event(label="test", timestamp=now, duration=timedelta(seconds=1), data={"key": "val"})])
+        events = (num_events * [Event(timestamp=now, duration=timedelta(seconds=1), data={"key": "val"})])
         bucket.insert(events)
         fetched_events = bucket.get(limit=-1)
         assert num_events == len(fetched_events)
@@ -118,8 +118,7 @@ def test_get_ordered(bucket_cm):
         eventcount = 10
         events = []
         for i in range(10):
-            events.append(Event(label="test",
-                                timestamp=now + timedelta(seconds=i)))
+            events.append(Event(timestamp=now + timedelta(seconds=i)))
         random.shuffle(events)
         print(events)
         bucket.insert(events)
@@ -139,8 +138,7 @@ def test_get_datefilter(bucket_cm):
         eventcount = 10
         events = []
         for i in range(10):
-            events.append(Event(label="test",
-                                timestamp=now + timedelta(seconds=i)))
+            events.append(Event(timestamp=now + timedelta(seconds=i)))
         bucket.insert(events)
 
         # Starttime
@@ -259,7 +257,7 @@ def test_limit(bucket_cm):
     """
     with bucket_cm as bucket:
         for i in range(5):
-            bucket.insert(Event(label="test", timestamp=now))
+            bucket.insert(Event(timestamp=now))
 
         print(len(bucket.get(limit=1)))
         assert 0 == len(bucket.get(limit=0))

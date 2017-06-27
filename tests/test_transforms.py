@@ -52,15 +52,15 @@ class FilterPeriodIntersectTest(unittest.TestCase):
         now = datetime.now()
 
         # Filter 1h event with another 1h event at a 30min offset
-        to_filter = [Event(label="lala", timestamp=now, duration=td1h)]
+        to_filter = [Event(timestamp=now, duration=td1h)]
         filter_with = [Event(timestamp=now + timedelta(minutes=30), duration=td1h)]
         filtered_events = filter_period_intersect(to_filter, filter_with)
         assert filtered_events[0].duration == timedelta(minutes=30)
 
         # Filter 2x 30min events with a 15min gap with another 45min event in between intersecting both
         to_filter = [
-            Event(label="lala", timestamp=now, duration=td30min),
-            Event(label="lala", timestamp=now + timedelta(minutes=45), duration=td30min)
+            Event(timestamp=now, duration=td30min),
+            Event(timestamp=now + timedelta(minutes=45), duration=td30min)
         ]
         filter_with = [Event(timestamp=now + timedelta(minutes=15), duration=timedelta(minutes=45))]
         filtered_events = filter_period_intersect(to_filter, filter_with)
@@ -102,8 +102,7 @@ class MergeQueriesTest(unittest.TestCase):
         eventcount = 8
         events = []
         for i in range(eventcount):
-            events.append(Event(label="test",
-                                data={"key": "val"},
+            events.append(Event(data={"key": "val"},
                                 timestamp=datetime.now(timezone.utc) + timedelta(seconds=i),
                                 duration=timedelta(seconds=1)))
         res1 = {
