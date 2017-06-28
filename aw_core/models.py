@@ -10,9 +10,10 @@ import iso8601
 logger = logging.getLogger(__name__)
 
 
+Number = Union[int, float]
 Id = Optional[Union[int, str]]
 ConvertableTimestamp = Union[datetime, str]
-Duration = Union[timedelta, numbers.Real]
+Duration = Union[timedelta, Number]
 Data = Dict[str, Any]
 
 

@@ -73,7 +73,7 @@ class Bucket:
 
         return self.ds.storage_strategy.get_events(self.bucket_id, limit, starttime, endtime)
 
-    def insert(self, events: Union[Event, List[Event]]) -> Union[Event, List[Event]]:
+    def insert(self, events: Union[Event, List[Event]]) -> Optional[Event]:
         """
         Inserts one or several events.
         If a single event is inserted, return the event with its id assigned.
@@ -86,7 +86,7 @@ class Bucket:
         if len(last_event_list) > 0:
             last_event = last_event_list[0]
 
-        inserted = None  # type: Union[Event, List[Event]]
+        inserted = None  # type: Optional[Event]
 
         # Call insert
         if isinstance(events, Event):
@@ -98,7 +98,7 @@ class Bucket:
                 oldest_event = sorted(events, key=lambda k: k['timestamp'])[0]
             else:
                 oldest_event = None
-            inserted = self.ds.storage_strategy.insert_many(self.bucket_id, events)
+            self.ds.storage_strategy.insert_many(self.bucket_id, events)
         else:
             raise TypeError
 
