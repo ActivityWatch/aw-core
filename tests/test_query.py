@@ -239,7 +239,7 @@ def test_query_filter_labels(datastore):
         result = query(example_query, datastore)
         print(result)
         assert 1 == len(result['eventlist'])
-        assert result['eventlist'][0] == e1.to_json_dict()
+        assert result['eventlist'][0]["data"] == e1.to_json_dict()["data"]
         assert result['duration'] == 1.0
     finally:
         datastore.delete_bucket(bid1)
