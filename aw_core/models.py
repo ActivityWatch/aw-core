@@ -1,9 +1,8 @@
 import json
 import logging
-
-from datetime import datetime, timedelta, timezone
-
+import numbers
 import typing
+from datetime import datetime, timedelta, timezone
 from typing import Any, List, Dict, Union, Optional
 
 import iso8601
@@ -13,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 Id = Optional[Union[int, str]]
 ConvertableTimestamp = Union[datetime, str]
-Duration = Union[timedelta, float]
+Duration = Union[timedelta, numbers.Real]
 Data = Dict[str, Any]
 
 
@@ -105,10 +104,10 @@ class Event(dict):
         return self["duration"] if self._hasprop("duration") else timedelta(0)
 
     @duration.setter
-    def duration(self, duration: Union[timedelta, float]) -> None:
+    def duration(self, duration: Duration) -> None:
         if type(duration) == timedelta:
             self["duration"] = duration
-        elif type(duration) == float:
+        elif isinstance(duration, numbers.Real):
             self["duration"] = timedelta(seconds=duration)  # type: ignore
         else:
             logger.error("Couldn't parse duration of invalid type {}".format(type(duration)))
