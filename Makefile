@@ -1,4 +1,4 @@
-.PHONY: build
+.PHONY: build test benchmark typecheck typecheck-strict clean
 
 build:
 	python3 setup.py install
@@ -15,3 +15,6 @@ typecheck:
 typecheck-strict:
 	export MYPYPATH=./stubs; python3 -m mypy aw_core aw_datastore --strict-optional --check-untyped-defs; echo "Not a failing step"
 
+clean:
+	rm -rf build dist
+	rm -rf aw_core/__pycache__ aw_datastore/__pycache__
