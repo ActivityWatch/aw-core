@@ -87,14 +87,16 @@ def filter_period_intersect(events: List[Event], filterevents: List[Event]) -> L
             e_i += 1
         else:
             # No intersection, check if event is before/after filterevent
-            if ep.end < fp.start:
+            if ep.end <= fp.start:
                 # Event ended before filter event started
                 e_i += 1
-            elif fp.end < ep.start:
+            elif fp.end <= ep.start:
                 # Event started after filter event ended
                 f_i += 1
             else:
-                raise Exception("Should be unreachable")
+                logger.warning("Unclear if/how this could be reachable, skipping period")
+                e_i += 1
+                f_i += 1
 
     return filtered_events
 
