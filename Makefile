@@ -1,7 +1,13 @@
 .PHONY: build test benchmark typecheck typecheck-strict clean
 
+pip_install_args := .
+
+ifdef DEV
+pip_install_args := --editable $(pip_install_args)
+endif
+
 build:
-	python3 setup.py install
+	pip3 install $(pip_install_args)
 
 test:
 	python3 -m pytest tests -v --cov=aw_core --cov=aw_datastore
