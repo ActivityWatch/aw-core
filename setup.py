@@ -16,6 +16,9 @@ with open(os.path.join(base_dir, "aw_core", "__about__.py")) as f:
 with open(os.path.join(base_dir, "README.md")) as f:
     long_description = f.read()
 
+with open("requirements.txt") as f:
+    install_requires = f.readlines()
+
 setup(name=about["__title__"],
       version=about["__version__"],
       description=about["__summary__"],
@@ -25,6 +28,7 @@ setup(name=about["__title__"],
       url=about["__uri__"],
       packages=set(["aw_core", "aw_datastore", "aw_datastore.storages"]),
       package_data={"aw_core": ['schemas/*.json']},
+      install_requires=install_requires,
       classifiers=[
           'Programming Language :: Python :: 3']
       )
