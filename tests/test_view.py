@@ -6,7 +6,7 @@ from pytest import raises
 from .utils import param_datastore_objects
 
 from aw_core.models import Event
-from aw_core.views import create_view, query_view, query_multiview, get_view, get_views, ViewException
+from aw_transform.views import create_view, query_view, query_multiview, get_view, get_views, ViewException
 
 bid1 = "bucket1"
 bid2 = "bucket2"

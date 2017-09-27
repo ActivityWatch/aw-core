@@ -1,10 +1,9 @@
 from typing import Union, List, Callable, Dict
+from datetime import datetime, timedelta
 
-from .models import Event
+from aw_core.models import Event
 
 from . import transforms
-
-from datetime import datetime, timedelta
 
 # FIXME: We'd want to use Datastore as a type annotations in several places within this file,
 #        but import fails due to mutually-recursive imports

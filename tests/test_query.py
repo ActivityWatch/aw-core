@@ -5,7 +5,7 @@ import pytest
 from .utils import param_datastore_objects
 
 from aw_core.models import Event
-from aw_core.query import QueryException, query
+from aw_transform.query import QueryException, query
 
 
 """

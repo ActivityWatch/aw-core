@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from aw_core.models import Event
-from aw_core.transforms import full_chunk, filter_period_intersect, filter_keyvals, merge_queries
+from aw_transform.transforms import full_chunk, filter_period_intersect, filter_keyvals, merge_queries
 
 
 class ChunkTest(unittest.TestCase):

@@ -3,7 +3,7 @@ import json
 import logging
 from datetime import datetime, timezone
 
-from . import dirs
+from aw_core import dirs
 
 logger = logging.getLogger(__name__)
 
