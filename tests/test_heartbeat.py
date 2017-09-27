@@ -3,7 +3,7 @@ import json
 import logging
 
 from aw_core.models import Event
-from aw_core import transforms
+from aw_transform import transforms
 
 import unittest
 
