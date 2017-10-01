@@ -20,12 +20,6 @@ def q2_filter_keyvals(datastore: Datastore, namespace: dict, events: list, key: 
     raise NotImplementedError
 
 def q2_filter_period_intersect(datastore: Datastore, namespace: dict, events: list, filterevents: list):
-    if type(events) != list:
-        logging.debug(events)
-        raise QueryFunctionException("Invalid argument for filter_period_intersect")
-    if type(filterevents) != list:
-        logging.debug(filterevents)
-        raise QueryFunctionException("Invalid argument for filter_period_intersect")
     return filter_period_intersect(events, filterevents)
 
 def q2_merge_events_by_key(datastore: Datastore, namespace: dict, events: list, key1: str):
@@ -43,6 +37,12 @@ def q2_sort_by_timestamp(datastore: Datastore, namespace: dict, events: list):
 def q2_sort_by_duration(datastore: Datastore, namespace: dict, events: list):
     return sort_by_duration(events)
 
+def q2_nop(datastore: Datastore, namespace: dict):
+    """
+    No operation function for unittesting
+    """
+    return 1
+
 query2_functions = {
     "filter_period_intersect": q2_filter_period_intersect,
     "filter_keyvals": q2_filter_keyvals,
@@ -52,4 +52,5 @@ query2_functions = {
     "merge_events_by_keys3": q2_merge_events_by_keys3,
     "sort_by_timestamp": q2_sort_by_timestamp,
     "sort_by_duration": q2_sort_by_duration,
+    "nop": q2_nop,
 }

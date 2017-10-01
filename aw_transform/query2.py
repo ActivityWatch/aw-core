@@ -158,10 +158,13 @@ class Function(Token):
         for char in string[i:]:
             i += 1
             if char == ')':
+                print("a")
                 to_consume = to_consume - 1
             elif char == '(':
+                print("b")
                 to_consume = to_consume + 1
             if to_consume == 0:
+                print("c")
                 break
         if to_consume != 0:
             raise QueryException("Unclosed function")
