@@ -13,17 +13,21 @@ from aw_transform.query2 import Integer, Variable, String, Function
 
 def test_query2_test_token_parsing():
     ns = {}
-    assert(type(_parse_token("123", ns)) is Integer)
-    assert(type(_parse_token('"test"', ns)) is String)
-    assert(type(_parse_token("test", ns)) is Variable)
-    assert(type(_parse_token("test()", ns)) is Function)
+    (t, token), trash = _parse_token("123", ns)
+    assert token == "123"
+    assert t == Integer
+    (t, token), trash = _parse_token('"test"', ns)
+    assert token == '"test"'
+    assert t == String
+    (t, token), trash = _parse_token("test", ns)
+    assert token == "test"
+    assert t == Variable
+    (t, token), trash = _parse_token("test()", ns)
+    assert token == "test()"
+    assert t == Function
+
     try:
         result = _parse_token(None, ns)
-        assert(False)
-    except QueryException:
-        pass
-    try:
-        result = _parse_token("a123", ns)
         assert(False)
     except QueryException:
         pass
@@ -34,12 +38,6 @@ def test_query2_test_token_parsing():
         pass
 
 def test_query2_test_bogus_query():
-    try: # No assignment
-        example_query = "asd"
-        result = query(example_query, None)
-        assert(False)
-    except QueryException:
-        pass
     try: # Assign to non-variable
         example_query = "1=2"
         result = query(example_query, None)
