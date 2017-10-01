@@ -19,20 +19,20 @@ def test_query2_test_token_parsing():
     (t, token), trash = _parse_token('"test"', ns)
     assert token == '"test"'
     assert t == String
-    (t, token), trash = _parse_token("test", ns)
-    assert token == "test"
+    (t, token), trash = _parse_token("test0xDEADBEEF", ns)
+    assert token == "test0xDEADBEEF"
     assert t == Variable
-    (t, token), trash = _parse_token("test()", ns)
-    assert token == "test()"
+    (t, token), trash = _parse_token("test1337()", ns)
+    assert token == "test1337()"
     assert t == Function
 
     try:
-        result = _parse_token(None, ns)
+        _parse_token(None, ns)
         assert(False)
     except QueryException:
         pass
     try:
-        result = _parse_token("#", ns)
+        _parse_token("#", ns)
         assert(False)
     except QueryException:
         pass
@@ -44,8 +44,25 @@ def test_query2_test_bogus_query():
         assert(False)
     except QueryException:
         pass
-    try: # Function within a function
-        example_query = "asd=asd(asd())"
+    try: # Unclosed function
+        query("a=unclosed_function(var1", None)
+        assert(False)
+    except QueryException:
+        pass
+    try: # Two tokens in assignment
+        example_query = "asd nop()=2"
+        result = query(example_query, None)
+        assert(False)
+    except QueryException:
+        pass
+    try: # Unvlosed string
+        example_query = 'asd="something is wrong with me'
+        result = query(example_query, None)
+        assert(False)
+    except QueryException:
+        pass
+    try: # Two tokens in value
+        example_query = "asd=asd1 asd2"
         result = query(example_query, None)
         assert(False)
     except QueryException:

@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from aw_core.models import Event
-from aw_transform.transforms import full_chunk, filter_period_intersect, filter_keyvals, merge_queries
+from aw_transform.transforms import full_chunk, filter_period_intersect, filter_keyvals, merge_queries, sort_by_timestamp, sort_by_duration
 
 
 class ChunkTest(unittest.TestCase):
@@ -115,3 +115,20 @@ class MergeQueriesTest(unittest.TestCase):
         assert 16 == res_merged["duration"]
         assert 16 == len(res_merged["eventlist"])
         assert timedelta(seconds=1) == res_merged["eventlist"][0]["duration"]
+
+class SortEventsTests(unittest.TestCase):
+    def test_sort_by_timestamp(self):
+        now = datetime.now(timezone.utc)
+        events = []
+        events.append(Event(timestamp=now+timedelta(seconds=2), duration=timedelta(seconds=1)))
+        events.append(Event(timestamp=now+timedelta(seconds=1), duration=timedelta(seconds=2)))
+        events_sorted = sort_by_timestamp(events)
+        assert events_sorted == events[::-1]
+
+    def test_sort_by_duration(self):
+        now = datetime.now(timezone.utc)
+        events = []
+        events.append(Event(timestamp=now+timedelta(seconds=2), duration=timedelta(seconds=1)))
+        events.append(Event(timestamp=now+timedelta(seconds=1), duration=timedelta(seconds=2)))
+        events_sorted = sort_by_duration(events)
+        assert events_sorted == events[::-1]
