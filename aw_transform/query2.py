@@ -129,11 +129,11 @@ class Function(Token):
         args = []
         args_str = string[arg_start+1:arg_end-1]
         while args_str:
-            arg, args_str = _parse_token(args_str, namespace)
+            (arg_t, arg), args_str = _parse_token(args_str, namespace)
             comma = args_str.find(",")
             if comma != -1:
                 args_str = args_str[comma+1:]
-            args.append(arg[0].parse(arg[1], namespace))
+            args.append(arg_t.parse(arg, namespace))
         return Function(name, args)
 
 
@@ -169,7 +169,7 @@ class Function(Token):
 
 def _parse_token(string: str, namespace: dict):
     # TODO: The whole parsing thing is shoddily written, needs a rewrite from ground-up
-    if type(string) != str:
+    if not isinstance(string, str):
         raise QueryException("Reached unreachable, cannot parse something that isn't a string")
     if len(string) == 0:
         return None
@@ -183,7 +183,6 @@ def _parse_token(string: str, namespace: dict):
             break
     if not token:
         raise QueryException("Syntax error: {}".format(string))
-    print(t)
     return (t, token), string
 
 def create_namespace() -> dict:
@@ -200,28 +199,30 @@ def create_namespace() -> dict:
 
 def parse(line, namespace):
     separator_i = line.find("=")
-    var = line[:separator_i]
-    val = line[separator_i+1:]
-    if not val:
+    var_str = line[:separator_i]
+    val_str = line[separator_i+1:]
+    if not val_str:
         # TODO: Proper message
         raise QueryException("Nothing to assign")
-    var, rest = _parse_token(var, namespace)
-    if var[0] is not Variable:
-        # TODO: Proper message
+    (var_t, var), var_str = _parse_token(var_str, namespace)
+    var_str = var_str.strip()
+    if var_str: # Didn't consume whole var string
+        raise QueryException("Invalid syntax for assignment variable")
+    if var_t is not Variable:
         raise QueryException("Cannot assign to a non-variable")
-    val, rest = _parse_token(val, namespace)
+    (val_t, val), var_str = _parse_token(val_str, namespace)
+    if var_str: # Didn't consume whole val string
+        raise QueryException("Invalid syntax for value to assign")
     # Parse token
-    var = var[0].parse(var[1], namespace)
-    val = val[0].parse(val[1], namespace)
+    var = var_t.parse(var, namespace)
+    val = val_t.parse(val, namespace)
     return val, var
 
 def interpret(var, val, namespace, datastore):
-    if type(var) is Variable:
-        namespace[var.name] = val.interpret(datastore, namespace)
-        logging.debug("Set {} to {}".format(var.name, namespace[var.name]))
-    else:
-        # TODO: Proper exception messages
-        raise QueryException("asd")
+    if not isinstance(var, Variable):
+        raise QueryException("Cannot assign to something that isn't an variable!")
+    namespace[var.name] = val.interpret(datastore, namespace)
+    logging.debug("Set {} to {}".format(var.name, namespace[var.name]))
 
 def get_return(namespace):
     return namespace["RETURN"]
