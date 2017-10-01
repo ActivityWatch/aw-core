@@ -7,125 +7,161 @@ from aw_datastore import Datastore
 
 from . import transforms
 
-# FIXME: We'd want to use Datastore as a type annotations in several places within this file,
-#        but import fails due to mutually-recursive imports
-
-from .transforms import filter_period_intersect, filter_keyvals
-
-def q2_query_bucket(datastore: Datastore, namespace: dict, bucketname: str):
-    return datastore[bucketname].get()
-
-def q2_filter_keyvals(datastore: Datastore, namespace: dict, events: list, key: str, vals: list, exclude: bool):
-    # TODO: Implement
-    pass
-
-def q2_filter_period_intersect(datastore: Datastore, namespace: dict, events: list, filterevents: list):
-    if type(events) != list:
-        logging.debug(events)
-        raise QueryException("1")
-    if type(filterevents) != list:
-        logging.debug(filterevents)
-        raise QueryException("2")
-    return filter_period_intersect(events, filterevents)
-
-# TODO: Type checking
-query2_functions = {
-    "filter_period_intersect": q2_filter_period_intersect,
-    "filter_keyvals": q2_filter_keyvals,
-    "query_bucket": q2_query_bucket,
-}
+from .query2_functions import query2_functions
 
 class QueryException(Exception):
     pass
 
 class Token:
-    # TODO: Proper token parsing instead of "verify"
-    def verify(string: str, namespace: dict):
+    def interpret(self, datastore: Datastore, namespace: dict):
+        raise NotImplementedError
+
+    def parse(string: str, namespace: dict):
+        raise NotImplementedError
+
+    def check(string: str):
         raise NotImplementedError
 
 class Integer(Token):
     def __init__(self, value):
         self.value = value
 
-    def verify(string: str, namespace: dict):
-        for char in string:
-            if not char.isdigit():
-                return False
+    def interpret(self, datastore: Datastore, namespace: dict):
+        return self.value
+
+    def parse(string: str, namespace: dict):
         return Integer(int(string))
+
+    def check(string: str):
+        token = ""
+        for char in string:
+            if char.isdigit():
+                token += char
+            else:
+                break
+        return token, string[len(token):]
 
 class Variable(Token):
     def __init__(self, name, value):
         self.name = name
         self.value = value
 
-    def verify(string: str, namespace: dict):
-        for char in string:
-            if char.isalpha():
-                pass
-            elif char == '_':
-                pass
-            else:
-                return False
+    def interpret(self, datastore: Datastore, namespace: dict):
+        namespace[self.name] = self.value
+        return self.value
+
+    def parse(string: str, namespace: dict):
         val = None
         if string in namespace:
             val = namespace[string]
         return Variable(string, val)
 
+    def check(string: str):
+        token = ""
+        for char in string:
+            if char.isalpha() or char == '_':
+                token += char
+            else:
+                break
+        return token, string[len(token):]
+
 class String(Token):
     def __init__(self, value):
         self.value = value
 
-    def verify(string: str, namespace: dict):
-        if len(string) < 2:
-            return None
+    def interpret(self, datastore: Datastore, namespace: dict):
+        return self.value
+
+    def parse(string: str, namespace: dict):
+        string = string[1:-1]
+        return String(string)
+
+    def check(string: str):
+        token = ""
         if string[0] != '"':
-            return None
-        if string[-1] != '"':
-            return None
-        string_content = string[1:-1]
-        for char in string_content:
-            if char == '"':
-                return None
-        return String(string_content)
+            return token, string
+        token += '"'
+        for char in string[1:]:
+            token += char
+            if token == '"':
+                break
+        if token[-1] != '"':
+            # Unclosed string?
+            raise QueryException("Failed to parse string")
+        if len(token) < 2:
+            raise
+        return token, string[len(token):]
 
 class Function(Token):
-    def __init__(self, name, arguments):
+    def __init__(self, name, args):
         self.name = name
-        self.arguments = arguments
+        self.args = args
 
-    def execute(self, namespace, datastore):
-        # FIXME: Comma in strings will break stuff
-        args = self.arguments.split(',')
-        if args == None:
-            args = []
-        parsed_args = [datastore, namespace]
-        for arg in args:
-            arg = _parse_token(arg, namespace)
-            if type(arg) is Function:
-                raise QueryException("Having a function as a arg is not supported")
-            elif type(arg) is Variable or type(arg) is Integer or type(arg) is String:
-                parsed_args.append(arg.value)
-            else:
-                raise QueryException("Reached unreachable, please contact a developer")
-        logging.debug("Arguments for functioncall to {} is {}".format(self.name, parsed_args))
+    def interpret(self, datastore: Datastore, namespace: dict):
         if not self.name in query2_functions:
             raise QueryException("There's no function named {}".format(self.name))
-        result = query2_functions[self.name](*parsed_args)
+        call_args = [datastore, namespace]
+        for arg in self.args:
+            call_args.append(arg.interpret(datastore, namespace))
+        logging.debug("Arguments for functioncall to {} is {}".format(self.name, call_args))
+        result = query2_functions[self.name](*call_args)
         return result
 
-
-    def verify(string: str, namespace: dict):
-        i = 0
-        # Parse name until opening bracket
+    def parse(string: str, namespace: dict):
+        arg_start = 0
+        arg_end = len(string)
+        # Find opening bracket
         for char in string:
             if char == '(':
                 break
-            i = i+1
-        name = string[:i]
-        if string[-1] != ')':
-            return None
-        arg_str = string[i+1:-1]
-        return Function(name, arg_str)
+            arg_start = arg_start + 1
+        for char in string[::-1]:
+            if char == ')':
+                break
+            elif char != ' ':
+                raise QueryException("asd")
+            arg_end = arg_end - 1
+        # Parse name
+        name = string[:arg_start]
+        # Parse arguments
+        args = []
+        args_str = string[arg_start+1:arg_end-1]
+        while args_str:
+            arg, args_str = _parse_token(args_str, namespace)
+            comma = args_str.find(",")
+            if comma != -1:
+                args_str = args_str[comma+1:]
+            args.append(arg[0].parse(arg[1], namespace))
+        return Function(name, args)
+
+
+    def check(string: str):
+        i = 0
+        # Find opening bracket
+        found = False
+        for char in string:
+            if char.isalpha() or char == "_":
+                i = i+1
+            elif char == '(':
+                i = i+1
+                found = True
+                break
+            else:
+                break
+        if not found:
+            return None, string
+        to_consume = 1
+        for char in string[i:]:
+            i += 1
+            if char == ')':
+                to_consume = to_consume - 1
+            elif char == '(':
+                to_consume = to_consume + 1
+            if to_consume == 0:
+                break
+        if to_consume != 0:
+            raise QueryException("Unclosed function")
+        return string[:i], string[i+1:]
 
 def _parse_token(string: str, namespace: dict):
     # TODO: The whole parsing thing is shoddily written, needs a rewrite from ground-up
@@ -134,15 +170,16 @@ def _parse_token(string: str, namespace: dict):
     if len(string) == 0:
         return None
     string = string.strip()
-    types = [String, Integer, Variable, Function]
+    types = [String, Integer, Function, Variable]
     token = None
+    t = None # Declare so we can return it
     for t in types:
-        token = t.verify(string, namespace)
+        token, string = t.check(string)
         if token:
             break
     if not token:
-        raise QueryException("Unable to parse token: {}".format(string))
-    return token
+        raise QueryException("Syntax error: {}".format(string))
+    return (t, token), string
 
 def create_namespace() -> dict:
     namespace = {
@@ -158,24 +195,25 @@ def create_namespace() -> dict:
     return namespace
 
 def parse(line, namespace):
-    var = line.split("=")[0]
-    val = "".join(line.split("=")[1:])
+    separator_i = line.find("=")
+    var = line[:separator_i]
+    val = line[separator_i+1:]
     if not val:
         # TODO: Proper message
         raise QueryException("Nothing to assign")
-    var = _parse_token(var, namespace)
-    if type(var) is not Variable:
+    var, rest = _parse_token(var, namespace)
+    if var[0] is not Variable:
         # TODO: Proper message
         raise QueryException("Cannot assign to a non-variable")
-    val = _parse_token(val, namespace)
+    val, rest = _parse_token(val, namespace)
+    # Parse token
+    var = var[0].parse(var[1], namespace)
+    val = val[0].parse(val[1], namespace)
     return val, var
 
 def interpret(var, val, namespace, datastore):
     if type(var) is Variable:
-        if type(val) is Integer or type(val) is String or type(val) is Variable:
-            namespace[var.name] = val.value
-        if type(val) is Function:
-            namespace[var.name] = val.execute(namespace, datastore)
+        namespace[var.name] = val.interpret(datastore, namespace)
         logging.debug("Set {} to {}".format(var.name, namespace[var.name]))
     else:
         # TODO: Proper exception messages
