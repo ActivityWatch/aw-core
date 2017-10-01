@@ -116,8 +116,8 @@ def test_query2_test_merged_keys(datastore):
     NAME="test_query"
     CACHE=FALSE
     events=query_bucket("{bid1}")
-    events=sort_by_duration(events)
-    RETURN=merge_events_by_keys2(events, "label1", "label2")
+    events=merge_events_by_keys2(events, "label1", "label2")
+    RETURN=sort_by_duration(events)
     """.format(bid1=bid1)
     try:
         # Setup buckets
@@ -141,10 +141,10 @@ def test_query2_test_merged_keys(datastore):
         # Assert
         assert(len(result) == 2)
         assert(result[0]["data"]["label1"] == "test1")
-        assert(result[0]["data"]["label2"] == "test2")
-        assert(result[0]["duration"] == timedelta(seconds=1))
+        assert(result[0]["data"]["label2"] == "test1")
+        assert(result[0]["duration"] == timedelta(seconds=2))
         assert(result[1]["data"]["label1"] == "test1")
-        assert(result[1]["data"]["label2"] == "test1")
-        assert(result[1]["duration"] == timedelta(seconds=2))
+        assert(result[1]["data"]["label2"] == "test2")
+        assert(result[1]["duration"] == timedelta(seconds=1))
     finally:
         datastore.delete_bucket(bid1)
