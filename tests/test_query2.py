@@ -75,7 +75,7 @@ def test_query2_test_basic_query(datastore):
     example_query = \
     """
     NAME="test_query"
-    CACHE=False
+    CACHE=FALSE
     events=query_bucket("{bid1}")
     intersect_events=query_bucket("{bid2}")
     RETURN=filter_period_intersect(events, intersect_events)
@@ -106,3 +106,39 @@ def test_query2_test_basic_query(datastore):
     finally:
         datastore.delete_bucket(bid1)
         datastore.delete_bucket(bid2)
+
+@pytest.mark.parametrize("datastore", param_datastore_objects())
+def test_query2_test_merged_keys(datastore):
+    name = "A label/name for a test bucket"
+    bid1 = "bucket1"
+    example_query = \
+    """
+    NAME="test_query"
+    CACHE=FALSE
+    events=query_bucket("{bid1}")
+    RETURN=merge_events_by_keys2(events, "label1", "label2")
+    """.format(bid1=bid1)
+    try:
+        # Setup buckets
+        bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
+        # Prepare buckets
+        currtime = datetime.now(timezone.utc)
+        e1 = Event(data={"label1": "test1", "label2": "test1"},
+                   timestamp=currtime,
+                   duration=timedelta(seconds=1))
+        e2 = Event(data={"label1": "test1", "label2": "test1"},
+                   timestamp=currtime + timedelta(seconds=2),
+                   duration=timedelta(seconds=1))
+        e3 = Event(data={"label1": "test1", "label2": "test2"},
+                   timestamp=currtime,
+                   duration=timedelta(seconds=1))
+        bucket1.insert(e1)
+        bucket1.insert(e2)
+        bucket1.insert(e3)
+        # Query
+        result = query(example_query, datastore)
+        # Assert
+        assert(len(result) == 2)
+        assert(result[0]["data"]["label1"] == "test1")
+    finally:
+        datastore.delete_bucket(bid1)

@@ -58,8 +58,10 @@ class Variable(Token):
 
     def check(string: str):
         token = ""
-        for char in string:
+        for i, char in enumerate(string):
             if char.isalpha() or char == '_':
+                token += char
+            elif i != 0 and char.isdigit():
                 token += char
             else:
                 break
@@ -83,7 +85,7 @@ class String(Token):
         token += '"'
         for char in string[1:]:
             token += char
-            if token == '"':
+            if char == '"':
                 break
         if token[-1] != '"':
             # Unclosed string?
@@ -142,6 +144,8 @@ class Function(Token):
         for char in string:
             if char.isalpha() or char == "_":
                 i = i+1
+            elif i != 0 and char.isdigit():
+                i = i+1
             elif char == '(':
                 i = i+1
                 found = True
@@ -179,6 +183,7 @@ def _parse_token(string: str, namespace: dict):
             break
     if not token:
         raise QueryException("Syntax error: {}".format(string))
+    print(t)
     return (t, token), string
 
 def create_namespace() -> dict:
@@ -186,9 +191,8 @@ def create_namespace() -> dict:
         "NAME": None,
         "CACHE": False,
         "RETURN": None,
-        "True": 1,
-        "False": 0,
-        "fetch_bucket": None, #TODO: Implement me
+        "TRUE": 1,
+        "FALSE": 0,
         # start_time
         # end_time
     }
