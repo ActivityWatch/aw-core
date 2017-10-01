@@ -295,7 +295,7 @@ def merge_events_by_keys(events, keys):
     return result
 
 def sort_by_timestamp(events):
-    return sorted(events, key=lambda e: e.timestamp)
+    return sorted(events, key=lambda e: e.timestamp, reverse=True)
 
 def sort_by_duration(events):
-    return sorted(events, key=lambda e: e.duration)
+    return sorted(events, key=lambda e: e.duration, reverse=True)
