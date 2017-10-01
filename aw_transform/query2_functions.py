@@ -3,7 +3,7 @@ import logging
 from aw_core.models import Event
 from aw_datastore import Datastore
 
-from .transforms import filter_period_intersect, filter_keyvals, merge_events_by_keys
+from .transforms import filter_period_intersect, filter_keyvals, merge_events_by_keys, sort_by_timestamp, sort_by_duration
 
 class QueryFunctionException(Exception):
     pass
@@ -37,6 +37,12 @@ def q2_merge_events_by_keys2(datastore: Datastore, namespace: dict, events: list
 def q2_merge_events_by_keys3(datastore: Datastore, namespace: dict, events: list, key1: str, key2: str, key3: str):
     return merge_events_by_keys(events, [key1, key2, key3])
 
+def q2_sort_by_timestamp(datastore: Datastore, namespace: dict, events: list):
+    return sort_by_timestamp(events)
+
+def q2_sort_by_duration(datastore: Datastore, namespace: dict, events: list):
+    return sort_by_duration(events)
+
 query2_functions = {
     "filter_period_intersect": q2_filter_period_intersect,
     "filter_keyvals": q2_filter_keyvals,
@@ -44,4 +50,6 @@ query2_functions = {
     "merge_events_by_key": q2_merge_events_by_key,
     "merge_events_by_keys2": q2_merge_events_by_keys2,
     "merge_events_by_keys3": q2_merge_events_by_keys3,
+    "sort_by_timestamp": q2_sort_by_timestamp,
+    "sort_by_duration": q2_sort_by_duration,
 }
