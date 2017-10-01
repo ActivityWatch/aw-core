@@ -10,7 +10,7 @@ build:
 	pip3 install $(pip_install_args)
 
 test:
-	python3 -m pytest tests -v --cov=aw_core --cov=aw_datastore
+	python3 -m pytest tests -v --cov=aw_core --cov=aw_datastore --cov=aw_transform
 
 benchmark:
 	python3 -m aw_datastore.benchmark
