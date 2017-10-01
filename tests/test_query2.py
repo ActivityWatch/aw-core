@@ -128,10 +128,10 @@ def test_query2_test_merged_keys(datastore):
                    timestamp=currtime,
                    duration=timedelta(seconds=1))
         e2 = Event(data={"label1": "test1", "label2": "test1"},
-                   timestamp=currtime + timedelta(seconds=2),
+                   timestamp=currtime + timedelta(seconds=1),
                    duration=timedelta(seconds=1))
         e3 = Event(data={"label1": "test1", "label2": "test2"},
-                   timestamp=currtime,
+                   timestamp=currtime + timedelta(seconds=2),
                    duration=timedelta(seconds=1))
         bucket1.insert(e3)
         bucket1.insert(e1)
@@ -141,10 +141,10 @@ def test_query2_test_merged_keys(datastore):
         # Assert
         assert(len(result) == 2)
         assert(result[0]["data"]["label1"] == "test1")
-        assert(result[0]["data"]["label2"] == "test1")
-        assert(result[0]["duration"] == timedelta(seconds=2))
+        assert(result[0]["data"]["label2"] == "test2")
+        assert(result[0]["duration"] == timedelta(seconds=1))
         assert(result[1]["data"]["label1"] == "test1")
-        assert(result[1]["data"]["label2"] == "test2")
-        assert(result[1]["duration"] == timedelta(seconds=1))
+        assert(result[1]["data"]["label2"] == "test1")
+        assert(result[1]["duration"] == timedelta(seconds=2))
     finally:
         datastore.delete_bucket(bid1)
