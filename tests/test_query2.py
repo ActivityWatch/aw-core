@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import iso8601
 
 import pytest
 
@@ -28,6 +29,11 @@ def test_query2_test_token_parsing():
 
     try:
         _parse_token(None, ns)
+        assert(False)
+    except QueryException:
+        pass
+    try:
+        _parse_token('"', ns)
         assert(False)
     except QueryException:
         pass
@@ -77,9 +83,20 @@ def test_query2_test_function_query():
         pass
 
 def test_query2_test_return_value():
-    example_query = "RETURN=1"
+    example_query = """
+    NAME="asd"
+    STARTTIME="2017"
+    ENDTIME="2017"
+    RETURN=1
+    """
     assert(query(example_query, None) == 1)
-    example_query = 'RETURN="testing 123"'
+
+    example_query = """
+    NAME="asd2"
+    STARTTIME="2017"
+    ENDTIME="2017"
+    RETURN="testing 123"
+    """
     assert(query(example_query, None) == "testing 123")
     # TODO: test dict/array
 
@@ -89,33 +106,40 @@ def test_query2_test_basic_query(datastore):
     name = "A label/name for a test bucket"
     bid1 = "bucket1"
     bid2 = "bucket2"
+    starttime = iso8601.parse_date("1970")
+    endtime = starttime + timedelta(hours=1)
     example_query = \
     """
     NAME="test_query"
-    CACHE=FALSE
-    events=query_bucket("{bid1}")
-    intersect_events=query_bucket("{bid2}")
+    CACHE=TRUE
+    STARTTIME="{}"
+    ENDTIME="{}"
+    bid1="{}"
+    bid2="{}"
+    events=query_bucket(bid1)
+    intersect_events=query_bucket(bid2)
     RETURN=filter_period_intersect(events, intersect_events)
-    """.format(bid1=bid1, bid2=bid2)
+    """.format(starttime, endtime, bid1, bid2)
     try:
         # Setup buckets
         bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
         bucket2 = datastore.create_bucket(bucket_id=bid2, type="test", client="test", hostname="test", name=name)
         # Prepare buckets
-        currtime = datetime.now(timezone.utc)
         e1 = Event(data={"label": "test1"},
-                   timestamp=currtime,
+                   timestamp=starttime,
                    duration=timedelta(seconds=1))
         e2 = Event(data={"label": "test2"},
-                   timestamp=currtime + timedelta(seconds=2),
+                   timestamp=starttime + timedelta(seconds=2),
                    duration=timedelta(seconds=1))
         et = Event(data={"label": "intersect-label"},
-                   timestamp=currtime,
+                   timestamp=starttime,
                    duration=timedelta(seconds=1))
         bucket1.insert(e1)
         bucket1.insert(e2)
         bucket2.insert(et)
         # Query
+        result = query(example_query, datastore)
+        # Query again for cache hit
         result = query(example_query, datastore)
         # Assert
         assert(len(result) == 1)
@@ -128,32 +152,38 @@ def test_query2_test_basic_query(datastore):
 def test_query2_test_merged_keys(datastore):
     name = "A label/name for a test bucket"
     bid1 = "bucket1"
+    starttime = iso8601.parse_date("2080")
+    endtime = starttime + timedelta(hours=1)
     example_query = \
     """
     NAME="test_query"
-    CACHE=FALSE
-    events=query_bucket("{bid1}")
+    CACHE=TRUE
+    STARTTIME="{}"
+    ENDTIME="{}"
+    bid1="{}"
+    events=query_bucket(bid1)
     events=merge_events_by_keys2(events, "label1", "label2")
     RETURN=sort_by_duration(events)
-    """.format(bid1=bid1)
+    """.format(starttime, endtime, bid1)
     try:
         # Setup buckets
         bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
         # Prepare buckets
-        currtime = datetime.now(timezone.utc)
         e1 = Event(data={"label1": "test1", "label2": "test1"},
-                   timestamp=currtime,
+                   timestamp=starttime,
                    duration=timedelta(seconds=1))
         e2 = Event(data={"label1": "test1", "label2": "test1"},
-                   timestamp=currtime + timedelta(seconds=1),
+                   timestamp=starttime + timedelta(seconds=1),
                    duration=timedelta(seconds=1))
         e3 = Event(data={"label1": "test1", "label2": "test2"},
-                   timestamp=currtime + timedelta(seconds=2),
+                   timestamp=starttime + timedelta(seconds=2),
                    duration=timedelta(seconds=1))
         bucket1.insert(e3)
         bucket1.insert(e1)
         bucket1.insert(e2)
         # Query
+        result = query(example_query, datastore)
+        # Query again for cache miss (it's not year 2080 yet, I hope?)
         result = query(example_query, datastore)
         # Assert
         assert(len(result) == 2)

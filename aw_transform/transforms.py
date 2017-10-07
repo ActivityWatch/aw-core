@@ -289,7 +289,7 @@ def merge_events_by_keys(events, keys):
     print(merged_events)
     result = []
     for key in merged_events:
-        result.append(merged_events[key])
+        result.append(Event(**merged_events[key]))
     return result
 
 def sort_by_timestamp(events):

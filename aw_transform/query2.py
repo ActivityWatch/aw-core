@@ -1,6 +1,7 @@
 import logging
 from typing import Union, List, Callable, Dict
 from datetime import datetime, timedelta
+import iso8601
 
 from aw_core.models import Event
 from aw_datastore import Datastore
@@ -87,11 +88,9 @@ class String(Token):
             token += char
             if char == '"':
                 break
-        if token[-1] != '"':
+        if token[-1] != '"' or len(token) < 2:
             # Unclosed string?
             raise QueryException("Failed to parse string")
-        if len(token) < 2:
-            raise
         return token, string[len(token):]
 
 class Function(Token):
@@ -106,6 +105,8 @@ class Function(Token):
         for arg in self.args:
             call_args.append(arg.interpret(datastore, namespace))
         logging.debug("Arguments for functioncall to {} is {}".format(self.name, call_args))
+        if self.name not in query2_functions:
+            raise QueryException("Tried to call function '{}' which doesn't exist".format(self.name))
         result = query2_functions[self.name](*call_args)
         return result
 
@@ -219,7 +220,7 @@ def parse(line, namespace):
     # Parse token
     var = var_t.parse(var, namespace)
     val = val_t.parse(val, namespace)
-    return val, var
+    return var, val
 
 def interpret(var, val, namespace, datastore):
     if not isinstance(var, Variable):
@@ -228,15 +229,50 @@ def interpret(var, val, namespace, datastore):
     logging.debug("Set {} to {}".format(var.name, namespace[var.name]))
 
 def get_return(namespace):
+    if "RETURN" not in namespace:
+        raise QueryException("Query doesn't assign the RETURN variable, nothing to respond")
     return namespace["RETURN"]
 
+def parse_metadata(query: str):
+    namespace = {}
+    query = query.split("\n")
+    for line in query:
+        line = line.strip()
+        if line:
+            logging.debug("Parsing: "+line)
+            var, val = parse(line, namespace)
+            if not isinstance(var, Variable):
+                raise QueryException("Cannot assign to something that isn't a variable")
+            if var.name.isupper() and var.name != "RETURN":
+                interpret(var, val, namespace, None)
+
+    if "CACHE" not in namespace:
+        namespace["CACHE"] = False
+    if "NAME" not in namespace:
+        raise QueryException("Query needs a NAME")
+    if "STARTTIME" not in namespace:
+        raise QueryException("Query needs a STARTTIME")
+    if "ENDTIME" not in namespace:
+        raise QueryException("Query needs a ENDTIME")
+
+    namespace["STARTTIME"] = iso8601.parse_date(namespace["STARTTIME"])
+    namespace["ENDTIME"] = iso8601.parse_date(namespace["ENDTIME"])
+
+    return namespace
+
 def query(query: str, datastore: Datastore) -> None:
+    meta = parse_metadata(query)
+    if meta["CACHE"]:
+        cached_result = get_cached_query(meta["NAME"], ds, meta["STARTTIME"], meta["ENDTIME"])
+        if cached_result:
+            return cached_result
+
     namespace = create_namespace()
     query = query.split("\n")
     for line in query:
         line = line.strip()
         if line:
             logging.debug("Parsing: "+line)
-            val, var = parse(line, namespace)
+            var, val = parse(line, namespace)
             interpret(var, val, namespace, datastore)
     return get_return(namespace)
