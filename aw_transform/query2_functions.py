@@ -26,7 +26,7 @@ def q2_query_bucket(datastore: Datastore, namespace: dict, bucketname: str):
 """
 def q2_filter_keyval(datastore: Datastore, namespace: dict, events: list, key: str, val: str, exclude: bool):
     # TODO: Implement
-    return filter_keyvals(events, key, val, exclude)
+    return filter_keyvals(events, key, [val], exclude)
 
 def q2_filter_period_intersect(datastore: Datastore, namespace: dict, events: list, filterevents: list):
     return filter_period_intersect(events, filterevents)
