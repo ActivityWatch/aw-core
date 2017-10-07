@@ -1,3 +1,3 @@
 from . import transforms
-from . import query
+from . import query2
 from . import cached_queries
