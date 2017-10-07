@@ -10,6 +10,8 @@ from . import transforms
 
 from .query2_functions import query2_functions
 
+logger = logging.getLogger(__name__)
+
 class QueryException(Exception):
     pass
 
@@ -104,7 +106,7 @@ class Function(Token):
         call_args = [datastore, namespace]
         for arg in self.args:
             call_args.append(arg.interpret(datastore, namespace))
-        logging.debug("Arguments for functioncall to {} is {}".format(self.name, call_args))
+        logger.debug("Arguments for functioncall to {} is {}".format(self.name, call_args))
         if self.name not in query2_functions:
             raise QueryException("Tried to call function '{}' which doesn't exist".format(self.name))
         result = query2_functions[self.name](*call_args)
@@ -159,13 +161,10 @@ class Function(Token):
         for char in string[i:]:
             i += 1
             if char == ')':
-                print("a")
                 to_consume = to_consume - 1
             elif char == '(':
-                print("b")
                 to_consume = to_consume + 1
             if to_consume == 0:
-                print("c")
                 break
         if to_consume != 0:
             raise QueryException("Unclosed function")
@@ -226,7 +225,7 @@ def interpret(var, val, namespace, datastore):
     if not isinstance(var, Variable):
         raise QueryException("Cannot assign to something that isn't an variable!")
     namespace[var.name] = val.interpret(datastore, namespace)
-    logging.debug("Set {} to {}".format(var.name, namespace[var.name]))
+    logger.debug("Set {} to {}".format(var.name, namespace[var.name]))
 
 def get_return(namespace):
     if "RETURN" not in namespace:
@@ -239,7 +238,7 @@ def parse_metadata(query: str):
     for line in query:
         line = line.strip()
         if line:
-            logging.debug("Parsing: "+line)
+            logger.debug("Parsing: "+line)
             var, val = parse(line, namespace)
             if not isinstance(var, Variable):
                 raise QueryException("Cannot assign to something that isn't a variable")
@@ -272,7 +271,7 @@ def query(query: str, datastore: Datastore) -> None:
     for line in query:
         line = line.strip()
         if line:
-            logging.debug("Parsing: "+line)
+            logger.debug("Parsing: "+line)
             var, val = parse(line, namespace)
             interpret(var, val, namespace, datastore)
     return get_return(namespace)

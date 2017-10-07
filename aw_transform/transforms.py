@@ -279,7 +279,6 @@ def merge_events_by_keys(events, keys):
         for key in keys:
             if key in event.data:
                 summed_key = summed_key + "." + event["data"][key]
-        print(summed_key)
         if summed_key not in merged_events:
             merged_events[summed_key] = deepcopy(event)
             merged_events[summed_key].data = {}
@@ -288,7 +287,6 @@ def merge_events_by_keys(events, keys):
                     merged_events[summed_key].data[key] = event.data[key]
         else:
             merged_events[summed_key].duration += event.duration
-    print(merged_events)
     result = []
     for key in merged_events:
         result.append(Event(**merged_events[key]))
@@ -299,3 +297,6 @@ def sort_by_timestamp(events):
 
 def sort_by_duration(events):
     return sorted(events, key=lambda e: e.duration, reverse=True)
+
+def limit_events(events, count):
+    return events[:count]
