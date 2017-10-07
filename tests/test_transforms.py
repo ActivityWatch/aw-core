@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from aw_core.models import Event
-from aw_transform.transforms import filter_period_intersect, filter_keyvals, sort_by_timestamp, sort_by_duration, merge_events_by_keys
+from aw_transform.transforms import filter_period_intersect, filter_keyvals, sort_by_timestamp, sort_by_duration, merge_events_by_keys, split_url_events
 
 
 class IncludeLabelsTest(unittest.TestCase):
@@ -72,3 +72,30 @@ class MergeEventsByKeys(unittest.TestCase):
         result = merge_events_by_keys(events, ["label"])
         assert len(result) == 2
         assert result[0].duration == timedelta(seconds=10)
+
+class MergeEventsByKeys(unittest.TestCase):
+    def test_merge_events_by_keys(self):
+        now = datetime.now(timezone.utc)
+        e = Event(data={"url": "http://asd.com/test/?a=1"}, timestamp=now, duration=timedelta(seconds=1))
+        result = split_url_events([e])
+        print(result)
+        assert result[0].data["protocol"] == "http"
+        assert result[0].data["domain"] == "asd.com"
+        assert result[0].data["path"] == "/test/"
+        assert result[0].data["options"] == "a=1"
+
+        e2 = Event(data={"url": "https://asd.asd.com/test/test2/meh"}, timestamp=now, duration=timedelta(seconds=1))
+        result = split_url_events([e2])
+        print(result)
+        assert result[0].data["protocol"] == "https"
+        assert result[0].data["domain"] == "asd.asd.com"
+        assert result[0].data["path"] == "/test/test2/meh"
+        assert result[0].data["options"] == ""
+
+        e3 = Event(data={"url": "file:///home/johan/myfile.txt"}, timestamp=now, duration=timedelta(seconds=1))
+        result = split_url_events([e3])
+        print(result)
+        assert result[0].data["protocol"] == "file"
+        assert result[0].data["domain"] == ""
+        assert result[0].data["path"] == "/home/johan/myfile.txt"
+        assert result[0].data["options"] == ""
