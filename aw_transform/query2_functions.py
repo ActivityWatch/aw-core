@@ -1,4 +1,5 @@
 import logging
+import iso8601
 
 from aw_core.models import Event
 from aw_datastore import Datastore
@@ -13,11 +14,13 @@ class QueryFunctionException(Exception):
 def q2_query_bucket(datastore: Datastore, namespace: dict, bucketname: str):
     if type(bucketname) != str:
         raise QueryFunctionException("Invalid argument to query_bucket")
-    return datastore[bucketname].get()
+    starttime = iso8601.parse_date(namespace["STARTTIME"])
+    endtime = iso8601.parse_date(namespace["ENDTIME"])
+    return datastore[bucketname].get(starttime=starttime, endtime=endtime)
 
-def q2_filter_keyvals(datastore: Datastore, namespace: dict, events: list, key: str, vals: list, exclude: bool):
+def q2_filter_keyval(datastore: Datastore, namespace: dict, events: list, key: str, val: str, exclude: bool):
     # TODO: Implement
-    raise NotImplementedError
+    return filter_keyvals(events, key, val, exclude)
 
 def q2_filter_period_intersect(datastore: Datastore, namespace: dict, events: list, filterevents: list):
     return filter_period_intersect(events, filterevents)
@@ -45,7 +48,7 @@ def q2_nop(datastore: Datastore, namespace: dict):
 
 query2_functions = {
     "filter_period_intersect": q2_filter_period_intersect,
-    "filter_keyvals": q2_filter_keyvals,
+    "filter_keyval": q2_filter_keyval,
     "query_bucket": q2_query_bucket,
     "merge_events_by_key": q2_merge_events_by_key,
     "merge_events_by_keys2": q2_merge_events_by_keys2,
