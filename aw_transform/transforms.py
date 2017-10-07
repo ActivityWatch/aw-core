@@ -146,3 +146,27 @@ def sort_by_duration(events):
 
 def limit_events(events, count):
     return events[:count]
+
+"""
+    Watcher specific transforms
+"""
+
+def split_url_events(events):
+    for event in events:
+        if "url" in event.data:
+            url = event.data["url"]
+            protocol_end = url.find('://')
+            #print("Protocol: 0->{}".format(protocol_end))
+            domain_start = protocol_end+3
+            domain_end = domain_start+url[domain_start:].find('/')
+            #print("Domain: {}->{}".format(domain_start, domain_end))
+            path_start = domain_end+1
+            path_end = path_start+url[path_start:].find('?')
+            if path_end < path_start:
+                path_end = len(url)
+            #print("Path: {}->{}".format(path_start, path_end))
+            event.data["protocol"] = url[:protocol_end]
+            event.data["domain"] = url[domain_start:domain_end]
+            event.data["path"] = url[domain_end:path_end]
+            event.data["options"] = url[path_end+1:]
+    return events

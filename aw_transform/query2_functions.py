@@ -4,7 +4,7 @@ import iso8601
 from aw_core.models import Event
 from aw_datastore import Datastore
 
-from .transforms import filter_period_intersect, filter_keyvals, merge_events_by_keys, sort_by_timestamp, sort_by_duration, limit_events
+from .transforms import filter_period_intersect, filter_keyvals, merge_events_by_keys, sort_by_timestamp, sort_by_duration, limit_events, split_url_events
 
 class QueryFunctionException(Exception):
     pass
@@ -59,6 +59,13 @@ def q2_sort_by_duration(datastore: Datastore, namespace: dict, events: list):
 
 
 """
+    Watcher specific functions
+"""
+
+def q2_split_url_events(datastore: Datastore, namespace: dict, events: list):
+    return split_url_events(events)
+
+"""
     Test functions
 """
 def q2_nop(datastore: Datastore, namespace: dict):
@@ -81,5 +88,6 @@ query2_functions = {
     "merge_events_by_keys3": q2_merge_events_by_keys3,
     "sort_by_timestamp": q2_sort_by_timestamp,
     "sort_by_duration": q2_sort_by_duration,
+    "split_url_events": q2_split_url_events,
     "nop": q2_nop,
 }
