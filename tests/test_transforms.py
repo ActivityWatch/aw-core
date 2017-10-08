@@ -84,7 +84,7 @@ class MergeEventsByKeys(unittest.TestCase):
         assert result[0].data["path"] == "/test/"
         assert result[0].data["options"] == "a=1"
 
-        e2 = Event(data={"url": "https://asd.asd.com/test/test2/meh"}, timestamp=now, duration=timedelta(seconds=1))
+        e2 = Event(data={"url": "https://www.asd.asd.com/test/test2/meh"}, timestamp=now, duration=timedelta(seconds=1))
         result = split_url_events([e2])
         print(result)
         assert result[0].data["protocol"] == "https"
