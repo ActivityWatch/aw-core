@@ -158,6 +158,8 @@ def split_url_events(events):
             protocol_end = url.find('://')
             #print("Protocol: 0->{}".format(protocol_end))
             domain_start = protocol_end+3
+            if url[domain_start:domain_start+4] == "www.":
+                domain_start = domain_start + 4
             domain_end = domain_start+url[domain_start:].find('/')
             #print("Domain: {}->{}".format(domain_start, domain_end))
             path_start = domain_end+1
