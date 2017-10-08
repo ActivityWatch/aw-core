@@ -82,15 +82,19 @@ class MergeEventsByKeys(unittest.TestCase):
         assert result[0].data["protocol"] == "http"
         assert result[0].data["domain"] == "asd.com"
         assert result[0].data["path"] == "/test/"
+        assert result[0].data["params"] == ""
         assert result[0].data["options"] == "a=1"
+        assert result[0].data["identifier"] == ""
 
-        e2 = Event(data={"url": "https://www.asd.asd.com/test/test2/meh"}, timestamp=now, duration=timedelta(seconds=1))
+        e2 = Event(data={"url": "https://www.asd.asd.com/test/test2/meh;meh2?asd=2&asdf=3#id"}, timestamp=now, duration=timedelta(seconds=1))
         result = split_url_events([e2])
         print(result)
         assert result[0].data["protocol"] == "https"
         assert result[0].data["domain"] == "asd.asd.com"
         assert result[0].data["path"] == "/test/test2/meh"
-        assert result[0].data["options"] == ""
+        assert result[0].data["params"] == "meh2"
+        assert result[0].data["options"] == "asd=2&asdf=3"
+        assert result[0].data["identifier"] == "id"
 
         e3 = Event(data={"url": "file:///home/johan/myfile.txt"}, timestamp=now, duration=timedelta(seconds=1))
         result = split_url_events([e3])
@@ -98,4 +102,6 @@ class MergeEventsByKeys(unittest.TestCase):
         assert result[0].data["protocol"] == "file"
         assert result[0].data["domain"] == ""
         assert result[0].data["path"] == "/home/johan/myfile.txt"
+        assert result[0].data["params"] == ""
         assert result[0].data["options"] == ""
+        assert result[0].data["identifier"] == ""
