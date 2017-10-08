@@ -150,25 +150,19 @@ def limit_events(events, count):
 """
     Watcher specific transforms
 """
+from urllib.parse import urlparse
 
 def split_url_events(events):
     for event in events:
         if "url" in event.data:
             url = event.data["url"]
-            protocol_end = url.find('://')
-            #print("Protocol: 0->{}".format(protocol_end))
-            domain_start = protocol_end+3
-            if url[domain_start:domain_start+4] == "www.":
-                domain_start = domain_start + 4
-            domain_end = domain_start+url[domain_start:].find('/')
-            #print("Domain: {}->{}".format(domain_start, domain_end))
-            path_start = domain_end+1
-            path_end = path_start+url[path_start:].find('?')
-            if path_end < path_start:
-                path_end = len(url)
-            #print("Path: {}->{}".format(path_start, path_end))
-            event.data["protocol"] = url[:protocol_end]
-            event.data["domain"] = url[domain_start:domain_end]
-            event.data["path"] = url[domain_end:path_end]
-            event.data["options"] = url[path_end+1:]
+            parsed_url = urlparse(url)
+            event.data["protocol"] = parsed_url.scheme
+            event.data["domain"] = parsed_url.netloc
+            if event.data["domain"][:4] == "www.":
+                event.data["domain"] = event.data["domain"][4:]
+            event.data["path"] = parsed_url.path
+            event.data["params"] = parsed_url.params
+            event.data["options"] = parsed_url.query
+            event.data["identifier"] = parsed_url.fragment
     return events
