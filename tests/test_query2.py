@@ -74,13 +74,33 @@ def test_query2_test_bogus_query():
     except QueryException:
         pass
 
-def test_query2_test_function_query():
-    try: # Function with no args
-        example_query = "asd=asd()"
+def test_query2_test_query_function_calling():
+    try: # Function which doesn't exist
+        example_query = """NAME="asd"
+        STARTTIME="1970-01-01"
+        ENDTIME="1970-01-02"
+        RETURN=asd()"""
         result = query(example_query, None)
-        assert(False)
-    except QueryException:
-        pass
+        assert False
+    except QueryException as e:
+        print(e)
+    try: # Function which does exist with invalid arguments
+        example_query = """NAME="asd"
+        STARTTIME="1970-01-01"
+        ENDTIME="1970-01-02"
+        RETURN=nop(STARTTIME)"""
+        result = query(example_query, None)
+        assert False
+    except QueryException as e:
+        print(e)
+    try: # Function which does exist with invalid arguments
+        example_query = """NAME="asd"
+        STARTTIME="1970-01-01"
+        ENDTIME="1970-01-02"
+        RETURN=nop()"""
+        result = query(example_query, None)
+    except Exception:
+        assert False
 
 def test_query2_test_return_value():
     example_query = """
@@ -100,6 +120,46 @@ def test_query2_test_return_value():
     assert(query(example_query, None) == "testing 123")
     # TODO: test dict/array
 
+@pytest.mark.parametrize("datastore", param_datastore_objects())
+def test_query2_test_query_functions(datastore):
+    """
+    Just test calling all functions just to see something isn't completely broken
+    In many cases the functions doesn't change the result at all, so it's not a test
+    for testing the validity of the data the functions transform
+    """
+    bid = "test_bucket"
+    starttime = iso8601.parse_date("1970")
+    endtime = starttime + timedelta(hours=1)
+    example_query = \
+    """
+    NAME="test"
+    CACHE=FALSE
+    STARTTIME="{}"
+    ENDTIME="{}"
+    bid="{}"
+    events=query_bucket(bid)
+    events2=query_bucket(bid)
+    events2=filter_keyval(events2, "label", "test1", FALSE)
+    events=filter_period_intersect(events, events2)
+    events=limit_events(events, 1)
+    events=merge_events_by_keys(events, "label")
+    events=split_url_events(events)
+    events=sort_by_timestamp(events)
+    events=sort_by_duration(events)
+    asd=nop()
+    RETURN=events
+    """.format(starttime, endtime, bid)
+    try:
+        bucket = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name="asd")
+        e1 = Event(data={"label": "test1"},
+                   timestamp=starttime,
+                   duration=timedelta(seconds=1))
+        bucket.insert(e1)
+        result = query(example_query, datastore)
+        print(result)
+        assert result[0].data["label"] == "test1"
+    finally:
+        datastore.delete_bucket(bid)
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query2_test_basic_query(datastore):
@@ -162,7 +222,7 @@ def test_query2_test_merged_keys(datastore):
     ENDTIME="{}"
     bid1="{}"
     events=query_bucket(bid1)
-    events=merge_events_by_keys2(events, "label1", "label2")
+    events=merge_events_by_keys(events, "label1", "label2")
     events=sort_by_duration(events)
     RETURN=events
     """.format(starttime, endtime, bid1)
