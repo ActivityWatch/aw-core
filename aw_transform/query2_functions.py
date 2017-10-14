@@ -9,14 +9,12 @@ from .transforms import filter_period_intersect, filter_keyvals, merge_events_by
 class QueryFunctionException(Exception):
     pass
 
-# TODO: proper type checking
+# TODO: proper type checking (typecheck-decorator in pypi?)
 
 """
     Data gathering functions
 """
 def q2_query_bucket(datastore: Datastore, namespace: dict, bucketname: str):
-    if type(bucketname) != str:
-        raise QueryFunctionException("Invalid argument to query_bucket")
     starttime = iso8601.parse_date(namespace["STARTTIME"])
     endtime = iso8601.parse_date(namespace["ENDTIME"])
     return datastore[bucketname].get(starttime=starttime, endtime=endtime)
@@ -25,7 +23,6 @@ def q2_query_bucket(datastore: Datastore, namespace: dict, bucketname: str):
     Filtering functions
 """
 def q2_filter_keyval(datastore: Datastore, namespace: dict, events: list, key: str, val: str, exclude: bool):
-    # TODO: Implement
     return filter_keyvals(events, key, [val], exclude)
 
 def q2_filter_period_intersect(datastore: Datastore, namespace: dict, events: list, filterevents: list):
@@ -38,15 +35,8 @@ def q2_limit_events(datastore: Datastore, namespace: dict, events: list, count: 
 """
     Merge functions
 """
-def q2_merge_events_by_key(datastore: Datastore, namespace: dict, events: list, key1: str):
-    return merge_events_by_keys(events, [key1])
-
-def q2_merge_events_by_keys2(datastore: Datastore, namespace: dict, events: list, key1: str, key2: str):
-    return merge_events_by_keys(events, [key1, key2])
-
-def q2_merge_events_by_keys3(datastore: Datastore, namespace: dict, events: list, key1: str, key2: str, key3: str):
-    return merge_events_by_keys(events, [key1, key2, key3])
-
+def q2_merge_events_by_keys(datastore: Datastore, namespace: dict, events: list, *keys):
+    return merge_events_by_keys(events, keys)
 
 """
     Sort functions
@@ -83,9 +73,7 @@ query2_functions = {
     "filter_keyval": q2_filter_keyval,
     "query_bucket": q2_query_bucket,
     "limit_events": q2_limit_events,
-    "merge_events_by_key": q2_merge_events_by_key,
-    "merge_events_by_keys2": q2_merge_events_by_keys2,
-    "merge_events_by_keys3": q2_merge_events_by_keys3,
+    "merge_events_by_keys": q2_merge_events_by_keys,
     "sort_by_timestamp": q2_sort_by_timestamp,
     "sort_by_duration": q2_sort_by_duration,
     "split_url_events": q2_split_url_events,

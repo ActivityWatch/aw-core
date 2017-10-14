@@ -111,7 +111,10 @@ class Function(Token):
         logger.debug("Arguments for functioncall to {} is {}".format(self.name, call_args))
         if self.name not in query2_functions:
             raise QueryException("Tried to call function '{}' which doesn't exist".format(self.name))
-        result = query2_functions[self.name](*call_args)
+        try:
+            result = query2_functions[self.name](*call_args)
+        except TypeError:
+            raise QueryException("Tried to call function {} with invalid amount of arguments".format(self.name))
         return result
 
     def parse(string: str, namespace: dict):
