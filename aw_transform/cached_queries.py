@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timezone
 
 from aw_core import dirs
+from aw_core.models import Event
 
 logger = logging.getLogger(__name__)
 
@@ -33,12 +34,17 @@ def get_cached_query(queryname, ds, start, end):
         if os.path.isfile(cache_file):
             logger.debug("Retrieving cached query {}".format(cache_file))
             with open(cache_file, 'r') as f:
-                return json.load(f)
+                result = json.load(f)
+                if isinstance(result, list):
+                    result = [Event(**e) for e in result]
+                return result
     return None
 
 
-def cache_query(data, queryname, ds, start, end):
+def cache_query(result, queryname, ds, start, end):
     cache_file = get_query_cache_file(queryname, ds, start, end)
     logger.debug("Caching query {}".format(cache_file))
+    if isinstance(result, list):
+        result = [e.to_json_dict() for e in result]
     with open(cache_file, 'w') as f:
-        json.dump(data, f)
+        json.dump(result, f)

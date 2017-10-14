@@ -128,8 +128,11 @@ def merge_events_by_keys(events, keys):
             if key in event.data:
                 summed_key = summed_key + "." + event["data"][key]
         if summed_key not in merged_events:
-            merged_events[summed_key] = deepcopy(event)
-            merged_events[summed_key].data = {}
+            merged_events[summed_key] = Event(
+                timestamp=event.timestamp,
+                duration=event.duration,
+                data={}
+            )
             for key in keys:
                 if key in event.data:
                     merged_events[summed_key].data[key] = event.data[key]
@@ -167,4 +170,5 @@ def split_url_events(events):
             event.data["params"] = parsed_url.params
             event.data["options"] = parsed_url.query
             event.data["identifier"] = parsed_url.fragment
+            # TODO: Parse user, port etc aswell
     return events

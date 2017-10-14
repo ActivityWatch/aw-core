@@ -110,7 +110,7 @@ def test_query2_test_basic_query(datastore):
     endtime = starttime + timedelta(hours=1)
     example_query = \
     """
-    NAME="test_query"
+    NAME="test_query_basic"
     CACHE=TRUE
     STARTTIME="{}"
     ENDTIME="{}"
@@ -156,14 +156,15 @@ def test_query2_test_merged_keys(datastore):
     endtime = starttime + timedelta(hours=1)
     example_query = \
     """
-    NAME="test_query"
+    NAME="test_query_merged_keys"
     CACHE=TRUE
     STARTTIME="{}"
     ENDTIME="{}"
     bid1="{}"
     events=query_bucket(bid1)
     events=merge_events_by_keys2(events, "label1", "label2")
-    RETURN=sort_by_duration(events)
+    events=sort_by_duration(events)
+    RETURN=events
     """.format(starttime, endtime, bid1)
     try:
         # Setup buckets
