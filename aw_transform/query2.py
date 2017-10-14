@@ -1,6 +1,7 @@
 import logging
 from typing import Union, List, Callable, Dict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from copy import deepcopy
 import iso8601
 
 from aw_core.models import Event
@@ -9,6 +10,7 @@ from aw_datastore import Datastore
 from . import transforms
 
 from .query2_functions import query2_functions
+from .cached_queries import cache_query, get_cached_query
 
 logger = logging.getLogger(__name__)
 
@@ -190,13 +192,10 @@ def _parse_token(string: str, namespace: dict):
 
 def create_namespace() -> dict:
     namespace = {
-        "NAME": None,
         "CACHE": False,
         "RETURN": None,
         "TRUE": 1,
         "FALSE": 0,
-        # start_time
-        # end_time
     }
     return namespace
 
@@ -233,7 +232,7 @@ def get_return(namespace):
     return namespace["RETURN"]
 
 def parse_metadata(query: str):
-    namespace = {}
+    namespace = create_namespace()
     query = query.split("\n")
     for line in query:
         line = line.strip()
@@ -245,14 +244,18 @@ def parse_metadata(query: str):
             if var.name.isupper() and var.name != "RETURN":
                 interpret(var, val, namespace, None)
 
-    if "CACHE" not in namespace:
-        namespace["CACHE"] = False
     if "NAME" not in namespace:
         raise QueryException("Query needs a NAME")
+    if not isinstance(namespace["NAME"], str):
+        raise QueryException("NAME is not of type string")
     if "STARTTIME" not in namespace:
         raise QueryException("Query needs a STARTTIME")
+    if not isinstance(namespace["STARTTIME"], str):
+        raise QueryException("STARTTIME is not of type string")
     if "ENDTIME" not in namespace:
         raise QueryException("Query needs a ENDTIME")
+    if not isinstance(namespace["ENDTIME"], str):
+        raise QueryException("ENDTIME is not of type string")
 
     namespace["STARTTIME"] = iso8601.parse_date(namespace["STARTTIME"])
     namespace["ENDTIME"] = iso8601.parse_date(namespace["ENDTIME"])
@@ -262,7 +265,7 @@ def parse_metadata(query: str):
 def query(query: str, datastore: Datastore) -> None:
     meta = parse_metadata(query)
     if meta["CACHE"]:
-        cached_result = get_cached_query(meta["NAME"], ds, meta["STARTTIME"], meta["ENDTIME"])
+        cached_result = get_cached_query(meta["NAME"], datastore, meta["STARTTIME"], meta["ENDTIME"])
         if cached_result:
             return cached_result
 
@@ -274,4 +277,12 @@ def query(query: str, datastore: Datastore) -> None:
             logger.debug("Parsing: "+line)
             var, val = parse(line, namespace)
             interpret(var, val, namespace, datastore)
-    return get_return(namespace)
+
+    result = get_return(namespace)
+    if isinstance(result, list):
+        result = [Event(**e) for e in result]
+    # Cache result
+    if meta["CACHE"]:
+        if meta["ENDTIME"] < datetime.now(timezone.utc):
+            cache_query(deepcopy(result), meta["NAME"], datastore, meta["STARTTIME"], meta["ENDTIME"])
+    return result

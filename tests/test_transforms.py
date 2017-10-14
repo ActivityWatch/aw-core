@@ -73,8 +73,8 @@ class MergeEventsByKeys(unittest.TestCase):
         assert len(result) == 2
         assert result[0].duration == timedelta(seconds=10)
 
-class MergeEventsByKeys(unittest.TestCase):
-    def test_merge_events_by_keys(self):
+class URLParseEventTransform(unittest.TestCase):
+    def test_url_parse_event(self):
         now = datetime.now(timezone.utc)
         e = Event(data={"url": "http://asd.com/test/?a=1"}, timestamp=now, duration=timedelta(seconds=1))
         result = split_url_events([e])
