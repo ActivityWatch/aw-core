@@ -1,5 +1,5 @@
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import os
 import logging
@@ -197,7 +197,10 @@ class PeeweeStorage(AbstractStorage):
                       .order_by(EventModel.timestamp.desc()) \
                       .limit(limit)
         if starttime:
+            # Important to normalize datetimes to UTC, otherwise any UTC offset will be ignored
+            starttime = starttime.astimezone(timezone.utc)
             q = q.where(starttime <= EventModel.timestamp)
         if endtime:
+            endtime = endtime.astimezone(timezone.utc)
             q = q.where(EventModel.timestamp <= endtime)
         return [Event(**e) for e in list(map(EventModel.json, q.execute()))]
