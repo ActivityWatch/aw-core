@@ -130,6 +130,25 @@ def test_get_ordered(bucket_cm):
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
+def test_get_event_with_timezone(bucket_cm):
+    """Tries to retrieve an event using a timezone aware datetime."""
+    hour = timedelta(hours=1)
+    td_offset = 2 * hour
+    tz = timezone(td_offset)
+
+    dt_utc = datetime(2017, 10, 27, hour=0, minute=5, tzinfo=timezone.utc)
+    dt_with_tz = dt_utc.replace(tzinfo=tz)
+
+    with bucket_cm as bucket:
+        bucket.insert(Event(timestamp=dt_with_tz))
+        fetched_events = bucket.get(starttime=dt_with_tz - hour, endtime=dt_with_tz + hour)
+        assert len(fetched_events) == 1
+
+        fetched_events = bucket.get(starttime=dt_utc - td_offset - hour, endtime=dt_utc - td_offset + hour)
+        assert len(fetched_events) == 1
+
+
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_get_datefilter(bucket_cm):
     """
     Tests the datetimefilter when fetching events
