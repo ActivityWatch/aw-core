@@ -85,14 +85,15 @@ class String(Token):
 
     def check(string: str):
         token = ""
-        if string[0] != '"':
+        quotes_type = string[0]
+        if quotes_type != '"' and quotes_type != "'":
             return token, string
-        token += '"'
+        token += quotes_type
         for char in string[1:]:
             token += char
-            if char == '"':
+            if char == quotes_type:
                 break
-        if token[-1] != '"' or len(token) < 2:
+        if token[-1] != quotes_type or len(token) < 2:
             # Unclosed string?
             raise QueryException("Failed to parse string")
         return token, string[len(token):]
@@ -234,45 +235,17 @@ def get_return(namespace):
         raise QueryException("Query doesn't assign the RETURN variable, nothing to respond")
     return namespace["RETURN"]
 
-def parse_metadata(query: str):
-    namespace = create_namespace()
-    query = query.split(";")
-    for line in query:
-        line = line.strip()
-        if line:
-            logger.debug("Parsing: "+line)
-            var, val = parse(line, namespace)
-            if not isinstance(var, Variable):
-                raise QueryException("Cannot assign to something that isn't a variable")
-            if var.name.isupper() and var.name != "RETURN":
-                interpret(var, val, namespace, None)
-
-    if "NAME" not in namespace:
-        raise QueryException("Query needs a NAME")
-    if not isinstance(namespace["NAME"], str):
-        raise QueryException("NAME is not of type string")
-    if "STARTTIME" not in namespace:
-        raise QueryException("Query needs a STARTTIME")
-    if not isinstance(namespace["STARTTIME"], str):
-        raise QueryException("STARTTIME is not of type string")
-    if "ENDTIME" not in namespace:
-        raise QueryException("Query needs a ENDTIME")
-    if not isinstance(namespace["ENDTIME"], str):
-        raise QueryException("ENDTIME is not of type string")
-
-    namespace["STARTTIME"] = iso8601.parse_date(namespace["STARTTIME"])
-    namespace["ENDTIME"] = iso8601.parse_date(namespace["ENDTIME"])
-
-    return namespace
-
-def query(query: str, datastore: Datastore) -> None:
-    meta = parse_metadata(query)
-    if meta["CACHE"]:
-        cached_result = get_cached_query(meta["NAME"], datastore, meta["STARTTIME"], meta["ENDTIME"])
+def query(name: str, query: str, starttime: datetime, endtime: datetime, datastore: Datastore, cache: bool=False) -> None:
+    if cache:
+        cached_result = get_cached_query(name, datastore, starttime, endtime)
         if cached_result:
             return cached_result
 
     namespace = create_namespace()
+    namespace["NAME"] = name
+    namespace["STARTTIME"] = str(starttime) # iso8601 format
+    namespace["ENDTIME"] = str(endtime) # iso8601 format
+
     query = query.split(";")
     for line in query:
         line = line.strip()
@@ -285,7 +258,7 @@ def query(query: str, datastore: Datastore) -> None:
     if isinstance(result, list):
         result = [Event(**e) for e in result]
     # Cache result
-    if meta["CACHE"]:
-        if meta["ENDTIME"] < datetime.now(timezone.utc):
-            cache_query(deepcopy(result), meta["NAME"], datastore, meta["STARTTIME"], meta["ENDTIME"])
+    if cache:
+        if endtime < datetime.now(timezone.utc):
+            cache_query(deepcopy(result), name, datastore, starttime, endtime)
     return result
