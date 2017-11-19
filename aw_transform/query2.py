@@ -236,7 +236,7 @@ def get_return(namespace):
 
 def parse_metadata(query: str):
     namespace = create_namespace()
-    query = query.split("\n")
+    query = query.split(";")
     for line in query:
         line = line.strip()
         if line:
@@ -273,7 +273,7 @@ def query(query: str, datastore: Datastore) -> None:
             return cached_result
 
     namespace = create_namespace()
-    query = query.split("\n")
+    query = query.split(";")
     for line in query:
         line = line.strip()
         if line:

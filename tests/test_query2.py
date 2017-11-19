@@ -76,46 +76,46 @@ def test_query2_test_bogus_query():
 
 def test_query2_test_query_function_calling():
     try: # Function which doesn't exist
-        example_query = """NAME="asd"
-        STARTTIME="1970-01-01"
-        ENDTIME="1970-01-02"
-        RETURN=asd()"""
+        example_query = """NAME="asd";
+        STARTTIME="1970-01-01";
+        ENDTIME="1970-01-02";
+        RETURN=asd();"""
         result = query(example_query, None)
         assert False
     except QueryException as e:
         print(e)
     try: # Function which does exist with invalid arguments
-        example_query = """NAME="asd"
-        STARTTIME="1970-01-01"
-        ENDTIME="1970-01-02"
-        RETURN=nop(STARTTIME)"""
+        example_query = """NAME="asd";
+        STARTTIME="1970-01-01";
+        ENDTIME="1970-01-02";
+        RETURN=nop(STARTTIME);"""
         result = query(example_query, None)
         assert False
     except QueryException as e:
         print(e)
     try: # Function which does exist with invalid arguments
-        example_query = """NAME="asd"
-        STARTTIME="1970-01-01"
-        ENDTIME="1970-01-02"
-        RETURN=nop()"""
+        example_query = """NAME="asd";
+        STARTTIME="1970-01-01";
+        ENDTIME="1970-01-02";
+        RETURN=nop();"""
         result = query(example_query, None)
     except Exception:
         assert False
 
 def test_query2_test_return_value():
     example_query = """
-    NAME="asd"
-    STARTTIME="2017"
-    ENDTIME="2017"
-    RETURN=1
+    NAME="asd";
+    STARTTIME="2017";
+    ENDTIME="2017";
+    RETURN=1;
     """
     assert(query(example_query, None) == 1)
 
     example_query = """
-    NAME="asd2"
-    STARTTIME="2017"
-    ENDTIME="2017"
-    RETURN="testing 123"
+    NAME="asd2";
+    STARTTIME="2017";
+    ENDTIME="2017";
+    RETURN="testing 123";
     """
     assert(query(example_query, None) == "testing 123")
     # TODO: test dict/array
@@ -132,22 +132,22 @@ def test_query2_test_query_functions(datastore):
     endtime = starttime + timedelta(hours=1)
     example_query = \
     """
-    NAME="test"
-    CACHE=FALSE
-    STARTTIME="{}"
-    ENDTIME="{}"
-    bid="{}"
-    events=query_bucket(bid)
-    events2=query_bucket(bid)
-    events2=filter_keyval(events2, "label", "test1", FALSE)
-    events=filter_period_intersect(events, events2)
-    events=limit_events(events, 1)
-    events=merge_events_by_keys(events, "label")
-    events=split_url_events(events)
-    events=sort_by_timestamp(events)
-    events=sort_by_duration(events)
-    asd=nop()
-    RETURN=events
+    NAME="test";
+    CACHE=FALSE;
+    STARTTIME="{}";
+    ENDTIME="{}";
+    bid="{}";
+    events=query_bucket(bid);
+    events2=query_bucket(bid);
+    events2=filter_keyval(events2, "label", "test1", FALSE);
+    events=filter_period_intersect(events, events2);
+    events=limit_events(events, 1);
+    events=merge_events_by_keys(events, "label");
+    events=split_url_events(events);
+    events=sort_by_timestamp(events);
+    events=sort_by_duration(events);
+    asd=nop();
+    RETURN=events;
     """.format(starttime, endtime, bid)
     try:
         bucket = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name="asd")
@@ -170,15 +170,15 @@ def test_query2_test_basic_query(datastore):
     endtime = starttime + timedelta(hours=1)
     example_query = \
     """
-    NAME="test_query_basic"
-    CACHE=TRUE
-    STARTTIME="{}"
-    ENDTIME="{}"
-    bid1="{}"
-    bid2="{}"
-    events=query_bucket(bid1)
-    intersect_events=query_bucket(bid2)
-    RETURN=filter_period_intersect(events, intersect_events)
+    NAME="test_query_basic";
+    CACHE=TRUE;
+    STARTTIME="{}";
+    ENDTIME="{}";
+    bid1="{}";
+    bid2="{}";
+    events=query_bucket(bid1);
+    intersect_events=query_bucket(bid2);
+    RETURN=filter_period_intersect(events, intersect_events);
     """.format(starttime, endtime, bid1, bid2)
     try:
         # Setup buckets
@@ -216,15 +216,15 @@ def test_query2_test_merged_keys(datastore):
     endtime = starttime + timedelta(hours=1)
     example_query = \
     """
-    NAME="test_query_merged_keys"
-    CACHE=TRUE
-    STARTTIME="{}"
-    ENDTIME="{}"
-    bid1="{}"
-    events=query_bucket(bid1)
-    events=merge_events_by_keys(events, "label1", "label2")
-    events=sort_by_duration(events)
-    RETURN=events
+    NAME="test_query_merged_keys";
+    CACHE=TRUE;
+    STARTTIME="{}";
+    ENDTIME="{}";
+    bid1="{}";
+    events=query_bucket(bid1);
+    events=merge_events_by_keys(events, "label1", "label2");
+    events=sort_by_duration(events);
+    RETURN=events;
     """.format(starttime, endtime, bid1)
     try:
         # Setup buckets
