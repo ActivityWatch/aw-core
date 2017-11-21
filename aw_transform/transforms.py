@@ -68,7 +68,7 @@ def filter_period_intersect(events: List[Event], filterevents: List[Event]) -> L
 
     Example:
       windowevents_notafk = filter_period_intersect(windowevents, notafkevents)
-      
+
     A JavaScript version used to exist in aw-webui but was removed in `this PR <https://github.com/ActivityWatch/aw-webui/pull/48>`_.
     """
 
