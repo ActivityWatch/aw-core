@@ -7,6 +7,7 @@ import iso8601
 # MongoDB
 try:
     import pymongo
+    from bson.objectid import ObjectId
 except ImportError:  # pragma: no cover
     logging.warning("Could not import pymongo, not available as a datastore backend")
 
@@ -82,7 +83,7 @@ class MongoDBStorage(AbstractStorage):
 
         events = []
         for event in ds_events:
-            event.pop('_id')
+            event["id"] = str(event.pop('_id'))
             # Required since MongoDB doesn't handle timezones
             event["timestamp"] = event["timestamp"].replace(tzinfo=timezone.utc)
             event = Event(**event)
@@ -106,6 +107,10 @@ class MongoDBStorage(AbstractStorage):
         # .copy is needed because otherwise mongodb inserts a _id field into the event
         dict_events = [self._transform_event(event.copy()) for event in events]  # type: List[dict]
         self.db[bucket]["events"].insert_many(dict_events)
+
+    def delete(self, bucket_id: str, event_id) -> bool:
+        result = self.db[bucket_id]["events"].delete_one({"_id": ObjectId(event_id)})
+        return result.deleted_count >= 1
 
     def replace_last(self, bucket_id: str, event: Event):
         last_event = list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(1))[0]
