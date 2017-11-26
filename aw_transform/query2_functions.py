@@ -9,12 +9,19 @@ from .transforms import filter_period_intersect, filter_keyvals, merge_events_by
 class QueryFunctionException(Exception):
     pass
 
+def _verify_bucket_exists(datastore, bucketname):
+    if bucketname in datastore.buckets():
+        return
+    else:
+        raise QueryFunctionException("There's no bucket named '{}'".format(bucketname))
+
 # TODO: proper type checking (typecheck-decorator in pypi?)
 
 """
     Data gathering functions
 """
 def q2_query_bucket(datastore: Datastore, namespace: dict, bucketname: str):
+    _verify_bucket_exists(datastore, bucketname)
     starttime = iso8601.parse_date(namespace["STARTTIME"])
     endtime = iso8601.parse_date(namespace["ENDTIME"])
     return datastore[bucketname].get(starttime=starttime, endtime=endtime)
