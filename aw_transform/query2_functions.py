@@ -29,8 +29,11 @@ def q2_query_bucket(datastore: Datastore, namespace: dict, bucketname: str):
 """
     Filtering functions
 """
-def q2_filter_keyval(datastore: Datastore, namespace: dict, events: list, key: str, val: str, exclude: bool):
-    return filter_keyvals(events, key, [val], exclude)
+def q2_filter_keyvals(datastore: Datastore, namespace: dict, events: list, key: str, *vals):
+    return filter_keyvals(events, key, list(vals), False)
+
+def q2_exclude_keyvals(datastore: Datastore, namespace: dict, events: list, key: str, *vals):
+    return filter_keyvals(events, key, list(vals), True)
 
 def q2_filter_period_intersect(datastore: Datastore, namespace: dict, events: list, filterevents: list):
     return filter_period_intersect(events, filterevents)
@@ -77,7 +80,8 @@ def q2_nop(datastore: Datastore, namespace: dict):
 """
 query2_functions = {
     "filter_period_intersect": q2_filter_period_intersect,
-    "filter_keyval": q2_filter_keyval,
+    "filter_keyvals": q2_filter_keyvals,
+    "exclude_keyvals": q2_exclude_keyvals,
     "query_bucket": q2_query_bucket,
     "limit_events": q2_limit_events,
     "merge_events_by_keys": q2_merge_events_by_keys,

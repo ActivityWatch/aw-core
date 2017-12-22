@@ -132,7 +132,8 @@ def test_query2_query_functions(datastore):
     bid="{}";
     events=query_bucket(bid);
     events2=query_bucket(bid);
-    events2=filter_keyval(events2, "label", "test1", FALSE);
+    events2=filter_keyvals(events2, "label", "test1");
+    events2=exclude_keyvals(events2, "label", "test2");
     events=filter_period_intersect(events, events2);
     events=limit_events(events, 1);
     events=merge_events_by_keys(events, "label");
