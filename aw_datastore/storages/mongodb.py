@@ -89,6 +89,17 @@ class MongoDBStorage(AbstractStorage):
             events.append(event)
         return events
 
+    def get_eventcount(self, bucket_id: str,
+                   starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
+        query_filter = {}  # type: Dict[str, dict]
+        if starttime or endtime:
+            query_filter["timestamp"] = {}
+            if starttime:
+                query_filter["timestamp"]["$gte"] = starttime
+            if endtime:
+                query_filter["timestamp"]["$lte"] = endtime
+        return self.db[bucket_id]["events"].find(query_filter).count()
+
     def _transform_event(self, event: dict) -> dict:
         if "duration" in event:
             event["duration"] = event["duration"].total_seconds()

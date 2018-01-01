@@ -38,6 +38,10 @@ class AbstractStorage(metaclass=ABCMeta):
                    starttime: Optional[datetime]=None, endtime: Optional[datetime]=None) -> List[Event]:
         raise NotImplementedError
 
+    def get_eventcount(self, bucket_id: str,
+                   starttime: Optional[datetime]=None, endtime: Optional[datetime]=None) -> List[Event]:
+        raise NotImplementedError
+
     @abstractmethod
     def insert_one(self, bucket_id: str, event: Event) -> Event:
         raise NotImplementedError

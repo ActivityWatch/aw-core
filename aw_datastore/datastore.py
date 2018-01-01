@@ -73,6 +73,9 @@ class Bucket:
 
         return self.ds.storage_strategy.get_events(self.bucket_id, limit, starttime, endtime)
 
+    def get_eventcount(self, starttime: datetime=None, endtime: datetime=None) -> int:
+        return self.ds.storage_strategy.get_eventcount(self.bucket_id, starttime, endtime)
+
     def insert(self, events: Union[Event, List[Event]]) -> Optional[Event]:
         """
         Inserts one or several events.

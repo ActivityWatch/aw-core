@@ -204,3 +204,16 @@ class PeeweeStorage(AbstractStorage):
             endtime = endtime.astimezone(timezone.utc)
             q = q.where(EventModel.timestamp <= endtime)
         return [Event(**e) for e in list(map(EventModel.json, q.execute()))]
+
+    def get_eventcount(self, bucket_id: str,
+                   starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
+        q = EventModel.select() \
+                      .where(EventModel.bucket == self.bucket_keys[bucket_id])
+        if starttime:
+            # Important to normalize datetimes to UTC, otherwise any UTC offset will be ignored
+            starttime = starttime.astimezone(timezone.utc)
+            q = q.where(starttime <= EventModel.timestamp)
+        if endtime:
+            endtime = endtime.astimezone(timezone.utc)
+            q = q.where(EventModel.timestamp <= endtime)
+        return q.count()

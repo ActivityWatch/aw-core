@@ -69,6 +69,10 @@ class MemoryStorage(AbstractStorage):
         # Return
         return copy.deepcopy(events)
 
+    def get_eventcount(self, bucket: str,
+                   starttime: datetime=None, endtime: datetime=None):
+        return len(self.db[bucket])
+
     def get_metadata(self, bucket_id: str):
         return self._metadata[bucket_id]
 

@@ -301,3 +301,16 @@ def test_get_metadata(bucket_cm):
         assert 'id' in metadata
         assert 'name' in metadata
         assert 'type' in metadata
+
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
+def test_get_eventcount(bucket_cm):
+    """
+    Tests the get_eventcount function
+    """
+    with bucket_cm as bucket:
+        print(bucket.ds.storage_strategy)
+        assert 0 == bucket.get_eventcount()
+        for i in range(5):
+            bucket.insert(Event(timestamp=now))
+        assert 5 == bucket.get_eventcount()
+        # TODO: Test with timestamps and start/endtime filtering
