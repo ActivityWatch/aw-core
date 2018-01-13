@@ -198,11 +198,8 @@ class Dict(Token):
         entries_str = string[1:-1]
         d = {}
         while len(entries_str) > 0:
-            print(entries_str)
             # parse key
             (key_t, key_str), entries_str = _parse_token(entries_str, namespace)
-            print(entries_str)
-            print(key_t)
             if key_t != String:
                 raise QueryException("Key in dict is not a str")
             key = String.parse(key_str).value
@@ -211,10 +208,8 @@ class Dict(Token):
             if entries_str[0] != ":":
                 raise QueryException("Invalidly formatted dict")
             entries_str = entries_str[1:]
-            print(entries_str)
             # parse val
             (val_t, val_str), entries_str = _parse_token(entries_str, namespace)
-            print(entries_str)
             val = val_t.parse(val_str, namespace)
             # set
             d[key] = val
@@ -226,9 +221,17 @@ class Dict(Token):
         # Find closing bracket
         i = 1
         to_consume = 1
+        single_quote = False
+        double_quote = False
         for char in string[i:]:
             i += 1
-            if char == '}':
+            if char == "'":
+                single_quote = not single_quote
+            elif char == '"':
+                double_quote = not double_quote
+            elif double_quote or single_quote:
+                pass
+            elif char == '}':
                 to_consume = to_consume - 1
             elif char == '{':
                 to_consume = to_consume + 1

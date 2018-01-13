@@ -9,8 +9,8 @@ from aw_core.models import Event
 from aw_transform.query2 import QueryException, query, _parse_token
 from aw_transform.query2 import Integer, Variable, String, Function, Dict
 
-
 # TODO: space checking
+# TODO: multiline checking
 
 def test_query2_test_token_parsing():
     ns = {}
@@ -26,11 +26,11 @@ def test_query2_test_token_parsing():
     (t, token), trash = _parse_token("test0xDEADBEEF", ns)
     assert token == "test0xDEADBEEF"
     assert t == Variable
-    (t, token), trash = _parse_token("test1337()", ns)
-    assert token == "test1337()"
+    (t, token), trash = _parse_token("test1337(')')", ns)
+    assert token == "test1337(')')"
     assert t == Function
-    (t, token), trash = _parse_token("{'a': 1, 'b': 2}", ns)
-    assert token == "{'a': 1, 'b': 2}"
+    (t, token), trash = _parse_token("{'a': 1, 'b}': 2}", ns)
+    assert token == "{'a': 1, 'b}': 2}"
     assert t == Dict
 
     try:
@@ -49,7 +49,7 @@ def test_query2_test_token_parsing():
     except QueryException:
         pass
 
-def test_dict_checking():
+def test_dict():
     ds = None
     ns = {}
     d_str = "{'a': {'a': 1}, 'b': {'b': ':'}}"
@@ -124,7 +124,7 @@ def test_query2_return_value():
     result = query(qname, example_query, starttime, endtime, None)
     assert(result == "testing 123")
 
-    # TODO: test dict/array
+    # TODO: test dict/events/array
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query2_query_functions(datastore):
