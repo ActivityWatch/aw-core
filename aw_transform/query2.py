@@ -34,7 +34,7 @@ class Integer(Token):
     def interpret(self, datastore: Datastore, namespace: dict):
         return self.value
 
-    def parse(string: str, namespace: dict):
+    def parse(string: str, namespace: dict={}) -> Token:
         return Integer(int(string))
 
     def check(string: str):
@@ -55,7 +55,7 @@ class Variable(Token):
         namespace[self.name] = self.value
         return self.value
 
-    def parse(string: str, namespace: dict):
+    def parse(string: str, namespace: dict) -> Token:
         val = None
         if string in namespace:
             val = namespace[string]
@@ -79,7 +79,7 @@ class String(Token):
     def interpret(self, datastore: Datastore, namespace: dict):
         return self.value
 
-    def parse(string: str, namespace: dict):
+    def parse(string: str, namespace: dict={}) -> Token:
         string = string[1:-1]
         return String(string)
 
@@ -118,7 +118,7 @@ class Function(Token):
             raise QueryException("Tried to call function {} with invalid amount of arguments".format(self.name))
         return result
 
-    def parse(string: str, namespace: dict):
+    def parse(string: str, namespace: dict) -> Token:
         arg_start = 0
         arg_end = len(string)
         # Find opening bracket
@@ -145,7 +145,6 @@ class Function(Token):
             args.append(arg_t.parse(arg, namespace))
         return Function(name, args)
 
-
     def check(string: str):
         i = 0
         # Find opening bracket
@@ -163,6 +162,7 @@ class Function(Token):
                 break
         if not found:
             return None, string
+        # Find closing bracket
         to_consume = 1
         for char in string[i:]:
             i += 1
@@ -176,6 +176,58 @@ class Function(Token):
             raise QueryException("Unclosed function")
         return string[:i], string[i+1:]
 
+class Dict(Token):
+    def __init__(self, value: dict):
+        self.value = value
+
+    def interpret(self, datastore: Datastore, namespace: dict):
+        expanded_dict = {}
+        for key, value in self.value.items():
+            expanded_dict[key] = value.interpret(datastore, namespace)
+        return expanded_dict
+
+    def parse(string: str, namespace: dict) -> Token:
+        entries_str = string[1:-1]
+        d = {}
+        while len(entries_str) > 0:
+            print(entries_str)
+            # parse key
+            (key_t, key_str), entries_str = _parse_token(entries_str, namespace)
+            print(entries_str)
+            print(key_t)
+            if key_t != String:
+                raise QueryException("Key in dict is not a str")
+            key = String.parse(key_str).value
+            entries_str = entries_str.strip()
+            # Remove :
+            if entries_str[0] != ":":
+                raise QueryException("Invalidly formatted dict")
+            entries_str = entries_str[1:]
+            print(entries_str)
+            # parse val
+            (val_t, val_str), entries_str = _parse_token(entries_str, namespace)
+            print(entries_str)
+            val = val_t.parse(val_str, namespace)
+            # set
+            d[key] = val
+        return Dict(d)
+
+    def check(string: str):
+        if string[0] != '{':
+            return None, string
+        # Find closing bracket
+        i = 1
+        to_consume = 1
+        for char in string[i:]:
+            i += 1
+            if char == '}':
+                to_consume = to_consume - 1
+            elif char == '{':
+                to_consume = to_consume + 1
+            if to_consume == 0:
+                break
+        return string[:i], string[i+1:]
+
 def _parse_token(string: str, namespace: dict):
     # TODO: The whole parsing thing is shoddily written, needs a rewrite from ground-up
     if not isinstance(string, str):
@@ -183,7 +235,7 @@ def _parse_token(string: str, namespace: dict):
     if len(string) == 0:
         return None
     string = string.strip()
-    types = [String, Integer, Function, Variable]
+    types = [String, Integer, Function, Dict, Variable]
     token = None
     t = None # Declare so we can return it
     for t in types:
@@ -247,11 +299,11 @@ def query(name: str, query: str, starttime: datetime, endtime: datetime, datasto
     namespace["ENDTIME"] = str(endtime) # iso8601 format
 
     query = query.split(";")
-    for line in query:
-        line = line.strip()
-        if line:
-            logger.debug("Parsing: "+line)
-            var, val = parse(line, namespace)
+    for statement in query:
+        statement = statement.strip()
+        if statement:
+            logger.debug("Parsing: "+statement)
+            var, val = parse(statement, namespace)
             interpret(var, val, namespace, datastore)
 
     result = get_return(namespace)
