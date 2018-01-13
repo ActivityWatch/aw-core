@@ -193,6 +193,9 @@ class Dict(Token):
         entries_str = string[1:-1]
         d = {}
         while len(entries_str) > 0:
+            entries_str = entries_str.strip()
+            if entries_str[0] == ",":
+                entries_str = entries_str[1:]
             # parse key
             (key_t, key_str), entries_str = _parse_token(entries_str, namespace)
             if key_t != String:

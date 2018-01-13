@@ -140,7 +140,7 @@ def test_query2_query_functions(datastore):
     endtime = starttime + timedelta(hours=1)
     example_query = \
     """
-    bid="{}";
+    bid=\""""+bid+"""\";
     events=query_bucket(bid);
     events2=query_bucket(bid);
     events2=filter_keyvals(events2, "label", "test1");
@@ -151,9 +151,10 @@ def test_query2_query_functions(datastore):
     events=split_url_events(events);
     events=sort_by_timestamp(events);
     events=sort_by_duration(events);
+    eventcount=query_bucket_eventcount(bid);
     asd=nop();
-    RETURN=events;
-    """.format(bid)
+    RETURN={"events": events, "eventcount": eventcount};
+    """
     try:
         bucket = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name="asd")
         e1 = Event(data={"label": "test1"},
@@ -161,8 +162,8 @@ def test_query2_query_functions(datastore):
                    duration=timedelta(seconds=1))
         bucket.insert(e1)
         result = query(qname, example_query, starttime, endtime, datastore, cache)
-        print(result)
-        assert result[0].data["label"] == "test1"
+        assert result["eventcount"] == 1
+        assert result["events"][0].data["label"] == "test1"
     finally:
         datastore.delete_bucket(bid)
 
@@ -221,12 +222,13 @@ def test_query2_test_merged_keys(datastore):
     cache = True
     example_query = \
     """
-    bid1="{}";
+    bid1=\""""+bid1+"""\";
     events=query_bucket(bid1);
     events=merge_events_by_keys(events, "label1", "label2");
     events=sort_by_duration(events);
-    RETURN=events;
-    """.format(bid1)
+    eventcount=query_bucket_eventcount(bid1);
+    RETURN={"events": events, "eventcount": eventcount};
+    """
     try:
         # Setup buckets
         bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
@@ -248,12 +250,14 @@ def test_query2_test_merged_keys(datastore):
         # Query again for cache miss (it's not year 2080 yet, I hope?)
         result = query(qname, example_query, starttime, endtime, datastore, cache)
         # Assert
-        assert(len(result) == 2)
-        assert(result[0]["data"]["label1"] == "test1")
-        assert(result[0]["data"]["label2"] == "test1")
-        assert(result[0]["duration"] == timedelta(seconds=2))
-        assert(result[1]["data"]["label1"] == "test1")
-        assert(result[1]["data"]["label2"] == "test2")
-        assert(result[1]["duration"] == timedelta(seconds=1))
+        print(result)
+        assert(len(result["events"]) == 2)
+        assert(result["eventcount"] == 3)
+        assert(result["events"][0]["data"]["label1"] == "test1")
+        assert(result["events"][0]["data"]["label2"] == "test1")
+        assert(result["events"][0]["duration"] == timedelta(seconds=2))
+        assert(result["events"][1]["data"]["label1"] == "test1")
+        assert(result["events"][1]["data"]["label2"] == "test2")
+        assert(result["events"][1]["duration"] == timedelta(seconds=1))
     finally:
         datastore.delete_bucket(bid1)

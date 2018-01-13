@@ -26,6 +26,12 @@ def q2_query_bucket(datastore: Datastore, namespace: dict, bucketname: str):
     endtime = iso8601.parse_date(namespace["ENDTIME"])
     return datastore[bucketname].get(starttime=starttime, endtime=endtime)
 
+def q2_query_bucket_eventcount(datastore: Datastore, namespace: dict, bucketname: str):
+    _verify_bucket_exists(datastore, bucketname)
+    starttime = iso8601.parse_date(namespace["STARTTIME"])
+    endtime = iso8601.parse_date(namespace["ENDTIME"])
+    return datastore[bucketname].get_eventcount(starttime=starttime, endtime=endtime)
+
 """
     Filtering functions
 """
@@ -83,6 +89,7 @@ query2_functions = {
     "filter_keyvals": q2_filter_keyvals,
     "exclude_keyvals": q2_exclude_keyvals,
     "query_bucket": q2_query_bucket,
+    "query_bucket_eventcount": q2_query_bucket_eventcount,
     "limit_events": q2_limit_events,
     "merge_events_by_keys": q2_merge_events_by_keys,
     "sort_by_timestamp": q2_sort_by_timestamp,
