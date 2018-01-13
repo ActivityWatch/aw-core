@@ -146,43 +146,38 @@ class Function(Token):
         return Function(name, args)
 
     def check(string: str):
-        args_start_i = 0
+        i = 0
         # Find opening bracket
         found = False
         for char in string:
             if char.isalpha() or char == "_":
-                args_start_i = args_start_i + 1
-            elif args_start_i != 0 and char.isdigit():
-                args_start_i = args_start_i + 1
+                i = i + 1
+            elif i != 0 and char.isdigit():
+                i = i + 1
             elif char == '(':
-                args_start_i = args_start_i + 1
+                i = i + 1
                 found = True
                 break
             else:
                 break
         if not found:
             return None, string
-        function_str = string[:args_start_i]
-        # Parse until closing bracket
-        args_str = string[args_start_i:].strip()
-        while len(args_str) > 0 and args_str[0] != ")":
-            if len(args_str) <= 0:
-                raise QueryException("Unclosed function")
-            (arg_t, arg), args_str = _parse_token(args_str, {})
-            function_str += arg
-            args_str = args_str.strip()
-            if len(args_str) > 0 and args_str[0] == ",":
-                args_str = args_str[1:].strip()
-                function_str += ","
-        if len(args_str) == 0:
-            # We never consume the ), so if the loop ends and it's not the
-            # last char the function call is not closed
-            raise QueryException("Unclosed function call")
-        # consume last ) from leftover
-        leftover_str = args_str[1:]
-        # replace , at end of function string with )
-        function_str += ")"
-        return function_str, leftover_str
+        found = False
+        single_quote = False
+        double_quote = False
+        for char in string:
+            i = i + 1
+            if char == "'":
+                single_quote = not single_quote
+            elif char == '"':
+                double_quote = not double_quote
+            elif double_quote or single_quote:
+                pass
+            elif i != 0 and char.isdigit():
+                pass
+            elif char == ')':
+                break
+        return string[:i], string[i+1:]
 
 class Dict(Token):
     def __init__(self, value: dict):
