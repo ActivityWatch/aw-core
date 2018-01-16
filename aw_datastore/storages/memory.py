@@ -77,6 +77,13 @@ class MemoryStorage(AbstractStorage):
         event.id = len(self.db[bucket]) - 1
         return event
 
+    def delete(self, bucket_id, event_id):
+        if len(self.db[bucket_id]) >= event_id:
+            self.db[bucket_id].pop(event_id)
+            return True
+        else:
+            return False
+
     def replace(self, bucket_id, event_id, event):
         self.db[bucket_id][event_id] = event
 

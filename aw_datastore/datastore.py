@@ -111,6 +111,9 @@ class Bucket:
 
         return inserted
 
+    def delete(self, event_id):
+        return self.ds.storage_strategy.delete(self.bucket_id, event_id)
+
     def replace_last(self, event):
         return self.ds.storage_strategy.replace_last(self.bucket_id, event)
 

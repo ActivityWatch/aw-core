@@ -97,6 +97,26 @@ def test_insert_many(bucket_cm):
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
+def test_delete(bucket_cm):
+    """
+    Tests deleting single events
+    """
+    num_events = 10
+    with bucket_cm as bucket:
+        events = (num_events * [Event(timestamp=now, duration=timedelta(seconds=1), data={"key": "val"})])
+        bucket.insert(events)
+
+        fetched_events = bucket.get(limit=-1)
+        print(fetched_events[0])
+        assert num_events == len(fetched_events)
+
+        assert bucket.delete(fetched_events[0]["id"])
+
+        fetched_events = bucket.get(limit=-1)
+        assert num_events - 1 == len(fetched_events)
+
+
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_insert_badtype(bucket_cm):
     """
     Tests that you cannot insert non-event types into a bucket

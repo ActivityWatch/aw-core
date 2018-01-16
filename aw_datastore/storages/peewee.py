@@ -181,6 +181,12 @@ class PeeweeStorage(AbstractStorage):
         event.id = e.id
         return event
 
+    def delete(self, bucket_id, event_id):
+        return EventModel.delete() \
+                         .where(EventModel.id == event_id) \
+                         .where(EventModel.bucket == self.bucket_keys[bucket_id]) \
+                         .execute()
+
     def replace(self, bucket_id, event_id, event):
         e = self._get_event(bucket_id, event_id)
         e.timestamp = event.timestamp
