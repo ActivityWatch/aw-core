@@ -33,6 +33,7 @@ def test_query2_test_token_parsing():
     assert token == "{'a': 1, 'b}': 2}"
     assert t == Dict
 
+    assert _parse_token('', ns) == None
     try:
         _parse_token(None, ns)
         assert(False)
@@ -52,15 +53,35 @@ def test_query2_test_token_parsing():
 def test_dict():
     ds = None
     ns = {}
-    d_str = "{'a': {'a': 1}, 'b': {'b': ':'}}"
+    d_str = "{'a': {'a': {'a': 1}}, 'b': {'b': ':'}}"
     d = Dict.parse(d_str, ns)
-    expected_res = {'a': {'a': 1}, 'b': {'b': ':'}}
+    expected_res = {'a': {'a': {'a': 1}}, 'b': {'b': ':'}}
     assert expected_res == d.interpret(ds, ns)
+
+    try: # Key in dict is not a string
+        d_str = "{b: 1}"
+        d = Dict.parse(d_str, ns)
+        assert False
+    except QueryException:
+        pass
+    try: # Char following key string is not a :
+        d_str = "{'test'p 1}"
+        d = Dict.parse(d_str, ns)
+        assert False
+    except QueryException:
+        pass
+
 
 def test_query2_bogus_query():
     qname="test"
     qstartdate=datetime.now()
     qenddate=qstartdate
+    try: # Nothing to assign
+        example_query = "a="
+        result = query(qname, example_query, qstartdate, qenddate, None)
+        assert(False)
+    except QueryException:
+        pass
     try: # Assign to non-variable
         example_query = "1=2"
         result = query(qname, example_query, qstartdate, qenddate, None)
@@ -69,6 +90,12 @@ def test_query2_bogus_query():
         pass
     try: # Unclosed function
         example_query = "a=unclosed_function(var1"
+        result = query(qname, example_query, qstartdate, qenddate, None)
+        assert(False)
+    except QueryException:
+        pass
+    try: # Call a function which doesn't exist
+        example_query = "a=non_existing_function() "
         result = query(qname, example_query, qstartdate, qenddate, None)
         assert(False)
     except QueryException:
@@ -123,6 +150,13 @@ def test_query2_return_value():
     example_query = "RETURN='testing 123'"
     result = query(qname, example_query, starttime, endtime, None)
     assert(result == "testing 123")
+
+    try: # Nothing to return
+        example_query = "a=1"
+        result = query(qname, example_query, starttime, endtime, None)
+        assert False
+    except QueryException:
+        pass
 
     # TODO: test dict/events/array
 

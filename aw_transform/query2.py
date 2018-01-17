@@ -120,23 +120,17 @@ class Function(Token):
 
     def parse(string: str, namespace: dict) -> Token:
         arg_start = 0
-        arg_end = len(string)
+        arg_end = len(string)-1
         # Find opening bracket
         for char in string:
             if char == '(':
                 break
             arg_start = arg_start + 1
-        for char in string[::-1]:
-            if char == ')':
-                break
-            elif char != ' ':
-                raise QueryException("asd")
-            arg_end = arg_end - 1
         # Parse name
         name = string[:arg_start]
         # Parse arguments
         args = []
-        args_str = string[arg_start+1:arg_end-1]
+        args_str = string[arg_start+1:arg_end]
         while args_str:
             (arg_t, arg), args_str = _parse_token(args_str, namespace)
             comma = args_str.find(",")
@@ -204,7 +198,7 @@ class Dict(Token):
             entries_str = entries_str.strip()
             # Remove :
             if entries_str[0] != ":":
-                raise QueryException("Invalidly formatted dict")
+                raise QueryException("Key in dict is not followed by a :")
             entries_str = entries_str[1:]
             # parse val
             (val_t, val_str), entries_str = _parse_token(entries_str, namespace)
@@ -258,7 +252,6 @@ def _parse_token(string: str, namespace: dict):
 def create_namespace() -> dict:
     namespace = {
         "CACHE": False,
-        "RETURN": None,
         "TRUE": 1,
         "FALSE": 0,
     }
@@ -286,8 +279,6 @@ def parse(line, namespace):
     return var, val
 
 def interpret(var, val, namespace, datastore):
-    if not isinstance(var, Variable):
-        raise QueryException("Cannot assign to something that isn't an variable!")
     namespace[var.name] = val.interpret(datastore, namespace)
     logger.debug("Set {} to {}".format(var.name, namespace[var.name]))
 
