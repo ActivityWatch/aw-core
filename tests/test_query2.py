@@ -169,7 +169,6 @@ def test_query2_query_functions(datastore):
     """
     bid = "test_bucket"
     qname = "test"
-    cache = False
     starttime = iso8601.parse_date("1970")
     endtime = starttime + timedelta(hours=1)
     example_query = \
@@ -195,7 +194,7 @@ def test_query2_query_functions(datastore):
                    timestamp=starttime,
                    duration=timedelta(seconds=1))
         bucket.insert(e1)
-        result = query(qname, example_query, starttime, endtime, datastore, cache)
+        result = query(qname, example_query, starttime, endtime, datastore)
         assert result["eventcount"] == 1
         assert result["events"][0].data["label"] == "test1"
     finally:
@@ -207,7 +206,6 @@ def test_query2_basic_query(datastore):
     bid1 = "bucket1"
     bid2 = "bucket2"
     qname = "test_query_basic"
-    cache = True
     starttime = iso8601.parse_date("1970")
     endtime = starttime + timedelta(hours=1)
     example_query = \
@@ -236,9 +234,7 @@ def test_query2_basic_query(datastore):
         bucket1.insert(e2)
         bucket2.insert(et)
         # Query
-        result = query(qname, example_query, starttime, endtime, datastore, cache)
-        # Query again for cache hit
-        result = query(qname, example_query, starttime, endtime, datastore, cache)
+        result = query(qname, example_query, starttime, endtime, datastore)
         # Assert
         assert(len(result) == 1)
         assert(result[0]["data"]["label"] == "test1")
@@ -253,7 +249,6 @@ def test_query2_test_merged_keys(datastore):
     qname = "test_query_merged_keys"
     starttime = iso8601.parse_date("2080")
     endtime = starttime + timedelta(hours=1)
-    cache = True
     example_query = \
     """
     bid1=\""""+bid1+"""\";
@@ -280,9 +275,7 @@ def test_query2_test_merged_keys(datastore):
         bucket1.insert(e1)
         bucket1.insert(e2)
         # Query
-        result = query(qname, example_query, starttime, endtime, datastore, cache)
-        # Query again for cache miss (it's not year 2080 yet, I hope?)
-        result = query(qname, example_query, starttime, endtime, datastore, cache)
+        result = query(qname, example_query, starttime, endtime, datastore)
         # Assert
         print(result)
         assert(len(result["events"]) == 2)

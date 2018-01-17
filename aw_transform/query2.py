@@ -10,7 +10,6 @@ from aw_datastore import Datastore
 from . import transforms
 
 from .query2_functions import query2_functions
-from .cached_queries import cache_query, get_cached_query
 
 logger = logging.getLogger(__name__)
 
@@ -104,14 +103,12 @@ class Function(Token):
         self.args = args
 
     def interpret(self, datastore: Datastore, namespace: dict):
-        if not self.name in query2_functions:
-            raise QueryException("There's no function named {}".format(self.name))
+        if self.name not in query2_functions:
+            raise QueryException("Tried to call function '{}' which doesn't exist".format(self.name))
         call_args = [datastore, namespace]
         for arg in self.args:
             call_args.append(arg.interpret(datastore, namespace))
         logger.debug("Arguments for functioncall to {} is {}".format(self.name, call_args))
-        if self.name not in query2_functions:
-            raise QueryException("Tried to call function '{}' which doesn't exist".format(self.name))
         try:
             result = query2_functions[self.name](*call_args)
         except TypeError:
@@ -287,12 +284,7 @@ def get_return(namespace):
         raise QueryException("Query doesn't assign the RETURN variable, nothing to respond")
     return namespace["RETURN"]
 
-def query(name: str, query: str, starttime: datetime, endtime: datetime, datastore: Datastore, cache: bool=False) -> None:
-    if cache:
-        cached_result = get_cached_query(name, datastore, starttime, endtime)
-        if cached_result:
-            return cached_result
-
+def query(name: str, query: str, starttime: datetime, endtime: datetime, datastore: Datastore) -> None:
     namespace = create_namespace()
     namespace["NAME"] = name
     namespace["STARTTIME"] = str(starttime) # iso8601 format
@@ -309,8 +301,4 @@ def query(name: str, query: str, starttime: datetime, endtime: datetime, datasto
     result = get_return(namespace)
     if isinstance(result, list):
         result = [Event(**e) for e in result]
-    # Cache result
-    if cache:
-        if endtime < datetime.now(timezone.utc):
-            cache_query(deepcopy(result), name, datastore, starttime, endtime)
     return result
