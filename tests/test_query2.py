@@ -9,9 +9,6 @@ from aw_core.models import Event
 from aw_transform.query2 import QueryException, query, _parse_token
 from aw_transform.query2 import Integer, Variable, String, Function, Dict
 
-# TODO: space checking
-# TODO: multiline checking
-
 def test_query2_test_token_parsing():
     ns = {}
     (t, token), trash = _parse_token("123", ns)
@@ -151,6 +148,10 @@ def test_query2_return_value():
     result = query(qname, example_query, starttime, endtime, None)
     assert(result == "testing 123")
 
+    example_query = "RETURN={'a': 1}"
+    result = query(qname, example_query, starttime, endtime, None)
+    assert(result == {'a': 1})
+
     try: # Nothing to return
         example_query = "a=1"
         result = query(qname, example_query, starttime, endtime, None)
@@ -158,7 +159,18 @@ def test_query2_return_value():
     except QueryException:
         pass
 
-    # TODO: test dict/events/array
+def test_query2_multiline():
+    qname="asd"
+    starttime=iso8601.parse_date("1970-01-01")
+    endtime=iso8601.parse_date("1970-01-02")
+    example_query = \
+    """
+my_multiline_string="a
+b";
+RETURN=my_multiline_string;
+    """
+    result = query(qname, example_query, starttime, endtime, None)
+    assert result == "a\nb"
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query2_query_functions(datastore):

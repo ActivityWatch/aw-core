@@ -248,7 +248,6 @@ def _parse_token(string: str, namespace: dict):
 
 def create_namespace() -> dict:
     namespace = {
-        "CACHE": False,
         "TRUE": 1,
         "FALSE": 0,
     }
