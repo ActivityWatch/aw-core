@@ -7,8 +7,6 @@ import iso8601
 from aw_core.models import Event
 from aw_datastore import Datastore
 
-from aw_transform import transforms
-
 from .query2_functions import query2_functions
 
 logger = logging.getLogger(__name__)
