@@ -6,8 +6,8 @@ import pytest
 from .utils import param_datastore_objects
 
 from aw_core.models import Event
-from aw_transform.query2 import QueryException, query, _parse_token
-from aw_transform.query2 import Integer, Variable, String, Function, Dict
+from aw_analysis.query2 import QueryException, query, _parse_token
+from aw_analysis.query2 import Integer, Variable, String, Function, Dict
 
 def test_query2_test_token_parsing():
     ns = {}

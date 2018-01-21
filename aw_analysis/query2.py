@@ -7,7 +7,7 @@ import iso8601
 from aw_core.models import Event
 from aw_datastore import Datastore
 
-from . import transforms
+from aw_transform import transforms
 
 from .query2_functions import query2_functions
 

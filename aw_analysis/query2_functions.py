@@ -4,7 +4,7 @@ import iso8601
 from aw_core.models import Event
 from aw_datastore import Datastore
 
-from .transforms import filter_period_intersect, filter_keyvals, merge_events_by_keys, sort_by_timestamp, sort_by_duration, limit_events, split_url_events
+from aw_transform.transforms import filter_period_intersect, filter_keyvals, merge_events_by_keys, sort_by_timestamp, sort_by_duration, limit_events, split_url_events
 
 class QueryFunctionException(Exception):
     pass
