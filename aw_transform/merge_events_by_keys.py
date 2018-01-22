@@ -1,17 +1,17 @@
 import logging
-from typing import Dict
+from typing import List, Dict
 
 from aw_core.models import Event
 
 logger = logging.getLogger(__name__)
 
 
-def merge_events_by_keys(events, keys) -> Dict:
+def merge_events_by_keys(events, keys) -> List[Event]:
     # The result will be a list of events without timestamp since they are merged
     # Call recursively until all keys are consumed
     if len(keys) < 1:
         return events
-    merged_events = {}
+    merged_events = {}  # type: Dict[str, Event]
     for event in events:
         summed_key = ""
         for key in keys:

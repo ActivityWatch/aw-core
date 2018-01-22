@@ -1,8 +1,6 @@
 import logging
-from typing import Union, List, Callable, Dict
-from datetime import datetime, timedelta, timezone
-from copy import deepcopy
-import iso8601
+from typing import Union, List, Callable, Any
+from datetime import datetime
 
 from aw_core.models import Event
 from aw_datastore import Datastore
@@ -11,29 +9,36 @@ from .query2_functions import query2_functions
 
 logger = logging.getLogger(__name__)
 
+
 class QueryException(Exception):
     pass
+
 
 class Token:
     def interpret(self, datastore: Datastore, namespace: dict):
         raise NotImplementedError
 
+    @staticmethod
     def parse(string: str, namespace: dict):
         raise NotImplementedError
 
+    @staticmethod
     def check(string: str):
         raise NotImplementedError
 
+
 class Integer(Token):
-    def __init__(self, value):
+    def __init__(self, value) -> None:
         self.value = value
 
     def interpret(self, datastore: Datastore, namespace: dict):
         return self.value
 
+    @staticmethod
     def parse(string: str, namespace: dict={}) -> Token:
         return Integer(int(string))
 
+    @staticmethod
     def check(string: str):
         token = ""
         for char in string:
@@ -43,8 +48,9 @@ class Integer(Token):
                 break
         return token, string[len(token):]
 
+
 class Variable(Token):
-    def __init__(self, name, value):
+    def __init__(self, name, value) -> None:
         self.name = name
         self.value = value
 
@@ -52,12 +58,14 @@ class Variable(Token):
         namespace[self.name] = self.value
         return self.value
 
+    @staticmethod
     def parse(string: str, namespace: dict) -> Token:
         val = None
         if string in namespace:
             val = namespace[string]
         return Variable(string, val)
 
+    @staticmethod
     def check(string: str):
         token = ""
         for i, char in enumerate(string):
@@ -69,6 +77,7 @@ class Variable(Token):
                 break
         return token, string[len(token):]
 
+
 class String(Token):
     def __init__(self, value):
         self.value = value
@@ -76,10 +85,12 @@ class String(Token):
     def interpret(self, datastore: Datastore, namespace: dict):
         return self.value
 
+    @staticmethod
     def parse(string: str, namespace: dict={}) -> Token:
         string = string[1:-1]
         return String(string)
 
+    @staticmethod
     def check(string: str):
         token = ""
         quotes_type = string[0]
@@ -95,6 +106,7 @@ class String(Token):
             raise QueryException("Failed to parse string")
         return token, string[len(token):]
 
+
 class Function(Token):
     def __init__(self, name, args):
         self.name = name
@@ -108,14 +120,15 @@ class Function(Token):
             call_args.append(arg.interpret(datastore, namespace))
         logger.debug("Arguments for functioncall to {} is {}".format(self.name, call_args))
         try:
-            result = query2_functions[self.name](*call_args)
+            result = query2_functions[self.name](*call_args)  # type: ignore
         except TypeError:
             raise QueryException("Tried to call function {} with invalid amount of arguments".format(self.name))
         return result
 
+    @staticmethod
     def parse(string: str, namespace: dict) -> Token:
         arg_start = 0
-        arg_end = len(string)-1
+        arg_end = len(string) - 1
         # Find opening bracket
         for char in string:
             if char == '(':
@@ -125,15 +138,16 @@ class Function(Token):
         name = string[:arg_start]
         # Parse arguments
         args = []
-        args_str = string[arg_start+1:arg_end]
+        args_str = string[arg_start + 1:arg_end]
         while args_str:
             (arg_t, arg), args_str = _parse_token(args_str, namespace)
             comma = args_str.find(",")
             if comma != -1:
-                args_str = args_str[comma+1:]
+                args_str = args_str[comma + 1:]
             args.append(arg_t.parse(arg, namespace))
         return Function(name, args)
 
+    @staticmethod
     def check(string: str):
         i = 0
         # Find opening bracket
@@ -166,10 +180,11 @@ class Function(Token):
                 pass
             elif char == ')':
                 break
-        return string[:i], string[i+1:]
+        return string[:i], string[i + 1:]
+
 
 class Dict(Token):
-    def __init__(self, value: dict):
+    def __init__(self, value: dict) -> None:
         self.value = value
 
     def interpret(self, datastore: Datastore, namespace: dict):
@@ -178,6 +193,7 @@ class Dict(Token):
             expanded_dict[key] = value.interpret(datastore, namespace)
         return expanded_dict
 
+    @staticmethod
     def parse(string: str, namespace: dict) -> Token:
         entries_str = string[1:-1]
         d = {}
@@ -189,7 +205,7 @@ class Dict(Token):
             (key_t, key_str), entries_str = _parse_token(entries_str, namespace)
             if key_t != String:
                 raise QueryException("Key in dict is not a str")
-            key = String.parse(key_str).value
+            key = String.parse(key_str).value  # type: ignore
             entries_str = entries_str.strip()
             # Remove :
             if entries_str[0] != ":":
@@ -202,6 +218,7 @@ class Dict(Token):
             d[key] = val
         return Dict(d)
 
+    @staticmethod
     def check(string: str):
         if string[0] != '{':
             return None, string
@@ -224,7 +241,8 @@ class Dict(Token):
                 to_consume = to_consume + 1
             if to_consume == 0:
                 break
-        return string[:i], string[i+1:]
+        return string[:i], string[i + 1:]
+
 
 def _parse_token(string: str, namespace: dict):
     # TODO: The whole parsing thing is shoddily written, needs a rewrite from ground-up
@@ -233,9 +251,9 @@ def _parse_token(string: str, namespace: dict):
     if len(string) == 0:
         return None
     string = string.strip()
-    types = [String, Integer, Function, Dict, Variable]
+    types = [String, Integer, Function, Dict, Variable]  # type: List[Any]
     token = None
-    t = None # Declare so we can return it
+    t = None  # Declare so we can return it
     for t in types:
         token, string = t.check(string)
         if token:
@@ -244,6 +262,7 @@ def _parse_token(string: str, namespace: dict):
         raise QueryException("Syntax error: {}".format(string))
     return (t, token), string
 
+
 def create_namespace() -> dict:
     namespace = {
         "TRUE": 1,
@@ -251,47 +270,51 @@ def create_namespace() -> dict:
     }
     return namespace
 
+
 def parse(line, namespace):
     separator_i = line.find("=")
     var_str = line[:separator_i]
-    val_str = line[separator_i+1:]
+    val_str = line[separator_i + 1:]
     if not val_str:
         # TODO: Proper message
         raise QueryException("Nothing to assign")
     (var_t, var), var_str = _parse_token(var_str, namespace)
     var_str = var_str.strip()
-    if var_str: # Didn't consume whole var string
+    if var_str:  # Didn't consume whole var string
         raise QueryException("Invalid syntax for assignment variable")
     if var_t is not Variable:
         raise QueryException("Cannot assign to a non-variable")
     (val_t, val), var_str = _parse_token(val_str, namespace)
-    if var_str: # Didn't consume whole val string
+    if var_str:  # Didn't consume whole val string
         raise QueryException("Invalid syntax for value to assign")
     # Parse token
     var = var_t.parse(var, namespace)
     val = val_t.parse(val, namespace)
     return var, val
 
+
 def interpret(var, val, namespace, datastore):
     namespace[var.name] = val.interpret(datastore, namespace)
     logger.debug("Set {} to {}".format(var.name, namespace[var.name]))
+
 
 def get_return(namespace):
     if "RETURN" not in namespace:
         raise QueryException("Query doesn't assign the RETURN variable, nothing to respond")
     return namespace["RETURN"]
 
+
 def query(name: str, query: str, starttime: datetime, endtime: datetime, datastore: Datastore) -> None:
     namespace = create_namespace()
     namespace["NAME"] = name
-    namespace["STARTTIME"] = str(starttime) # iso8601 format
-    namespace["ENDTIME"] = str(endtime) # iso8601 format
+    namespace["STARTTIME"] = starttime.isoformat()
+    namespace["ENDTIME"] = endtime.isoformat()
 
-    query = query.split(";")
-    for statement in query:
+    query_stmts = query.split(";")
+    for statement in query_stmts:
         statement = statement.strip()
         if statement:
-            logger.debug("Parsing: "+statement)
+            logger.debug("Parsing: " + statement)
             var, val = parse(statement, namespace)
             interpret(var, val, namespace, datastore)
 
