@@ -3,32 +3,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from aw_core.models import Event
-from aw_core.transforms import full_chunk, filter_period_intersect, filter_keyvals, merge_queries
-
-
-class ChunkTest(unittest.TestCase):
-    # Tests the chunk transform
-
-    def test_chunk_full(self):
-        eventcount = 8
-        events = []
-        for i in range(eventcount):
-            events.append(Event(data={"label": "test", "key"+str(i%2): "val"+str(i%4)},
-                                timestamp=datetime.now(timezone.utc) + timedelta(seconds=i),
-                                duration=timedelta(seconds=1)))
-        res = full_chunk(events, "label")
-        logging.debug(res)
-        assert res['eventcount'] == eventcount
-        assert res['duration'] == timedelta(seconds=eventcount)
-        print(res)
-        assert res['chunks']['test']['duration'] == timedelta(seconds=eventcount)
-        assert res['chunks']['test']['data']['key0']['duration'] == timedelta(seconds=eventcount/2)
-        assert res['chunks']['test']['data']['key0']['values']['val0']['duration'] == timedelta(seconds=eventcount/4)
-        assert res['chunks']['test']['data']['key0']['values']['val2']['duration'] == timedelta(seconds=eventcount/4)
-        assert res['chunks']['test']['duration'] == timedelta(seconds=eventcount)
-        assert res['chunks']['test']['data']['key1']['duration'] == timedelta(seconds=eventcount/2)
-        assert res['chunks']['test']['data']['key1']['values']['val1']['duration'] == timedelta(seconds=eventcount/4)
-        assert res['chunks']['test']['data']['key1']['values']['val3']['duration'] == timedelta(seconds=eventcount/4)
+from aw_transform import filter_period_intersect, filter_keyvals, sort_by_timestamp, sort_by_duration, merge_events_by_keys, split_url_events
 
 
 class IncludeLabelsTest(unittest.TestCase):
@@ -68,50 +43,65 @@ class FilterPeriodIntersectTest(unittest.TestCase):
         assert filtered_events[1].duration == timedelta(minutes=15)
 
 
-class MergeQueriesTest(unittest.TestCase):
-    def test_merge_queries_chunk_full(self):
-        # This also excensively tests the merge_chunks transform
+class SortEventsTests(unittest.TestCase):
+    def test_sort_by_timestamp(self):
         now = datetime.now(timezone.utc)
-        eventcount = 8
         events = []
-        for i in range(eventcount):
-            events.append(Event(data={"label": "test", "key"+str(i%2): "val"+str(i%4)},
-                                timestamp=now + timedelta(seconds=i),
-                                duration=timedelta(seconds=1)))
-        res1 = full_chunk(events, "label")
-        events.append(Event(data={"label": "test", "key2": "val4"},
-                            timestamp=now,
-                            duration=timedelta(seconds=1)))
-        events.append(Event(data={"label": "test2"},
-                            timestamp=now,
-                            duration=timedelta(seconds=1)))
-        res2 = full_chunk(events, "label")
-        print(res1)
-        res_merged = merge_queries(res1, res2)
-        print(res_merged)
-        assert 18 == res_merged["eventcount"]
-        assert timedelta(seconds=18) == res_merged["duration"]
-        assert timedelta(seconds=4) == res_merged["chunks"]["test"]["data"]["key0"]["values"]["val0"]["duration"]
-        assert timedelta(seconds=4) == res_merged["chunks"]["test"]["data"]["key1"]["values"]["val1"]["duration"]
-        assert timedelta(seconds=4) == res_merged["chunks"]["test"]["data"]["key0"]["values"]["val2"]["duration"]
-        assert timedelta(seconds=4) == res_merged["chunks"]["test"]["data"]["key1"]["values"]["val3"]["duration"]
-        assert timedelta(seconds=1) == res_merged["chunks"]["test"]["data"]["key2"]["values"]["val4"]["duration"]
-        assert timedelta(seconds=1) == res_merged["chunks"]["test2"]["duration"]
+        events.append(Event(timestamp=now+timedelta(seconds=2), duration=timedelta(seconds=1)))
+        events.append(Event(timestamp=now+timedelta(seconds=1), duration=timedelta(seconds=2)))
+        events_sorted = sort_by_timestamp(events)
+        assert events_sorted == events[::-1]
 
-    def test_merge_queries_list(self):
-        eventcount = 8
+    def test_sort_by_duration(self):
+        now = datetime.now(timezone.utc)
         events = []
-        for i in range(eventcount):
-            events.append(Event(data={"key": "val"},
-                                timestamp=datetime.now(timezone.utc) + timedelta(seconds=i),
-                                duration=timedelta(seconds=1)))
-        res1 = {
-            "duration": eventcount,
-            "eventlist": events,
-            "eventcount": eventcount
-        }
-        res_merged = merge_queries(res1, res1)
-        assert 16 == res_merged["eventcount"]
-        assert 16 == res_merged["duration"]
-        assert 16 == len(res_merged["eventlist"])
-        assert timedelta(seconds=1) == res_merged["eventlist"][0]["duration"]
+        events.append(Event(timestamp=now+timedelta(seconds=2), duration=timedelta(seconds=1)))
+        events.append(Event(timestamp=now+timedelta(seconds=1), duration=timedelta(seconds=2)))
+        events_sorted = sort_by_duration(events)
+        assert events_sorted == events[::-1]
+
+
+class MergeEventsByKeys(unittest.TestCase):
+    def test_merge_events_by_keys(self):
+        now = datetime.now(timezone.utc)
+        events = []
+        e1 = Event(data={"label": "a"}, timestamp=now, duration=timedelta(seconds=1))
+        e2 = Event(data={"label": "b"}, timestamp=now, duration=timedelta(seconds=1))
+        events = events + [e1]*10
+        events = events + [e2]*10
+        result = merge_events_by_keys(events, ["label"])
+        assert len(result) == 2
+        assert result[0].duration == timedelta(seconds=10)
+
+class URLParseEventTransform(unittest.TestCase):
+    def test_url_parse_event(self):
+        now = datetime.now(timezone.utc)
+        e = Event(data={"url": "http://asd.com/test/?a=1"}, timestamp=now, duration=timedelta(seconds=1))
+        result = split_url_events([e])
+        print(result)
+        assert result[0].data["protocol"] == "http"
+        assert result[0].data["domain"] == "asd.com"
+        assert result[0].data["path"] == "/test/"
+        assert result[0].data["params"] == ""
+        assert result[0].data["options"] == "a=1"
+        assert result[0].data["identifier"] == ""
+
+        e2 = Event(data={"url": "https://www.asd.asd.com/test/test2/meh;meh2?asd=2&asdf=3#id"}, timestamp=now, duration=timedelta(seconds=1))
+        result = split_url_events([e2])
+        print(result)
+        assert result[0].data["protocol"] == "https"
+        assert result[0].data["domain"] == "asd.asd.com"
+        assert result[0].data["path"] == "/test/test2/meh"
+        assert result[0].data["params"] == "meh2"
+        assert result[0].data["options"] == "asd=2&asdf=3"
+        assert result[0].data["identifier"] == "id"
+
+        e3 = Event(data={"url": "file:///home/johan/myfile.txt"}, timestamp=now, duration=timedelta(seconds=1))
+        result = split_url_events([e3])
+        print(result)
+        assert result[0].data["protocol"] == "file"
+        assert result[0].data["domain"] == ""
+        assert result[0].data["path"] == "/home/johan/myfile.txt"
+        assert result[0].data["params"] == ""
+        assert result[0].data["options"] == ""
+        assert result[0].data["identifier"] == ""
