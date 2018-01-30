@@ -1,5 +1,5 @@
 jsonschema
-peewee>=2.8.5
+peewee==2.*
 strict-rfc3339
 appdirs>=1.4.0
 iso8601
