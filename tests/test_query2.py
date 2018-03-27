@@ -7,7 +7,7 @@ from .utils import param_datastore_objects
 
 from aw_core.models import Event
 from aw_analysis.query2 import QueryException, query, _parse_token
-from aw_analysis.query2 import Integer, Variable, String, Function, Dict
+from aw_analysis.query2 import Integer, Variable, String, Function, List, Dict
 
 
 def test_query2_test_token_parsing():
@@ -27,11 +27,14 @@ def test_query2_test_token_parsing():
     (t, token), trash = _parse_token("test1337(')')", ns)
     assert token == "test1337(')')"
     assert t == Function
+    (t, token), trash = _parse_token("[1, 'a', {}]", ns)
+    assert token == "[1, 'a', {}]"
+    assert t == List
     (t, token), trash = _parse_token("{'a': 1, 'b}': 2}", ns)
     assert token == "{'a': 1, 'b}': 2}"
     assert t == Dict
 
-    assert _parse_token('', ns) is None
+    assert _parse_token('', ns) == ((None, ""), "")
 
     with pytest.raises(QueryException):
         _parse_token(None, ns)
@@ -54,12 +57,55 @@ def test_dict():
     # Key in dict is not a string
     with pytest.raises(QueryException):
         d_str = "{b: 1}"
-        Dict.parse(d_str, ns)
+        d = Dict.parse(d_str, ns)
 
     # Char following key string is not a :
     with pytest.raises(QueryException):
         d_str = "{'test'p 1}"
-        Dict.parse(d_str, ns)
+        d = Dict.parse(d_str, ns)
+
+    with pytest.raises(QueryException):
+        d_str = "{'test': #}"
+        d = Dict.parse(d_str, ns)
+
+    # Semicolon without key
+    with pytest.raises(QueryException):
+        d_str = "{:}"
+        d = Dict.parse(d_str, ns)
+
+    # Trailing comma
+    with pytest.raises(QueryException):
+        d_str = "{'test':1,}"
+        d = Dict.parse(d_str, ns)
+
+
+def test_list():
+    ds = None
+    ns = {}
+    l_str = "[1,2,[3,4],5]"
+    l = List.parse(l_str, ns)
+    expected_res = [1,2,[3,4],5]
+    assert expected_res == l.interpret(ds, ns)
+
+    l_str = "[]"
+    l = List.parse(l_str, ns)
+    expected_res = []
+    assert expected_res == l.interpret(ds, ns)
+
+    # Comma without pre/post value
+    with pytest.raises(QueryException):
+        l_str = "[,]"
+        l = List.parse(l_str, ns)
+
+    # Comma without post value
+    with pytest.raises(QueryException):
+        l_str = "[1,]"
+        l = List.parse(l_str, ns)
+
+    # Comma without pre value
+    with pytest.raises(QueryException):
+        l_str = "[,2]"
+        l = List.parse(l_str, ns)
 
 
 def test_query2_bogus_query():

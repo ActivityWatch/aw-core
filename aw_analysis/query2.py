@@ -198,7 +198,7 @@ class Dict(Token):
         d = {}
         while len(entries_str) > 0:
             entries_str = entries_str.strip()
-            if entries_str[0] == ",":
+            if len(d) > 0 and entries_str[0] == ",":
                 entries_str = entries_str[1:]
             # parse key
             (key_t, key_str), entries_str = _parse_token(entries_str, namespace)
@@ -212,6 +212,8 @@ class Dict(Token):
             entries_str = entries_str[1:]
             # parse val
             (val_t, val_str), entries_str = _parse_token(entries_str, namespace)
+            if not val_t:
+                raise QueryException("Dict expected a value, got nothing")
             val = val_t.parse(val_str, namespace)
             # set
             d[key] = val
@@ -243,14 +245,67 @@ class Dict(Token):
         return string[:i], string[i + 1:]
 
 
-def _parse_token(string: str, namespace: dict):
+class List(Token):
+    def __init__(self, value: dict) -> None:
+        self.value = value
+
+    def interpret(self, datastore: Datastore, namespace: dict):
+        expanded_list = []
+        for value in self.value:
+            expanded_list.append(value.interpret(datastore, namespace))
+        return expanded_list
+
+    @staticmethod
+    def parse(string: str, namespace: dict) -> Token:
+        entries_str = string[1:-1]
+        l = []
+        while len(entries_str) > 0:
+            entries_str = entries_str.strip()
+            if len(l) > 0 and entries_str[0] == ",":
+                entries_str = entries_str[1:]
+            # parse
+            (val_t, val_str), entries_str = _parse_token(entries_str, namespace)
+            if not val_t:
+                raise QueryException("List expected a value, got nothing")
+            val = val_t.parse(val_str, namespace)
+            # set
+            l.append(val)
+        return List(l)
+
+    @staticmethod
+    def check(string: str):
+        if string[0] != '[':
+            return None, string
+        # Find closing bracket
+        i = 1
+        to_consume = 1
+        single_quote = False
+        double_quote = False
+        for char in string[i:]:
+            i += 1
+            if char == "'":
+                single_quote = not single_quote
+            elif char == '"':
+                double_quote = not double_quote
+            elif double_quote or single_quote:
+                pass
+            elif char == ']':
+                to_consume = to_consume - 1
+            elif char == '[':
+                to_consume = to_consume + 1
+            if to_consume == 0:
+                break
+        return string[:i], string[i + 1:]
+
+
+def _parse_token(string: str, namespace: dict): # TODO: Add return type
     # TODO: The whole parsing thing is shoddily written, needs a rewrite from ground-up
     if not isinstance(string, str):
         raise QueryParseException("Reached unreachable, cannot parse something that isn't a string")
     if len(string) == 0:
-        return None
+        return (None, ""), string
     string = string.strip()
-    types = [String, Integer, Function, Dict, Variable]  # type: List[Any]
+    types = [String, Integer, Function, Dict, List, Variable]  # type: List[Any]
     token = None
     t = None  # Declare so we can return it
     for t in types:
@@ -318,6 +373,4 @@ def query(name: str, query: str, starttime: datetime, endtime: datetime, datasto
             interpret(var, val, namespace, datastore)
 
     result = get_return(namespace)
-    if isinstance(result, list):
-        result = [Event(**e) for e in result]
     return result
