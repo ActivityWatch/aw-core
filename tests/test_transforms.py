@@ -37,8 +37,24 @@ class FilterPeriodIntersectTest(unittest.TestCase):
             Event(timestamp=now, duration=td30min),
             Event(timestamp=now + timedelta(minutes=45), duration=td30min)
         ]
-        filter_with = [Event(timestamp=now + timedelta(minutes=15), duration=timedelta(minutes=45))]
+        filter_with = [
+            Event(timestamp=now + timedelta(minutes=15), duration=timedelta(minutes=45))
+        ]
         filtered_events = filter_period_intersect(to_filter, filter_with)
+        assert len(filtered_events) == 2
+        assert filtered_events[0].duration == timedelta(minutes=15)
+        assert filtered_events[1].duration == timedelta(minutes=15)
+
+        # Same as previous intersection, but reversing filter and to_filter events
+        to_filter = [
+            Event(timestamp=now + timedelta(minutes=15), duration=timedelta(minutes=45))
+        ]
+        filter_with = [
+            Event(timestamp=now, duration=td30min),
+            Event(timestamp=now + timedelta(minutes=45), duration=td30min)
+        ]
+        filtered_events = filter_period_intersect(to_filter, filter_with)
+        assert len(filtered_events) == 2
         assert filtered_events[0].duration == timedelta(minutes=15)
         assert filtered_events[1].duration == timedelta(minutes=15)
 
