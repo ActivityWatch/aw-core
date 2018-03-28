@@ -52,7 +52,10 @@ def filter_period_intersect(events: List[Event], filterevents: List[Event]) -> L
         if ip:
             # If events itersected, add event with intersected duration and try next event
             filtered_events.append(_replace_event_period(event, ip))
-            e_i += 1
+            if ep.end <= fp.end:
+                e_i += 1
+            else:
+                f_i += 1
         else:
             # No intersection, check if event is before/after filterevent
             if ep.end <= fp.start:
