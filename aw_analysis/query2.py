@@ -5,7 +5,7 @@ from datetime import datetime
 from aw_core.models import Event
 from aw_datastore import Datastore
 
-from .query2_error import QueryParseException, QueryInterpretException
+from .query2_error import QueryException, QueryParseException, QueryInterpretException
 from .query2_functions import query2_functions
 
 logger = logging.getLogger(__name__)
