@@ -5,7 +5,7 @@ from datetime import datetime
 from aw_core.models import Event
 from aw_datastore import Datastore
 
-from .query2_error import QueryParseException
+from .query2_error import QueryParseException, QueryInterpretException
 from .query2_functions import query2_functions
 
 logger = logging.getLogger(__name__)
@@ -52,6 +52,8 @@ class Variable(Token):
         self.value = value
 
     def interpret(self, datastore: Datastore, namespace: dict):
+        if self.name not in namespace:
+            raise QueryInterpretException("Tried to reference variable '{}' which is not defined".format(self.name))
         namespace[self.name] = self.value
         return self.value
 
