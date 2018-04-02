@@ -94,6 +94,8 @@ class Bucket:
         # Call insert
         if isinstance(events, Event):
             oldest_event = events
+            if events.timestamp + events.duration > datetime.now(tz=timezone.utc):
+                self.logger.warning("Event inserted into bucket {} reaches into the future. Event data: {}".format(self.bucket_id, str(events)))
             inserted = self.ds.storage_strategy.insert_one(self.bucket_id, events)
             assert inserted
         elif isinstance(events, list):
@@ -101,6 +103,9 @@ class Bucket:
                 oldest_event = sorted(events, key=lambda k: k['timestamp'])[0]
             else:
                 oldest_event = None
+            for event in events:
+                if event.timestamp + event.duration > datetime.now(tz=timezone.utc):
+                    self.logger.warning("Event inserted into bucket {} reaches into the future. Event data: {}".format(self.bucket_id, str(event)))
             self.ds.storage_strategy.insert_many(self.bucket_id, events)
         else:
             raise TypeError
