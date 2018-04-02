@@ -5,13 +5,10 @@ from datetime import datetime
 from aw_core.models import Event
 from aw_datastore import Datastore
 
+from .query2_error import QueryParseException
 from .query2_functions import query2_functions
 
 logger = logging.getLogger(__name__)
-
-
-class QueryException(Exception):
-    pass
 
 
 class Token:
@@ -103,7 +100,7 @@ class String(Token):
                 break
         if token[-1] != quotes_type or len(token) < 2:
             # Unclosed string?
-            raise QueryException("Failed to parse string")
+            raise QueryParseException("Failed to parse string")
         return token, string[len(token):]
 
 
@@ -114,7 +111,7 @@ class Function(Token):
 
     def interpret(self, datastore: Datastore, namespace: dict):
         if self.name not in query2_functions:
-            raise QueryException("Tried to call function '{}' which doesn't exist".format(self.name))
+            raise QueryInterpretException("Tried to call function '{}' which doesn't exist".format(self.name))
         call_args = [datastore, namespace]
         for arg in self.args:
             call_args.append(arg.interpret(datastore, namespace))
@@ -122,7 +119,7 @@ class Function(Token):
         try:
             result = query2_functions[self.name](*call_args)  # type: ignore
         except TypeError:
-            raise QueryException("Tried to call function {} with invalid amount of arguments".format(self.name))
+            raise QueryInterpretException("Tried to call function {} with invalid amount of arguments".format(self.name))
         return result
 
     @staticmethod
@@ -204,12 +201,12 @@ class Dict(Token):
             # parse key
             (key_t, key_str), entries_str = _parse_token(entries_str, namespace)
             if key_t != String:
-                raise QueryException("Key in dict is not a str")
+                raise QueryParseException("Key in dict is not a str")
             key = String.parse(key_str).value  # type: ignore
             entries_str = entries_str.strip()
             # Remove :
             if entries_str[0] != ":":
-                raise QueryException("Key in dict is not followed by a :")
+                raise QueryParseException("Key in dict is not followed by a :")
             entries_str = entries_str[1:]
             # parse val
             (val_t, val_str), entries_str = _parse_token(entries_str, namespace)
@@ -247,7 +244,7 @@ class Dict(Token):
 def _parse_token(string: str, namespace: dict):
     # TODO: The whole parsing thing is shoddily written, needs a rewrite from ground-up
     if not isinstance(string, str):
-        raise QueryException("Reached unreachable, cannot parse something that isn't a string")
+        raise QueryParseException("Reached unreachable, cannot parse something that isn't a string")
     if len(string) == 0:
         return None
     string = string.strip()
@@ -259,7 +256,7 @@ def _parse_token(string: str, namespace: dict):
         if token:
             break
     if not token:
-        raise QueryException("Syntax error: {}".format(string))
+        raise QueryParseException("Syntax error: {}".format(string))
     return (t, token), string
 
 
@@ -277,16 +274,16 @@ def parse(line, namespace):
     val_str = line[separator_i + 1:]
     if not val_str:
         # TODO: Proper message
-        raise QueryException("Nothing to assign")
+        raise QueryParseException("Nothing to assign")
     (var_t, var), var_str = _parse_token(var_str, namespace)
     var_str = var_str.strip()
     if var_str:  # Didn't consume whole var string
-        raise QueryException("Invalid syntax for assignment variable")
+        raise QueryParseException("Invalid syntax for assignment variable")
     if var_t is not Variable:
-        raise QueryException("Cannot assign to a non-variable")
+        raise QueryParseException("Cannot assign to a non-variable")
     (val_t, val), var_str = _parse_token(val_str, namespace)
     if var_str:  # Didn't consume whole val string
-        raise QueryException("Invalid syntax for value to assign")
+        raise QueryParseException("Invalid syntax for value to assign")
     # Parse token
     var = var_t.parse(var, namespace)
     val = val_t.parse(val, namespace)
@@ -300,7 +297,7 @@ def interpret(var, val, namespace, datastore):
 
 def get_return(namespace):
     if "RETURN" not in namespace:
-        raise QueryException("Query doesn't assign the RETURN variable, nothing to respond")
+        raise QueryParseException("Query doesn't assign the RETURN variable, nothing to respond")
     return namespace["RETURN"]
 
 
