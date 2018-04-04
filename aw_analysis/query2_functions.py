@@ -74,17 +74,17 @@ def q2_query_bucket(datastore: Datastore, namespace: TNamespace, bucketname: str
         starttime = iso8601.parse_date(namespace["STARTTIME"])
         endtime = iso8601.parse_date(namespace["ENDTIME"])
     except iso8601.ParseError:
-        raise QueryError("Unable to parse starttime/endtime to query_bucket_date")
+        raise QueryFunctionException("Unable to parse starttime/endtime to query_bucket_date")
     return datastore[bucketname].get(starttime=starttime, endtime=endtime)
 
-def q2_query_bucket_period(datastore: Datastore, namespace: dict, bucketname: str, starttime: str, endtime: str):
+def q2_query_bucket_period(datastore: Datastore, namespace: dict, bucketname: str, starttime_str: str, endtime_str: str):
     # Uses hardcoded timeperiods instead of the STARTTIME/ENDTIME variables
     _verify_bucket_exists(datastore, bucketname)
     try:
-        starttime = iso8601.parse_date(starttime)
-        endtime = iso8601.parse_date(endtime)
+        starttime = iso8601.parse_date(starttime_str)
+        endtime = iso8601.parse_date(endtime_str)
     except iso8601.ParseError:
-        raise QueryError("Unable to parse starttime/endtime to query_bucket_date")
+        raise QueryFunctionException("Unable to parse starttime/endtime to query_bucket_date")
     return datastore[bucketname].get(starttime=starttime, endtime=endtime)
 
 
