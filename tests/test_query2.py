@@ -57,26 +57,26 @@ def test_dict():
     # Key in dict is not a string
     with pytest.raises(QueryException):
         d_str = "{b: 1}"
-        d = Dict.parse(d_str, ns)
+        d = QDict.parse(d_str, ns)
 
     # Char following key string is not a :
     with pytest.raises(QueryException):
         d_str = "{'test'p 1}"
-        d = Dict.parse(d_str, ns)
+        d = QDict.parse(d_str, ns)
 
     with pytest.raises(QueryException):
         d_str = "{'test': #}"
-        d = Dict.parse(d_str, ns)
+        d = QDict.parse(d_str, ns)
 
     # Semicolon without key
     with pytest.raises(QueryException):
         d_str = "{:}"
-        d = Dict.parse(d_str, ns)
+        d = QDict.parse(d_str, ns)
 
     # Trailing comma
     with pytest.raises(QueryException):
         d_str = "{'test':1,}"
-        d = Dict.parse(d_str, ns)
+        d = QDict.parse(d_str, ns)
 
 
 def test_list():
@@ -95,17 +95,17 @@ def test_list():
     # Comma without pre/post value
     with pytest.raises(QueryException):
         l_str = "[,]"
-        l = List.parse(l_str, ns)
+        l = QList.parse(l_str, ns)
 
     # Comma without post value
     with pytest.raises(QueryException):
         l_str = "[1,]"
-        l = List.parse(l_str, ns)
+        l = QList.parse(l_str, ns)
 
     # Comma without pre value
     with pytest.raises(QueryException):
         l_str = "[,2]"
-        l = List.parse(l_str, ns)
+        l = QList.parse(l_str, ns)
 
 
 def test_query2_bogus_query():
@@ -220,21 +220,20 @@ def test_query2_query_functions(datastore):
 
     example_query = """
     bid = "{bid}";
-    events = query_bucket(bid);
-    events2 = query_bucket(bid);
-    events2 = filter_keyvals(events2, "label", "test1");
-    events2 = exclude_keyvals(events2, "label", "test2");
-    events = filter_period_intersect(events, events2);
-    events = limit_events(events, 1);
-    events = merge_events_by_keys(events, "label");
-    events = split_url_events(events);
-    events = sort_by_timestamp(events);
-    events = sort_by_duration(events);
-    eventcount = query_bucket_eventcount(bid);
-    asd = nop();
-    RETURN = {{"events": events, "eventcount": eventcount}};
+    events=query_bucket(bid);
+    events2=query_bucket(bid);
+    events2=filter_keyvals(events2, "label", ["test1"]);
+    events2=exclude_keyvals(events2, "label", ["test2"]);
+    events=filter_period_intersect(events, events2);
+    events=limit_events(events, 1);
+    events=merge_events_by_keys(events, ["label"]);
+    events=split_url_events(events);
+    events=sort_by_timestamp(events);
+    events=sort_by_duration(events);
+    eventcount=query_bucket_eventcount(bid);
+    asd=nop();
+    RETURN={{"events": events, "eventcount": eventcount}};
     """.format(bid=bid)
-
     try:
         bucket = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name="asd")
         e1 = Event(data={"label": "test1"},
@@ -301,14 +300,13 @@ def test_query2_test_merged_keys(datastore):
     endtime = starttime + timedelta(hours=1)
 
     example_query = """
-    bid = "{bid}";
-    events = query_bucket(bid);
-    events = merge_events_by_keys(events, "label1", "label2");
-    events = sort_by_duration(events);
-    eventcount = query_bucket_eventcount(bid);
-    RETURN = {{"events": events, "eventcount": eventcount}};
+    bid1="{bid}";
+    events=query_bucket(bid1);
+    events=merge_events_by_keys(events, ["label1", "label2"]);
+    events=sort_by_duration(events);
+    eventcount=query_bucket_eventcount(bid1);
+    RETURN={{"events": events, "eventcount": eventcount}};
     """.format(bid=bid)
-
     try:
         # Setup buckets
         bucket1 = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name=name)
