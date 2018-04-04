@@ -1,5 +1,5 @@
 import logging
-from typing import Union, List, Callable, Any
+from typing import Union, List, Dict, Sequence, Callable, Type, Any
 from datetime import datetime
 
 from aw_core.models import Event
@@ -11,7 +11,7 @@ from .query2_functions import query2_functions
 logger = logging.getLogger(__name__)
 
 
-class Token:
+class QToken:
     def interpret(self, datastore: Datastore, namespace: dict):
         raise NotImplementedError
 
@@ -24,7 +24,7 @@ class Token:
         raise NotImplementedError
 
 
-class Integer(Token):
+class QInteger(QToken):
     def __init__(self, value) -> None:
         self.value = value
 
@@ -32,8 +32,8 @@ class Integer(Token):
         return self.value
 
     @staticmethod
-    def parse(string: str, namespace: dict={}) -> Token:
-        return Integer(int(string))
+    def parse(string: str, namespace: dict={}) -> QToken:
+        return QInteger(int(string))
 
     @staticmethod
     def check(string: str):
@@ -46,7 +46,7 @@ class Integer(Token):
         return token, string[len(token):]
 
 
-class Variable(Token):
+class QVariable(QToken):
     def __init__(self, name, value) -> None:
         self.name = name
         self.value = value
@@ -58,11 +58,11 @@ class Variable(Token):
         return self.value
 
     @staticmethod
-    def parse(string: str, namespace: dict) -> Token:
+    def parse(string: str, namespace: dict) -> QToken:
         val = None
         if string in namespace:
             val = namespace[string]
-        return Variable(string, val)
+        return QVariable(string, val)
 
     @staticmethod
     def check(string: str):
@@ -77,7 +77,7 @@ class Variable(Token):
         return token, string[len(token):]
 
 
-class String(Token):
+class QString(QToken):
     def __init__(self, value):
         self.value = value
 
@@ -85,9 +85,9 @@ class String(Token):
         return self.value
 
     @staticmethod
-    def parse(string: str, namespace: dict={}) -> Token:
+    def parse(string: str, namespace: dict={}) -> QToken:
         string = string[1:-1]
-        return String(string)
+        return QString(string)
 
     @staticmethod
     def check(string: str):
@@ -106,7 +106,7 @@ class String(Token):
         return token, string[len(token):]
 
 
-class Function(Token):
+class QFunction(QToken):
     def __init__(self, name, args):
         self.name = name
         self.args = args
@@ -125,7 +125,7 @@ class Function(Token):
         return result
 
     @staticmethod
-    def parse(string: str, namespace: dict) -> Token:
+    def parse(string: str, namespace: dict) -> QToken:
         arg_start = 0
         arg_end = len(string) - 1
         # Find opening bracket
@@ -144,7 +144,7 @@ class Function(Token):
             if comma != -1:
                 args_str = args_str[comma + 1:]
             args.append(arg_t.parse(arg, namespace))
-        return Function(name, args)
+        return QFunction(name, args)
 
     @staticmethod
     def check(string: str):
@@ -182,7 +182,7 @@ class Function(Token):
         return string[:i], string[i + 1:]
 
 
-class Dict(Token):
+class QDict(QToken):
     def __init__(self, value: dict) -> None:
         self.value = value
 
@@ -193,18 +193,18 @@ class Dict(Token):
         return expanded_dict
 
     @staticmethod
-    def parse(string: str, namespace: dict) -> Token:
+    def parse(string: str, namespace: dict) -> QToken:
         entries_str = string[1:-1]
-        d = {}
+        d = {} # type: Dict[str, QToken]
         while len(entries_str) > 0:
             entries_str = entries_str.strip()
             if len(d) > 0 and entries_str[0] == ",":
                 entries_str = entries_str[1:]
             # parse key
             (key_t, key_str), entries_str = _parse_token(entries_str, namespace)
-            if key_t != String:
+            if key_t != QString:
                 raise QueryParseException("Key in dict is not a str")
-            key = String.parse(key_str).value  # type: ignore
+            key = QString.parse(key_str).value  # type: ignore
             entries_str = entries_str.strip()
             # Remove :
             if entries_str[0] != ":":
@@ -217,7 +217,7 @@ class Dict(Token):
             val = val_t.parse(val_str, namespace)
             # set
             d[key] = val
-        return Dict(d)
+        return QDict(d)
 
     @staticmethod
     def check(string: str):
@@ -245,8 +245,8 @@ class Dict(Token):
         return string[:i], string[i + 1:]
 
 
-class List(Token):
-    def __init__(self, value: dict) -> None:
+class QList(QToken):
+    def __init__(self, value: list) -> None:
         self.value = value
 
     def interpret(self, datastore: Datastore, namespace: dict):
@@ -256,9 +256,9 @@ class List(Token):
         return expanded_list
 
     @staticmethod
-    def parse(string: str, namespace: dict) -> Token:
+    def parse(string: str, namespace: dict) -> QToken:
         entries_str = string[1:-1]
-        l = []
+        l = [] # type: List[QToken]
         while len(entries_str) > 0:
             entries_str = entries_str.strip()
             if len(l) > 0 and entries_str[0] == ",":
@@ -270,7 +270,7 @@ class List(Token):
             val = val_t.parse(val_str, namespace)
             # set
             l.append(val)
-        return List(l)
+        return QList(l)
 
     @staticmethod
     def check(string: str):
@@ -298,6 +298,7 @@ class List(Token):
         return string[:i], string[i + 1:]
 
 
+qtypes = [QString, QInteger, QFunction, QDict, QList, QVariable]  # type: Sequence[Type[QToken]]
 def _parse_token(string: str, namespace: dict): # TODO: Add return type
     # TODO: The whole parsing thing is shoddily written, needs a rewrite from ground-up
     if not isinstance(string, str):
@@ -305,10 +306,9 @@ def _parse_token(string: str, namespace: dict): # TODO: Add return type
     if len(string) == 0:
         return (None, ""), string
     string = string.strip()
-    types = [String, Integer, Function, Dict, List, Variable]  # type: List[Any]
     token = None
     t = None  # Declare so we can return it
-    for t in types:
+    for t in qtypes:
         token, string = t.check(string)
         if token:
             break
@@ -336,7 +336,7 @@ def parse(line, namespace):
     var_str = var_str.strip()
     if var_str:  # Didn't consume whole var string
         raise QueryParseException("Invalid syntax for assignment variable")
-    if var_t is not Variable:
+    if var_t is not QVariable:
         raise QueryParseException("Cannot assign to a non-variable")
     (val_t, val), var_str = _parse_token(val_str, namespace)
     if var_str:  # Didn't consume whole val string

@@ -7,32 +7,32 @@ from .utils import param_datastore_objects
 
 from aw_core.models import Event
 from aw_analysis.query2 import QueryException, query, _parse_token
-from aw_analysis.query2 import Integer, Variable, String, Function, List, Dict
+from aw_analysis.query2 import QInteger, QVariable, QString, QFunction, QList, QDict
 
 
 def test_query2_test_token_parsing():
     ns = {}
     (t, token), trash = _parse_token("123", ns)
     assert token == "123"
-    assert t == Integer
+    assert t == QInteger
     (t, token), trash = _parse_token('"test"', ns)
     assert token == '"test"'
-    assert t == String
+    assert t == QString
     (t, token), trash = _parse_token("'test'", ns)
     assert token == "'test'"
-    assert t == String
+    assert t == QString
     (t, token), trash = _parse_token("test0xDEADBEEF", ns)
     assert token == "test0xDEADBEEF"
-    assert t == Variable
+    assert t == QVariable
     (t, token), trash = _parse_token("test1337(')')", ns)
     assert token == "test1337(')')"
-    assert t == Function
+    assert t == QFunction
     (t, token), trash = _parse_token("[1, 'a', {}]", ns)
     assert token == "[1, 'a', {}]"
-    assert t == List
+    assert t == QList
     (t, token), trash = _parse_token("{'a': 1, 'b}': 2}", ns)
     assert token == "{'a': 1, 'b}': 2}"
-    assert t == Dict
+    assert t == QDict
 
     assert _parse_token('', ns) == ((None, ""), "")
 
@@ -50,7 +50,7 @@ def test_dict():
     ds = None
     ns = {}
     d_str = "{'a': {'a': {'a': 1}}, 'b': {'b': ':'}}"
-    d = Dict.parse(d_str, ns)
+    d = QDict.parse(d_str, ns)
     expected_res = {'a': {'a': {'a': 1}}, 'b': {'b': ':'}}
     assert expected_res == d.interpret(ds, ns)
 
@@ -83,12 +83,12 @@ def test_list():
     ds = None
     ns = {}
     l_str = "[1,2,[3,4],5]"
-    l = List.parse(l_str, ns)
+    l = QList.parse(l_str, ns)
     expected_res = [1,2,[3,4],5]
     assert expected_res == l.interpret(ds, ns)
 
     l_str = "[]"
-    l = List.parse(l_str, ns)
+    l = QList.parse(l_str, ns)
     expected_res = []
     assert expected_res == l.interpret(ds, ns)
 
