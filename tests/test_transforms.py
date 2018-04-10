@@ -3,7 +3,18 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from aw_core.models import Event
-from aw_transform import filter_period_intersect, filter_keyvals, sort_by_timestamp, sort_by_duration, merge_events_by_keys, split_url_events
+from aw_transform import filter_period_intersect, filter_keyvals, sort_by_timestamp, sort_by_duration, merge_events_by_keys, split_url_events, simplify_string
+
+
+def test_simplify_string():
+    events = [
+        Event(data={"label": "(99) Facebook"}),
+        Event(data={"label": "(14) YouTube"}),
+        Event(data={"label": "Cemu - FPS: 133.7 - BotW"}),
+    ]
+    assert simplify_string(events, "label")[0].data["label"] == "Facebook"
+    assert simplify_string(events, "label")[1].data["label"] == "YouTube"
+    assert simplify_string(events, "label")[2].data["label"] == "Cemu - FPS: ... - BotW"
 
 
 class IncludeLabelsTest(unittest.TestCase):
