@@ -10,8 +10,7 @@ services:
  - mongodb
 
 before_install:
- - "pip install pytest pytest-cov"
- - "pip install mypy"
+ - "pip install -r requirements-dev.txt"
  - "pip install pymongo"
 
 install:
