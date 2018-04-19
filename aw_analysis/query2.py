@@ -164,10 +164,10 @@ class QFunction(QToken):
                 break
         if not found:
             return None, string
-        found = False
+        to_consume = 1
         single_quote = False
         double_quote = False
-        for char in string:
+        for char in string[i:]:
             i = i + 1
             if char == "'":
                 single_quote = not single_quote
@@ -177,8 +177,14 @@ class QFunction(QToken):
                 pass
             elif i != 0 and char.isdigit():
                 pass
+            elif char == '(':
+                to_consume += 1
             elif char == ')':
+                to_consume -= 1
+            if to_consume == 0:
                 break
+        if to_consume != 0:
+            return None, string
         return string[:i], string[i + 1:]
 
 
@@ -266,7 +272,7 @@ class QList(QToken):
             # parse
             (val_t, val_str), entries_str = _parse_token(entries_str, namespace)
             if not val_t:
-                raise QueryException("List expected a value, got nothing")
+                raise QueryParseException("List expected a value, got nothing")
             val = val_t.parse(val_str, namespace)
             # set
             l.append(val)
