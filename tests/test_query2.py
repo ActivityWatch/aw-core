@@ -82,9 +82,9 @@ def test_dict():
 def test_list():
     ds = None
     ns = {}
-    l_str = "[1,2,[3,4],5]"
+    l_str = "[1,2,[[3],4],5]"
     l = QList.parse(l_str, ns)
-    expected_res = [1,2,[3,4],5]
+    expected_res = [1,2,[[3],4],5]
     assert expected_res == l.interpret(ds, ns)
 
     l_str = "[]"
@@ -242,6 +242,8 @@ def test_query2_query_functions(datastore):
         bucket.insert(e1)
         result = query(qname, example_query, starttime, endtime, datastore)
         assert result["eventcount"] == 1
+        print(result)
+        assert len(result["events"]) == 1
         assert result["events"][0].data["label"] == "test1"
     finally:
         datastore.delete_bucket(bid)

@@ -136,7 +136,7 @@ def q2_filter_period_intersect(datastore: Datastore, namespace: TNamespace, even
 def q2_limit_events(datastore: Datastore, namespace: TNamespace, events: list, count: int) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(count, int)
-    return limit_events(events, count)
+    return events[:count]
 
 
 """
