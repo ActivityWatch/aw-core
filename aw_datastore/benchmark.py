@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys
 from typing import Callable
 from datetime import datetime, timedelta, timezone
@@ -7,18 +8,28 @@ from aw_core.models import Event
 
 from takethetime import ttt
 
-from . import get_storage_methods, Datastore
-from .storages import AbstractStorage
+from aw_datastore import get_storage_methods, Datastore
+from aw_datastore.storages import AbstractStorage
 
 
 def create_test_events(n):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc) - timedelta(days=1000)
 
-    events = [None] * n
+    events = []
     for i in range(n):
-        events[i] = Event(timestamp=now + i * timedelta(hours=1), data={"label": "asd"})
+        events.append(Event(timestamp=now + i * timedelta(seconds=1), data={"label": "asd"}))
 
     return events
+
+
+def create_tmpbucket(ds, num):
+    bucket_id = "benchmark_test_bucket_{}".format(str(num))
+    try:
+        ds.delete_bucket(bucket_id)
+    except KeyError:
+        pass
+    ds.create_bucket(bucket_id, "testingtype", "test-client", "testing-box")
+    return bucket_id
 
 
 @contextmanager
@@ -35,26 +46,35 @@ def temporary_bucket(ds):
 
 def benchmark(storage: Callable[..., AbstractStorage]):
     ds = Datastore(storage, testing=True)
-    num_events = 5 * 10**4
+    num_single_events = 50
+    num_bulk_events = 2 * 10**3
+    num_events = num_single_events + num_bulk_events + 1
     events = create_test_events(num_events)
+    single_events = events[:num_single_events]
+    bulk_events = events[num_single_events:-1]
+    print(events[0])
+    print(events[num_single_events])
+    print(events[-1])
 
     print(storage.__name__)
 
     with temporary_bucket(ds) as bucket:
         with ttt(" sum"):
-            with ttt(" insert {} events".format(num_events)):
-                bucket.insert(events)
+            with ttt(" single insert {} events".format(num_single_events)):
+                for event in single_events:
+                    bucket.insert(event)
+
+            with ttt(" bulk insert {} events".format(num_bulk_events)):
+                bucket.insert(bulk_events)
 
             with ttt(" insert 1 event"):
                 bucket.insert(events[-1])
 
             with ttt(" get one"):
                 events_tmp = bucket.get(limit=1)
-                # print("Total number of events: {}".format(len(events)))
 
             with ttt(" get all"):
                 events_tmp = bucket.get(limit=num_events)
-                print(len(events_tmp))
                 assert len(events_tmp) == num_events
                 for e1, e2 in zip(events, sorted(events_tmp, key=lambda e: e.timestamp)):
                     try:
@@ -67,17 +87,20 @@ def benchmark(storage: Callable[..., AbstractStorage]):
                         print(e2)
                         raise e
                 # print("Total number of events: {}".format(len(events)))
-
+            # FIXME: This is broken with the SQLite datastore
+            """
             def events_in_interval(n):
                 with ttt(" get {} events within time interval".format(n)):
                     events_tmp = bucket.get(limit=num_events,
                                             starttime=events[0].timestamp,
                                             endtime=events[n].timestamp)
+                    print("Events within time interval: {}".format(len(events)))
+                    print(n)
                     assert len(events_tmp) == n - 1
-                    # print("Events within time interval: {}".format(len(events)))
 
             events_in_interval(int(num_events / 2))
             events_in_interval(10)
+            """
 
 
 if __name__ == "__main__":

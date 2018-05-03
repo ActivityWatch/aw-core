@@ -1,6 +1,7 @@
 import logging
 import random
 from datetime import datetime, timedelta, timezone
+import iso8601
 
 import pytest
 
@@ -34,13 +35,15 @@ def test_get_buckets(datastore):
 def test_create_bucket(datastore):
     name = "A label/name for a test bucket"
     bid = "test-identifier"
-    bucket = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name=name)
     try:
+        bucket = datastore.create_bucket(bucket_id=bid, type="testtype", client="testclient", hostname="testhost", name=name)
         assert bid == bucket.metadata()["id"]
-        assert "test" == bucket.metadata()["type"]
-        assert "test" == bucket.metadata()["client"]
-        assert "test" == bucket.metadata()["hostname"]
         assert name == bucket.metadata()["name"]
+        assert "testtype" == bucket.metadata()["type"]
+        assert "testclient" == bucket.metadata()["client"]
+        assert "testhost" == bucket.metadata()["hostname"]
+        assert iso8601.parse_date(bucket.metadata()["created"])
+        assert bid in datastore.buckets()
     finally:
         datastore.delete_bucket(bid)
     assert bid not in datastore.buckets()
@@ -298,7 +301,6 @@ def test_limit(bucket_cm):
         for i in range(5):
             bucket.insert(Event(timestamp=now))
 
-        print(len(bucket.get(limit=1)))
         assert 0 == len(bucket.get(limit=0))
         assert 1 == len(bucket.get(limit=1))
         assert 3 == len(bucket.get(limit=3))

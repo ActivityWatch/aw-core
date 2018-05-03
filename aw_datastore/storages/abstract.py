@@ -55,7 +55,7 @@ class AbstractStorage(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def replace(self, bucket_id: str, event_id: int, event: Event) -> Event:
+    def replace(self, bucket_id: str, event_id: int, event: Event) -> None:
         raise NotImplementedError
 
     @abstractmethod

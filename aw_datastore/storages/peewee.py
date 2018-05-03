@@ -110,7 +110,7 @@ class PeeweeStorage(AbstractStorage):
         self.db.init(filepath)
         logger.info("Using database file: {}".format(filepath))
 
-        # db.connect()
+        self.db.connect()
 
         self.bucket_keys = {}
         if not BucketModel.table_exists():
@@ -153,12 +153,11 @@ class PeeweeStorage(AbstractStorage):
                             "duration": event.duration.total_seconds(),
                             "datastr": json.dumps(event.data)}
                            for event in events]
-        with self.db.atomic():
-            # Chunking into lists of length 100 is needed here due to SQLITE_MAX_COMPOUND_SELECT
-            # and SQLITE_LIMIT_VARIABLE_NUMBER under Windows.
-            # See: https://github.com/coleifer/peewee/issues/948
-            for chunk in chunks(events_dictlist, 100):
-                EventModel.insert_many(chunk).execute()
+        # Chunking into lists of length 100 is needed here due to SQLITE_MAX_COMPOUND_SELECT
+        # and SQLITE_LIMIT_VARIABLE_NUMBER under Windows.
+        # See: https://github.com/coleifer/peewee/issues/948
+        for chunk in chunks(events_dictlist, 100):
+            EventModel.insert_many(chunk).execute()
 
     def _get_event(self, bucket_id, event_id) -> EventModel:
         return EventModel.select() \
