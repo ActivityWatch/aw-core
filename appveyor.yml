@@ -59,12 +59,13 @@ install:
 
   # Install tools used in development
   - "pip install --user --upgrade pytest pytest-cov mypy"
-  # Need to be installed before pip upgrade due to: https://github.com/pypa/pip/issues/5240
-  # Issue seen here: https://ci.appveyor.com/project/ErikBjare/aw-core/build/1.0.421/job/h31qw5yphwgi7ocq
 
   # Upgrade to the latest version of pip to avoid it displaying warnings
   # about it being out of date.
-  - "pip install --disable-pip-version-check --user --upgrade pip"
+  # Disabled on Appveyor due to: https://github.com/pypa/pip/issues/5240
+  # Issue seen here: https://ci.appveyor.com/project/ErikBjare/aw-core/build/1.0.421/job/h31qw5yphwgi7ocq
+  # And here: https://ci.appveyor.com/project/ErikBjare/aw-core/build/job/45qfewdef7d7v8eb
+  # - "pip install --disable-pip-version-check --user --upgrade pip"
 
   # Install the build dependencies of the project. If some dependencies contain
   # compiled extensions and are not provided as pre-built wheel packages,
