@@ -61,6 +61,10 @@ install:
   # about it being out of date.
   - "pip install --disable-pip-version-check --user --upgrade pip"
 
+  # Needed after pip upgrade due to: https://github.com/pypa/pip/issues/5240
+  # Issue seen here: https://ci.appveyor.com/project/ErikBjare/aw-core/build/1.0.421/job/h31qw5yphwgi7ocq
+  - "hash -r pip"
+
   # Install tools used in development
   - "pip install --user --upgrade pytest pytest-cov mypy"
 
