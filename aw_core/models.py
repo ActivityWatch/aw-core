@@ -17,13 +17,12 @@ Duration = Union[timedelta, Number]
 Data = Dict[str, Any]
 
 
-def _timestamp_parse(ts: ConvertableTimestamp) -> datetime:
+def _timestamp_parse(ts_in: ConvertableTimestamp) -> datetime:
     """
     Takes something representing a timestamp and
     returns a timestamp in the representation we want.
     """
-    if isinstance(ts, str):
-        ts = iso8601.parse_date(ts)
+    ts = iso8601.parse_date(ts_in) if isinstance(ts_in, str) else ts_in
     # Set resolution to milliseconds instead of microseconds
     # (Fixes incompability with software based on unix time, for example mongodb)
     ts = ts.replace(microsecond=int(ts.microsecond / 1000) * 1000)
@@ -93,7 +92,7 @@ class Event(dict):
         self["data"] = data
 
     @property
-    def timestamp(self) -> Optional[datetime]:
+    def timestamp(self) -> datetime:
         return self["timestamp"]
 
     @timestamp.setter
