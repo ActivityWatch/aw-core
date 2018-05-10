@@ -14,20 +14,7 @@ from .abstract import AbstractStorage
 
 logger = logging.getLogger(__name__)
 
-# Prevent debug output from propagating
-peewee_logger = logging.getLogger("sqlite")
-peewee_logger.setLevel(logging.INFO)
-
-
 LATEST_VERSION=1
-
-
-def chunks(l, n):
-    """Yield successive n-sized chunks from l.
-    From: https://stackoverflow.com/a/312464/965332"""
-    for i in range(0, len(l), n):
-        yield l[i:i + n]
-
 
 def detect_db_files(data_dir: str) -> List[str]:
     return [filename for filename in os.listdir(data_dir) if "sqlite" in filename]
@@ -157,7 +144,9 @@ class SqliteStorage(AbstractStorage):
             duration = event.duration.total_seconds()
             datastr = json.dumps(event.data)
             event_rows.append((bucket_id, timestamp, duration, datastr))
-        self.conn.executemany("INSERT INTO events(bucket, timestamp, duration, datastr) VALUES (?, ?, ?, ?)", event_rows)
+        query = "INSERT INTO EVENTS(bucket, timestamp, duration, datastr) " + \
+                "VALUES (?, ?, ?, ?)"
+        self.conn.executemany(query, event_rows)
         if len(event_rows) > 50:
             self.conn.commit();
 
@@ -166,12 +155,16 @@ class SqliteStorage(AbstractStorage):
         timestamp = event.timestamp.timestamp()*1000000
         duration = event.duration.total_seconds()
         datastr = json.dumps(event.data)
-        c.execute("UPDATE events SET bucket = ?, timestamp = ?, duration = ?, datastr = ? WHERE timestamp = (SELECT max(timestamp) FROM events LIMIT 1)", [bucket_id, timestamp, duration, datastr])
+        query = "UPDATE events " + \
+                "SET bucket = ?, timestamp = ?, duration = ?, datastr = ? " + \
+                "WHERE timestamp = (SELECT max(timestamp) FROM events LIMIT 1)"
+        c.execute(query, [bucket_id, timestamp, duration, datastr])
         return True
 
     def delete(self, bucket_id, event_id):
         c = self.conn.cursor()
-        c.execute("DELETE FROM events WHERE bucket = ? AND id = ?", [bucket_id, event_id])
+        query = "DELETE FROM events WHERE bucket = ? AND id = ?"
+        c.execute(query, [bucket_id, event_id])
         # TODO: Handle if event doesn't exist
         return True
 
@@ -180,7 +173,10 @@ class SqliteStorage(AbstractStorage):
         timestamp = event.timestamp.timestamp()*1000000
         duration = event.duration.total_seconds()
         datastr = json.dumps(event.data)
-        c.execute("UPDATE events SET bucket = ?, timestamp = ?, duration = ?, datastr = ? WHERE id = ?", [bucket_id, timestamp, duration, datastr, event_id])
+        query = "UPDATE events " + \
+                "SET bucket = ?, timestamp = ?, duration = ?, datastr = ? " + \
+                "WHERE id = ?"
+        c.execute(query, [bucket_id, timestamp, duration, datastr, event_id])
         return True
 
     def get_events(self, bucket_id: str, limit: int,
@@ -197,7 +193,11 @@ class SqliteStorage(AbstractStorage):
             endtime = sys.maxsize
         else:
             endtime = endtime.timestamp()*1000000
-        rows = c.execute("SELECT id, timestamp, duration, datastr FROM events WHERE bucket = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT ?", [bucket_id, starttime, endtime, limit])
+        query = "SELECT id, timestamp, duration, datastr " + \
+                "FROM events " + \
+                "WHERE bucket = ? AND timestamp >= ? AND timestamp <= ? " + \
+                "ORDER BY timestamp DESC LIMIT ?"
+        rows = c.execute(query, [bucket_id, starttime, endtime, limit])
         events = []
         for row in rows:
             eid = row[0]
@@ -220,7 +220,10 @@ class SqliteStorage(AbstractStorage):
             endtime = sys.maxsize
         else:
             endtime = endtime.timestamp()*1000000
-        rows = c.execute("SELECT count(*) FROM events WHERE bucket = ? AND timestamp >= ? AND timestamp <= ?", [bucket_id, starttime, endtime])
+        query = "SELECT count(*) " + \
+                "FROM events " + \
+                "WHERE bucket = ? AND timestamp >= ? AND timestamp <= ?"
+        rows = c.execute(query, [bucket_id, starttime, endtime])
         row = rows.fetchone()
         eventcount = row[0]
         return eventcount
