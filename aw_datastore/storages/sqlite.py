@@ -96,9 +96,8 @@ class SqliteStorage(AbstractStorage):
         c.execute(CREATE_EVENTS_TABLE)
         c.execute(INDEX_EVENTS_TABLE)
 
-        # 3.3s 50
-        c.execute("PRAGMA syncronous = OFF");
-        c.execute("PRAGMA journal_mode = OFF");
+        c.execute("PRAGMA syncronous = NORMAL;");
+        c.execute("PRAGMA journal_mode = WAL;");
 
         self.conn.commit()
 
@@ -144,15 +143,14 @@ class SqliteStorage(AbstractStorage):
         datastr = json.dumps(event.data)
         c.execute("INSERT INTO events(bucket, timestamp, duration, datastr) VALUES (?, ?, ?, ?)",
             [bucket_id, timestamp, event.duration.total_seconds(), datastr])
-        self.conn.commit();
         event.id = c.lastrowid
         return event
 
     def insert_many(self, bucket_id, events: List[Event], fast=False) -> None:
+        # FIXME: Is this true not only for peewee but sqlite aswell?
         # Chunking into lists of length 100 is needed here due to SQLITE_MAX_COMPOUND_SELECT
         # and SQLITE_LIMIT_VARIABLE_NUMBER under Windows.
         # See: https://github.com/coleifer/peewee/issues/948
-        c = self.conn.cursor()
         event_rows = []
         for event in events:
             timestamp = event.timestamp.timestamp()*1000000
@@ -160,25 +158,8 @@ class SqliteStorage(AbstractStorage):
             datastr = json.dumps(event.data)
             event_rows.append((bucket_id, timestamp, duration, datastr))
         self.conn.executemany("INSERT INTO events(bucket, timestamp, duration, datastr) VALUES (?, ?, ?, ?)", event_rows)
-        self.conn.commit();
-
-    def _get_event(self, bucket_id, event_id) -> Event:
-        c = self.conn.cursor()
-        rows = c.execute("SELECT id, timestamp, duration, datastr FROM events WHERE bucket = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT ?", [bucket_id, starttime, endtime, limit])
-        row = rows.fetchone()
-
-        eid = row[0]
-        timestamp = datetime.fromtimestamp(row[1]/1000000, timezone.utc)
-        duration = row[2]
-        data = json.loads(row[3])
-        event = Event(id=eid, timestamp=timestamp, duration=duration, data=data)
-
-        return event
-
-    def _get_last(self, bucket_id) -> Event:
-        # TODO: Implement
-        event = {}
-        return event
+        if len(event_rows) > 50:
+            self.conn.commit();
 
     def replace_last(self, bucket_id, event):
         c = self.conn.cursor()
@@ -186,13 +167,11 @@ class SqliteStorage(AbstractStorage):
         duration = event.duration.total_seconds()
         datastr = json.dumps(event.data)
         c.execute("UPDATE events SET bucket = ?, timestamp = ?, duration = ?, datastr = ? WHERE timestamp = (SELECT max(timestamp) FROM events LIMIT 1)", [bucket_id, timestamp, duration, datastr])
-        self.conn.commit()
         return True
 
     def delete(self, bucket_id, event_id):
         c = self.conn.cursor()
         c.execute("DELETE FROM events WHERE bucket = ? AND id = ?", [bucket_id, event_id])
-        self.conn.commit()
         # TODO: Handle if event doesn't exist
         return True
 
@@ -202,14 +181,14 @@ class SqliteStorage(AbstractStorage):
         duration = event.duration.total_seconds()
         datastr = json.dumps(event.data)
         c.execute("UPDATE events SET bucket = ?, timestamp = ?, duration = ?, datastr = ? WHERE id = ?", [bucket_id, timestamp, duration, datastr, event_id])
-        self.conn.commit()
         return True
 
     def get_events(self, bucket_id: str, limit: int,
                    starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
+        self.conn.commit()
         c = self.conn.cursor()
-        if limit < 0:
-            limit = sys.maxsize
+        if limit <= 0:
+            limit = -1
         if not starttime:
             starttime = 0
         else:
@@ -230,7 +209,7 @@ class SqliteStorage(AbstractStorage):
 
     def get_eventcount(self, bucket_id: str,
                    starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
-        # TODO: Implement
+        self.conn.commit()
         c = self.conn.cursor()
         if not starttime:
             starttime = 0

@@ -52,9 +52,9 @@ def benchmark(storage: Callable[..., AbstractStorage]):
     events = create_test_events(num_events)
     single_events = events[:num_single_events]
     bulk_events = events[num_single_events:-1]
-    print(events[0])
-    print(events[num_single_events])
-    print(events[-1])
+    #print(events[0])
+    #print(events[num_single_events])
+    #print(events[-1])
 
     print(storage.__name__)
 
