@@ -83,7 +83,6 @@ class SqliteStorage(AbstractStorage):
         c.execute(CREATE_EVENTS_TABLE)
         c.execute(INDEX_EVENTS_TABLE)
 
-        c.execute("PRAGMA syncronous = NORMAL;");
         c.execute("PRAGMA journal_mode = WAL;");
 
         self.conn.commit()
@@ -91,8 +90,15 @@ class SqliteStorage(AbstractStorage):
     def buckets(self):
         buckets = {}
         c = self.conn.cursor()
-        for row in c.execute("SELECT id FROM buckets"):
-            buckets[row[0]] = row[0]
+        for row in c.execute("SELECT * FROM buckets"):
+            buckets[row[0]] = {
+                "id": row[0],
+                "name": row[1],
+                "type": row[2],
+                "client": row[3],
+                "hostname": row[4],
+                "created": row[5],
+            }
         return buckets
 
     def create_bucket(self, bucket_id: str, type_id: str, client: str,
@@ -156,9 +162,9 @@ class SqliteStorage(AbstractStorage):
         duration = event.duration.total_seconds()
         datastr = json.dumps(event.data)
         query = "UPDATE events " + \
-                "SET bucket = ?, timestamp = ?, duration = ?, datastr = ? " + \
-                "WHERE timestamp = (SELECT max(timestamp) FROM events LIMIT 1)"
-        c.execute(query, [bucket_id, timestamp, duration, datastr])
+                "SET timestamp = ?, duration = ?, datastr = ? " + \
+                "WHERE timestamp = (SELECT max(timestamp) AND bucket = ? FROM events LIMIT 1) AND bucket = ?"
+        c.execute(query, [timestamp, duration, datastr, bucket_id, bucket_id])
         return True
 
     def delete(self, bucket_id, event_id):
