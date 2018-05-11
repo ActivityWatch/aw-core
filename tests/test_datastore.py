@@ -250,9 +250,10 @@ def test_replace_last(bucket_cm):
         bucket.replace_last(Event(data={"label": "test2-replaced"},
                                   timestamp=now + timedelta(seconds=1)))
         bucket.insert(Event(data={"label": "test3"}, timestamp=now + timedelta(seconds=2)))
-        # Assert length
-        assert 3 == len(bucket.get(-1))
-        assert bucket.get(-1)[1]["data"]["label"] == "test2-replaced"
+        # Assert data
+        result = bucket.get(-1)
+        assert 3 == len(result)
+        assert result[1]["data"]["label"] == "test2-replaced"
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
@@ -270,8 +271,9 @@ def test_replace_last_complex(bucket_cm):
                        timestamp=now + timedelta(seconds=1))
         bucket.replace_last(event2)
         # Assert length and content
-        assert eventcount == len(bucket.get(-1))
-        assert event2 == bucket.get(-1)[0]
+        result = bucket.get(-1)
+        assert eventcount == len(result)
+        assert event2 == result[0]
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())

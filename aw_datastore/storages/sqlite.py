@@ -163,7 +163,7 @@ class SqliteStorage(AbstractStorage):
         datastr = json.dumps(event.data)
         query = "UPDATE events " + \
                 "SET timestamp = ?, duration = ?, datastr = ? " + \
-                "WHERE timestamp = (SELECT max(timestamp) AND bucket = ? FROM events LIMIT 1) AND bucket = ?"
+                "WHERE timestamp = (SELECT max(timestamp) FROM events WHERE bucket = ?) AND bucket = ?"
         c.execute(query, [timestamp, duration, datastr, bucket_id, bucket_id])
         return True
 
