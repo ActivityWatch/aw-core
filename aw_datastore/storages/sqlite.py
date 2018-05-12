@@ -47,15 +47,15 @@ CREATE_EVENTS_TABLE = """
     CREATE TABLE IF NOT EXISTS events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         bucket TEXT NOT NULL,
-        timestamp INTEGER NOT NULL,
-        duration REAL NOT NULL,
+        starttime INTEGER NOT NULL,
+        endtime REAL NOT NULL,
         datastr TEXT NOT NULL,
         FOREIGN KEY (bucket) REFERENCES buckets(id)
     )
 """
 
 INDEX_EVENTS_TABLE = """
-    CREATE INDEX IF NOT EXISTS event_index ON events(bucket, timestamp);
+    CREATE INDEX IF NOT EXISTS event_index ON events(bucket, starttime);
 """
 
 
@@ -131,11 +131,11 @@ class SqliteStorage(AbstractStorage):
 
     def insert_one(self, bucket_id: str, event: Event) -> Event:
         c = self.conn.cursor()
-        timestamp = event.timestamp.timestamp()*1000000
-        duration = event.duration.total_seconds()
+        starttime = event.timestamp.timestamp()*1000000
+        endtime = starttime + (event.duration.total_seconds() * 1000000)
         datastr = json.dumps(event.data)
-        c.execute("INSERT INTO events(bucket, timestamp, duration, datastr) VALUES (?, ?, ?, ?)",
-            [bucket_id, timestamp, event.duration.total_seconds(), datastr])
+        c.execute("INSERT INTO events(bucket, starttime, endtime, datastr) VALUES (?, ?, ?, ?)",
+            [bucket_id, starttime, endtime, datastr])
         event.id = c.lastrowid
         return event
 
@@ -146,11 +146,11 @@ class SqliteStorage(AbstractStorage):
         # See: https://github.com/coleifer/peewee/issues/948
         event_rows = []
         for event in events:
-            timestamp = event.timestamp.timestamp()*1000000
-            duration = event.duration.total_seconds()
+            starttime = event.timestamp.timestamp()*1000000
+            endtime = starttime + (event.duration.total_seconds() * 1000000)
             datastr = json.dumps(event.data)
-            event_rows.append((bucket_id, timestamp, duration, datastr))
-        query = "INSERT INTO EVENTS(bucket, timestamp, duration, datastr) " + \
+            event_rows.append((bucket_id, starttime, endtime, datastr))
+        query = "INSERT INTO EVENTS(bucket, starttime, endtime, datastr) " + \
                 "VALUES (?, ?, ?, ?)"
         self.conn.executemany(query, event_rows)
         if len(event_rows) > 50:
@@ -158,13 +158,13 @@ class SqliteStorage(AbstractStorage):
 
     def replace_last(self, bucket_id, event):
         c = self.conn.cursor()
-        timestamp = event.timestamp.timestamp()*1000000
-        duration = event.duration.total_seconds()
+        starttime = event.timestamp.timestamp()*1000000
+        endtime = starttime + (event.duration.total_seconds() * 1000000)
         datastr = json.dumps(event.data)
         query = "UPDATE events " + \
-                "SET timestamp = ?, duration = ?, datastr = ? " + \
-                "WHERE timestamp = (SELECT max(timestamp) FROM events WHERE bucket = ?) AND bucket = ?"
-        c.execute(query, [timestamp, duration, datastr, bucket_id, bucket_id])
+                "SET starttime = ?, endtime = ?, datastr = ? " + \
+                "WHERE endtime = (SELECT max(endtime) FROM events WHERE bucket = ?) AND bucket = ?"
+        c.execute(query, [starttime, endtime, datastr, bucket_id, bucket_id])
         return True
 
     def delete(self, bucket_id, event_id):
@@ -176,13 +176,13 @@ class SqliteStorage(AbstractStorage):
 
     def replace(self, bucket_id, event_id, event):
         c = self.conn.cursor()
-        timestamp = event.timestamp.timestamp()*1000000
-        duration = event.duration.total_seconds()
+        starttime = event.timestamp.timestamp()*1000000
+        endtime = starttime + (event.duration.total_seconds() * 1000000)
         datastr = json.dumps(event.data)
         query = "UPDATE events " + \
-                "SET bucket = ?, timestamp = ?, duration = ?, datastr = ? " + \
+                "SET bucket = ?, starttime = ?, endtime = ?, datastr = ? " + \
                 "WHERE id = ?"
-        c.execute(query, [bucket_id, timestamp, duration, datastr, event_id])
+        c.execute(query, [bucket_id, starttime, endtime, datastr, event_id])
         return True
 
     def get_events(self, bucket_id: str, limit: int,
@@ -199,18 +199,19 @@ class SqliteStorage(AbstractStorage):
             endtime = sys.maxsize
         else:
             endtime = endtime.timestamp()*1000000
-        query = "SELECT id, timestamp, duration, datastr " + \
+        query = "SELECT id, starttime, endtime, datastr " + \
                 "FROM events " + \
-                "WHERE bucket = ? AND timestamp >= ? AND timestamp <= ? " + \
-                "ORDER BY timestamp DESC LIMIT ?"
+                "WHERE bucket = ? AND starttime >= ? AND endtime <= ? " + \
+                "ORDER BY endtime DESC LIMIT ?"
         rows = c.execute(query, [bucket_id, starttime, endtime, limit])
         events = []
         for row in rows:
             eid = row[0]
-            timestamp = datetime.fromtimestamp(row[1]/1000000, timezone.utc)
-            duration = row[2]
+            starttime = datetime.fromtimestamp(row[1]/1000000, timezone.utc)
+            endtime = datetime.fromtimestamp(row[2]/1000000, timezone.utc)
+            duration = endtime - starttime
             data = json.loads(row[3])
-            events.append(Event(id=eid, timestamp=timestamp, duration=duration, data=data))
+            events.append(Event(id=eid, timestamp=starttime, duration=duration, data=data))
         return events
 
     def get_eventcount(self, bucket_id: str,
@@ -228,7 +229,7 @@ class SqliteStorage(AbstractStorage):
             endtime = endtime.timestamp()*1000000
         query = "SELECT count(*) " + \
                 "FROM events " + \
-                "WHERE bucket = ? AND timestamp >= ? AND timestamp <= ?"
+                "WHERE bucket = ? AND endtime >= ? AND starttime <= ?"
         rows = c.execute(query, [bucket_id, starttime, endtime])
         row = rows.fetchone()
         eventcount = row[0]
