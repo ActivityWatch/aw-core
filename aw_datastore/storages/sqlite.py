@@ -16,22 +16,6 @@ logger = logging.getLogger(__name__)
 
 LATEST_VERSION=1
 
-def detect_db_files(data_dir: str) -> List[str]:
-    return [filename for filename in os.listdir(data_dir) if "sqlite" in filename]
-
-
-def detect_db_version(data_dir: str, max_version: Optional[int] = None) -> Optional[int]:
-    """Returns the most recent version number of any database file found (up to max_version)"""
-    import re
-    files = detect_db_files(data_dir)
-    r = re.compile("v[0-9]+")
-    re_matches = [r.search(filename) for filename in files]
-    versions = [int(match.group(0)[1:]) for match in re_matches if match]
-    if max_version:
-        versions = list(filter(lambda v: v <= max_version, versions))
-    return max(versions) if versions else None
-
-
 CREATE_BUCKETS_TABLE = """
     CREATE TABLE IF NOT EXISTS buckets (
         id TEXT PRIMARY KEY,
@@ -55,7 +39,7 @@ CREATE_EVENTS_TABLE = """
 """
 
 INDEX_EVENTS_TABLE = """
-    CREATE INDEX IF NOT EXISTS event_index ON events(bucket, starttime);
+    CREATE INDEX IF NOT EXISTS event_index ON events(bucket, starttime, endtime);
 """
 
 
@@ -63,28 +47,31 @@ class SqliteStorage(AbstractStorage):
     sid = "sqlite"
 
     def __init__(self, testing):
+        self.testing = testing
         data_dir = get_data_dir("aw-server")
-        current_db_version = detect_db_version(data_dir, max_version=LATEST_VERSION)
 
-        if current_db_version is not None and current_db_version < LATEST_VERSION:
-            # DB file found but was of an older version
-            logger.info("Latest version database file found was of an older version")
-            logger.info("Creating database file for new version {}".format(LATEST_VERSION))
-            logger.warning("ActivityWatch does not currently support database migrations, new database file will be empty")
-
-        filename = self.sid + ('-testing' if testing else '') + ".v{}".format(LATEST_VERSION) + '.db'
+        ds_name = self.sid + ('-testing' if testing else '')
+        filename = ds_name + ".v{}".format(LATEST_VERSION) + '.db'
         filepath = os.path.join(data_dir, filename)
+        new_db_file = not os.path.exists(filepath)
         self.conn = sqlite3.connect(filepath)
         logger.info("Using database file: {}".format(filepath))
 
         # Create tables
-        c = self.conn.cursor()
-        c.execute(CREATE_BUCKETS_TABLE)
-        c.execute(CREATE_EVENTS_TABLE)
-        c.execute(INDEX_EVENTS_TABLE)
+        self.conn.execute(CREATE_BUCKETS_TABLE)
+        self.conn.execute(CREATE_EVENTS_TABLE)
+        self.conn.execute(INDEX_EVENTS_TABLE)
+        self.conn.execute("PRAGMA journal_mode = WAL;");
+        self.commit()
 
-        c.execute("PRAGMA journal_mode = WAL;");
+        if new_db_file:
+            logger.info("Created new SQlite db file")
+            from aw_datastore import check_for_migration
+            check_for_migration(self, ds_name, LATEST_VERSION)
 
+    def commit(self):
+        # Useful for debugging and trying to lower the amount of
+        # unnecessary commits
         self.conn.commit()
 
     def buckets(self):
@@ -103,21 +90,19 @@ class SqliteStorage(AbstractStorage):
 
     def create_bucket(self, bucket_id: str, type_id: str, client: str,
                       hostname: str, created: str, name: Optional[str] = None):
-        c = self.conn.cursor()
-        c.execute("INSERT INTO buckets VALUES (?, ?, ?, ?, ?, ?)",
+        self.conn.execute("INSERT INTO buckets VALUES (?, ?, ?, ?, ?, ?)",
             [bucket_id, name, type_id, client, hostname, created])
-        self.conn.commit();
+        self.commit();
         return self.get_metadata(bucket_id)
 
     def delete_bucket(self, bucket_id: str):
-        c = self.conn.cursor()
-        c.execute("DELETE FROM events WHERE bucket = ?", [bucket_id])
-        c.execute("DELETE FROM buckets WHERE id = ?", [bucket_id])
-        self.conn.commit()
+        self.conn.execute("DELETE FROM events WHERE bucket = ?", [bucket_id])
+        self.conn.execute("DELETE FROM buckets WHERE id = ?", [bucket_id])
+        self.commit()
 
     def get_metadata(self, bucket_id: str):
         c = self.conn.cursor()
-        res = c.execute("SELECT * FROM buckets")
+        res = c.execute("SELECT * FROM buckets WHERE id = ?", [bucket_id])
         row = res.fetchone()
         bucket = {
             "id": row[0],
@@ -131,7 +116,7 @@ class SqliteStorage(AbstractStorage):
 
     def insert_one(self, bucket_id: str, event: Event) -> Event:
         c = self.conn.cursor()
-        starttime = event.timestamp.timestamp()*1000000
+        starttime = event.timestamp.timestamp() * 1000000
         endtime = starttime + (event.duration.total_seconds() * 1000000)
         datastr = json.dumps(event.data)
         c.execute("INSERT INTO events(bucket, starttime, endtime, datastr) VALUES (?, ?, ?, ?)",
@@ -154,40 +139,37 @@ class SqliteStorage(AbstractStorage):
                 "VALUES (?, ?, ?, ?)"
         self.conn.executemany(query, event_rows)
         if len(event_rows) > 50:
-            self.conn.commit();
+            self.commit();
 
     def replace_last(self, bucket_id, event):
-        c = self.conn.cursor()
         starttime = event.timestamp.timestamp()*1000000
         endtime = starttime + (event.duration.total_seconds() * 1000000)
         datastr = json.dumps(event.data)
         query = "UPDATE events " + \
                 "SET starttime = ?, endtime = ?, datastr = ? " + \
                 "WHERE endtime = (SELECT max(endtime) FROM events WHERE bucket = ?) AND bucket = ?"
-        c.execute(query, [starttime, endtime, datastr, bucket_id, bucket_id])
+        self.conn.execute(query, [starttime, endtime, datastr, bucket_id, bucket_id])
         return True
 
     def delete(self, bucket_id, event_id):
-        c = self.conn.cursor()
         query = "DELETE FROM events WHERE bucket = ? AND id = ?"
-        c.execute(query, [bucket_id, event_id])
+        self.conn.execute(query, [bucket_id, event_id])
         # TODO: Handle if event doesn't exist
         return True
 
     def replace(self, bucket_id, event_id, event):
-        c = self.conn.cursor()
         starttime = event.timestamp.timestamp()*1000000
         endtime = starttime + (event.duration.total_seconds() * 1000000)
         datastr = json.dumps(event.data)
         query = "UPDATE events " + \
                 "SET bucket = ?, starttime = ?, endtime = ?, datastr = ? " + \
                 "WHERE id = ?"
-        c.execute(query, [bucket_id, starttime, endtime, datastr, event_id])
+        self.conn.execute(query, [bucket_id, starttime, endtime, datastr, event_id])
         return True
 
     def get_events(self, bucket_id: str, limit: int,
                    starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
-        self.conn.commit()
+        self.commit()
         c = self.conn.cursor()
         if limit <= 0:
             limit = -1
@@ -216,7 +198,7 @@ class SqliteStorage(AbstractStorage):
 
     def get_eventcount(self, bucket_id: str,
                    starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
-        self.conn.commit()
+        self.commit()
         c = self.conn.cursor()
         if not starttime:
             starttime = 0

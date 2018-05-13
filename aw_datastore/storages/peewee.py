@@ -75,34 +75,11 @@ class EventModel(BaseModel):
         }
 
 
-def detect_db_files(data_dir: str) -> List[str]:
-    return [filename for filename in os.listdir(data_dir) if "peewee-sqlite" in filename]
-
-
-def detect_db_version(data_dir: str, max_version: Optional[int] = None) -> Optional[int]:
-    """Returns the most recent version number of any database file found (up to max_version)"""
-    import re
-    files = detect_db_files(data_dir)
-    r = re.compile("v[0-9]+")
-    re_matches = [r.search(filename) for filename in files]
-    versions = [int(match.group(0)[1:]) for match in re_matches if match]
-    if max_version:
-        versions = [v for v in versions if v <= max_version]
-    return max(versions) if versions else None
-
-
 class PeeweeStorage(AbstractStorage):
     sid = "peewee"
 
     def __init__(self, testing):
         data_dir = get_data_dir("aw-server")
-        current_db_version = detect_db_version(data_dir, max_version=LATEST_VERSION)
-
-        if current_db_version is not None and current_db_version < LATEST_VERSION:
-            # DB file found but was of an older version
-            logger.info("Latest version database file found was of an older version")
-            logger.info("Creating database file for new version {}".format(LATEST_VERSION))
-            logger.warning("ActivityWatch does not currently support database migrations, new database file will be empty")
 
         filename = 'peewee-sqlite' + ('-testing' if testing else '') + ".v{}".format(LATEST_VERSION) + '.db'
         filepath = os.path.join(data_dir, filename)

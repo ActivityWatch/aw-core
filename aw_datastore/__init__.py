@@ -1,9 +1,10 @@
 from typing import Dict, Callable, Any
 import platform as _platform
 
+from .migration import check_for_migration
+
 from . import storages
 from .datastore import Datastore
-
 
 # The Callable[[Any], ...] here should be Callable[..., ...] but Python 3.5.2 doesn't
 # like ellipsises. See here: https://github.com/python/typing/issues/259
