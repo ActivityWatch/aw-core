@@ -157,7 +157,7 @@ class SqliteStorage(AbstractStorage):
         # TODO: Handle if event doesn't exist
         return True
 
-    def replace(self, bucket_id, event_id, event):
+    def replace(self, bucket_id, event_id, event) -> bool:
         starttime = event.timestamp.timestamp()*1000000
         endtime = starttime + (event.duration.total_seconds() * 1000000)
         datastr = json.dumps(event.data)
@@ -173,19 +173,13 @@ class SqliteStorage(AbstractStorage):
         c = self.conn.cursor()
         if limit <= 0:
             limit = -1
-        if not starttime:
-            starttime = 0
-        else:
-            starttime = starttime.timestamp()*1000000
-        if not endtime:
-            endtime = sys.maxsize
-        else:
-            endtime = endtime.timestamp()*1000000
+        starttime_i = starttime.timestamp()*1000000 if starttime else 0
+        endtime_i = endtime.timestamp()*1000000 if endtime else sys.maxsize
         query = "SELECT id, starttime, endtime, datastr " + \
                 "FROM events " + \
                 "WHERE bucket = ? AND starttime >= ? AND endtime <= ? " + \
                 "ORDER BY endtime DESC LIMIT ?"
-        rows = c.execute(query, [bucket_id, starttime, endtime, limit])
+        rows = c.execute(query, [bucket_id, starttime_i, endtime_i, limit])
         events = []
         for row in rows:
             eid = row[0]
@@ -200,19 +194,12 @@ class SqliteStorage(AbstractStorage):
                    starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
         self.commit()
         c = self.conn.cursor()
-        if not starttime:
-            starttime = 0
-        else:
-            starttime = starttime.timestamp()*1000000
-        if not endtime:
-            import sys
-            endtime = sys.maxsize
-        else:
-            endtime = endtime.timestamp()*1000000
+        starttime_i = starttime.timestamp()*1000000 if starttime else 0
+        endtime_i = endtime.timestamp()*1000000 if endtime else sys.maxsize
         query = "SELECT count(*) " + \
                 "FROM events " + \
                 "WHERE bucket = ? AND endtime >= ? AND starttime <= ?"
-        rows = c.execute(query, [bucket_id, starttime, endtime])
+        rows = c.execute(query, [bucket_id, starttime_i, endtime_i])
         row = rows.fetchone()
         eventcount = row[0]
         return eventcount

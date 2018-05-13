@@ -125,7 +125,7 @@ class MongoDBStorage(AbstractStorage):
         last_event = list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(1))[0]
         self.db[bucket_id]["events"].replace_one({"_id": last_event["_id"]}, self._transform_event(event.copy()))
 
-    def replace(self, bucket_id: str, event_id, event: Event) -> Event:
+    def replace(self, bucket_id: str, event_id, event: Event) -> bool:
         self.db[bucket_id]["events"].replace_one({"_id": event_id}, self._transform_event(event.copy()))
         event.id = event_id
-        return event
+        return True

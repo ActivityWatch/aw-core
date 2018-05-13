@@ -14,6 +14,7 @@ class AbstractStorage(metaclass=ABCMeta):
 
     @abstractmethod
     def __init__(self, testing: bool) -> None:
+        self.testing = True
         raise NotImplementedError
 
     @abstractmethod
@@ -55,7 +56,7 @@ class AbstractStorage(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def replace(self, bucket_id: str, event_id: int, event: Event) -> None:
+    def replace(self, bucket_id: str, event_id: int, event: Event) -> bool:
         raise NotImplementedError
 
     @abstractmethod
