@@ -2,7 +2,6 @@ from typing import Optional, List
 from datetime import datetime, timezone
 import json
 import os
-import sys
 import logging
 
 import sqlite3
@@ -15,6 +14,9 @@ from .abstract import AbstractStorage
 logger = logging.getLogger(__name__)
 
 LATEST_VERSION=1
+
+# The max integer value in SQLite is signed 8 Bytes / 64 bits
+MAX_TIMESTAMP = 2**63-1
 
 CREATE_BUCKETS_TABLE = """
     CREATE TABLE IF NOT EXISTS buckets (
@@ -174,7 +176,7 @@ class SqliteStorage(AbstractStorage):
         if limit <= 0:
             limit = -1
         starttime_i = starttime.timestamp()*1000000 if starttime else 0
-        endtime_i = endtime.timestamp()*1000000 if endtime else sys.maxsize
+        endtime_i = endtime.timestamp()*1000000 if endtime else MAX_TIMESTAMP
         query = "SELECT id, starttime, endtime, datastr " + \
                 "FROM events " + \
                 "WHERE bucket = ? AND starttime >= ? AND endtime <= ? " + \
@@ -195,7 +197,7 @@ class SqliteStorage(AbstractStorage):
         self.commit()
         c = self.conn.cursor()
         starttime_i = starttime.timestamp()*1000000 if starttime else 0
-        endtime_i = endtime.timestamp()*1000000 if endtime else sys.maxsize
+        endtime_i = endtime.timestamp()*1000000 if endtime else MAX_TIMESTAMP
         query = "SELECT count(*) " + \
                 "FROM events " + \
                 "WHERE bucket = ? AND endtime >= ? AND starttime <= ?"
