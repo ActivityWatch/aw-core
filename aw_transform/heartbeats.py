@@ -7,7 +7,7 @@ from aw_core.models import Event
 logger = logging.getLogger(__name__)
 
 
-def heartbeat_reduce(events: Event, pulsetime: float) -> List[Event]:
+def heartbeat_reduce(events: List[Event], pulsetime: float) -> List[Event]:
     """Merges consecutive events together according to the rules of `heartbeat_merge`."""
     reduced = []
     if len(events) > 0:

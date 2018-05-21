@@ -9,6 +9,7 @@ from aw_core.models import Event
 from aw_analysis.query2 import QueryException, query, _parse_token
 from aw_analysis.query2 import Integer, Variable, String, Function, Dict
 
+
 def test_query2_test_token_parsing():
     ns = {}
     (t, token), trash = _parse_token("123", ns)
@@ -30,22 +31,17 @@ def test_query2_test_token_parsing():
     assert token == "{'a': 1, 'b}': 2}"
     assert t == Dict
 
-    assert _parse_token('', ns) == None
-    try:
+    assert _parse_token('', ns) is None
+
+    with pytest.raises(QueryException):
         _parse_token(None, ns)
-        assert(False)
-    except QueryException:
-        pass
-    try:
+
+    with pytest.raises(QueryException):
         _parse_token('"', ns)
-        assert(False)
-    except QueryException:
-        pass
-    try:
+
+    with pytest.raises(QueryException):
         _parse_token("#", ns)
-        assert(False)
-    except QueryException:
-        pass
+
 
 def test_dict():
     ds = None
@@ -55,91 +51,82 @@ def test_dict():
     expected_res = {'a': {'a': {'a': 1}}, 'b': {'b': ':'}}
     assert expected_res == d.interpret(ds, ns)
 
-    try: # Key in dict is not a string
+    # Key in dict is not a string
+    with pytest.raises(QueryException):
         d_str = "{b: 1}"
-        d = Dict.parse(d_str, ns)
-        assert False
-    except QueryException:
-        pass
-    try: # Char following key string is not a :
+        Dict.parse(d_str, ns)
+
+    # Char following key string is not a :
+    with pytest.raises(QueryException):
         d_str = "{'test'p 1}"
-        d = Dict.parse(d_str, ns)
-        assert False
-    except QueryException:
-        pass
+        Dict.parse(d_str, ns)
 
 
 def test_query2_bogus_query():
-    qname="test"
-    qstartdate=datetime.now()
-    qenddate=qstartdate
-    try: # Nothing to assign
+    qname = "test"
+    qstartdate = datetime.now(tz=timezone.utc)
+    qenddate = qstartdate
+
+    # Nothing to assign
+    with pytest.raises(QueryException):
         example_query = "a="
-        result = query(qname, example_query, qstartdate, qenddate, None)
-        assert(False)
-    except QueryException:
-        pass
-    try: # Assign to non-variable
+        query(qname, example_query, qstartdate, qenddate, None)
+
+    # Assign to non-variable
+    with pytest.raises(QueryException):
         example_query = "1=2"
-        result = query(qname, example_query, qstartdate, qenddate, None)
-        assert(False)
-    except QueryException:
-        pass
-    try: # Unclosed function
+        query(qname, example_query, qstartdate, qenddate, None)
+
+    # Unclosed function
+    with pytest.raises(QueryException):
         example_query = "a=unclosed_function(var1"
-        result = query(qname, example_query, qstartdate, qenddate, None)
-        assert(False)
-    except QueryException:
-        pass
-    try: # Call a function which doesn't exist
+        query(qname, example_query, qstartdate, qenddate, None)
+
+    # Call a function which doesn't exist
+    with pytest.raises(QueryException):
         example_query = "a=non_existing_function() "
-        result = query(qname, example_query, qstartdate, qenddate, None)
-        assert(False)
-    except QueryException:
-        pass
-    try: # Two tokens in assignment
+        query(qname, example_query, qstartdate, qenddate, None)
+
+    # Two tokens in assignment
+    with pytest.raises(QueryException):
         example_query = "asd nop()=2"
-        result = query(qname, example_query, qstartdate, qenddate, None)
-        assert(False)
-    except QueryException:
-        pass
-    try: # Unvlosed string
+        query(qname, example_query, qstartdate, qenddate, None)
+
+    # Unclosed string
+    with pytest.raises(QueryException):
         example_query = 'asd="something is wrong with me'
-        result = query(qname, example_query, qstartdate, qenddate, None)
-        assert(False)
-    except QueryException:
-        pass
-    try: # Two tokens in value
+        query(qname, example_query, qstartdate, qenddate, None)
+
+    # Two tokens in value
+    with pytest.raises(QueryException):
         example_query = "asd=asd1 asd2"
-        result = query(qname, example_query, qstartdate, qenddate, None)
-        assert(False)
-    except QueryException:
-        pass
+        query(qname, example_query, qstartdate, qenddate, None)
+
 
 def test_query2_query_function_calling():
-    qname="asd"
-    starttime=iso8601.parse_date("1970-01-01")
-    endtime=iso8601.parse_date("1970-01-02")
-    try: # Function which doesn't exist
+    qname = "asd"
+    starttime = iso8601.parse_date("1970-01-01")
+    endtime = iso8601.parse_date("1970-01-02")
+
+    # Function which doesn't exist
+    with pytest.raises(QueryException):
         example_query = "RETURN=asd();"
-        result = query(qname, example_query, starttime, endtime, None)
-        assert False
-    except QueryException as e:
-        print(e)
-    try: # Function which does exist with invalid arguments
+        query(qname, example_query, starttime, endtime, None)
+
+    # Function which does exist with invalid arguments
+    with pytest.raises(QueryException):
         example_query = "RETURN=nop(badarg);"
-        result = query(qname, example_query, starttime, endtime, None)
-        assert False
-    except QueryException as e:
-        print(e)
+        query(qname, example_query, starttime, endtime, None)
+
     # Function which does exist with valid arguments
     example_query = "RETURN=nop();"
-    result = query(qname, example_query, starttime, endtime, None)
+    query(qname, example_query, starttime, endtime, None)
+
 
 def test_query2_return_value():
-    qname="asd"
-    starttime=iso8601.parse_date("1970-01-01")
-    endtime=iso8601.parse_date("1970-01-02")
+    qname = "asd"
+    starttime = iso8601.parse_date("1970-01-01")
+    endtime = iso8601.parse_date("1970-01-02")
     example_query = "RETURN=1;"
     result = query(qname, example_query, starttime, endtime, None)
     assert(result == 1)
@@ -152,25 +139,26 @@ def test_query2_return_value():
     result = query(qname, example_query, starttime, endtime, None)
     assert(result == {'a': 1})
 
-    try: # Nothing to return
+    try:  # Nothing to return
         example_query = "a=1"
         result = query(qname, example_query, starttime, endtime, None)
         assert False
     except QueryException:
         pass
 
+
 def test_query2_multiline():
-    qname="asd"
-    starttime=iso8601.parse_date("1970-01-01")
-    endtime=iso8601.parse_date("1970-01-02")
-    example_query = \
-    """
+    qname = "asd"
+    starttime = iso8601.parse_date("1970-01-01")
+    endtime = iso8601.parse_date("1970-01-02")
+    example_query = """
 my_multiline_string="a
 b";
 RETURN=my_multiline_string;
     """
     result = query(qname, example_query, starttime, endtime, None)
     assert result == "a\nb"
+
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query2_query_functions(datastore):
@@ -183,23 +171,24 @@ def test_query2_query_functions(datastore):
     qname = "test"
     starttime = iso8601.parse_date("1970")
     endtime = starttime + timedelta(hours=1)
-    example_query = \
-    """
-    bid=\""""+bid+"""\";
-    events=query_bucket(bid);
-    events2=query_bucket(bid);
-    events2=filter_keyvals(events2, "label", "test1");
-    events2=exclude_keyvals(events2, "label", "test2");
-    events=filter_period_intersect(events, events2);
-    events=limit_events(events, 1);
-    events=merge_events_by_keys(events, "label");
-    events=split_url_events(events);
-    events=sort_by_timestamp(events);
-    events=sort_by_duration(events);
-    eventcount=query_bucket_eventcount(bid);
-    asd=nop();
-    RETURN={"events": events, "eventcount": eventcount};
-    """
+
+    example_query = """
+    bid = "{bid}";
+    events = query_bucket(bid);
+    events2 = query_bucket(bid);
+    events2 = filter_keyvals(events2, "label", "test1");
+    events2 = exclude_keyvals(events2, "label", "test2");
+    events = filter_period_intersect(events, events2);
+    events = limit_events(events, 1);
+    events = merge_events_by_keys(events, "label");
+    events = split_url_events(events);
+    events = sort_by_timestamp(events);
+    events = sort_by_duration(events);
+    eventcount = query_bucket_eventcount(bid);
+    asd = nop();
+    RETURN = {{"events": events, "eventcount": eventcount}};
+    """.format(bid=bid)
+
     try:
         bucket = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name="asd")
         e1 = Event(data={"label": "test1"},
@@ -212,6 +201,7 @@ def test_query2_query_functions(datastore):
     finally:
         datastore.delete_bucket(bid)
 
+
 @pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query2_basic_query(datastore):
     name = "A label/name for a test bucket"
@@ -220,14 +210,15 @@ def test_query2_basic_query(datastore):
     qname = "test_query_basic"
     starttime = iso8601.parse_date("1970")
     endtime = starttime + timedelta(hours=1)
-    example_query = \
-    """
-    bid1="{}";
-    bid2="{}";
-    events=query_bucket(bid1);
-    intersect_events=query_bucket(bid2);
-    RETURN=filter_period_intersect(events, intersect_events);
-    """.format(bid1, bid2)
+
+    example_query = """
+    bid1 = "{bid1}";
+    bid2 = "{bid2}";
+    events = query_bucket(bid1);
+    intersect_events = query_bucket(bid2);
+    RETURN = filter_period_intersect(events, intersect_events);
+    """.format(bid1=bid1, bid2=bid2)
+
     try:
         # Setup buckets
         bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
@@ -254,25 +245,27 @@ def test_query2_basic_query(datastore):
         datastore.delete_bucket(bid1)
         datastore.delete_bucket(bid2)
 
+
 @pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query2_test_merged_keys(datastore):
     name = "A label/name for a test bucket"
-    bid1 = "bucket1"
+    bid = "bucket1"
     qname = "test_query_merged_keys"
     starttime = iso8601.parse_date("2080")
     endtime = starttime + timedelta(hours=1)
-    example_query = \
-    """
-    bid1=\""""+bid1+"""\";
-    events=query_bucket(bid1);
-    events=merge_events_by_keys(events, "label1", "label2");
-    events=sort_by_duration(events);
-    eventcount=query_bucket_eventcount(bid1);
-    RETURN={"events": events, "eventcount": eventcount};
-    """
+
+    example_query = """
+    bid = "{bid}";
+    events = query_bucket(bid);
+    events = merge_events_by_keys(events, "label1", "label2");
+    events = sort_by_duration(events);
+    eventcount = query_bucket_eventcount(bid);
+    RETURN = {{"events": events, "eventcount": eventcount}};
+    """.format(bid=bid)
+
     try:
         # Setup buckets
-        bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
+        bucket1 = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name=name)
         # Prepare buckets
         e1 = Event(data={"label1": "test1", "label2": "test1"},
                    timestamp=starttime,
@@ -299,4 +292,42 @@ def test_query2_test_merged_keys(datastore):
         assert(result["events"][1]["data"]["label2"] == "test2")
         assert(result["events"][1]["duration"] == timedelta(seconds=1))
     finally:
+        datastore.delete_bucket(bid)
+
+
+@pytest.mark.parametrize("datastore", param_datastore_objects())
+def test_query2_fancy_query(datastore):
+    """
+    Tests:
+     - find_bucket
+     - simplify_window_titles
+    """
+    name = "A label/name for a test bucket"
+    bid1 = "bucket-the-one"
+    bid2 = "bucket-not-the-one"
+    qname = "test_query_basic_fancy"
+    starttime = iso8601.parse_date("1970")
+    endtime = starttime + timedelta(hours=1)
+
+    example_query = """
+    bid = find_bucket("{}");
+    events = query_bucket(bid);
+    RETURN = simplify_window_titles(events, "title");
+    """.format(bid1[:10])
+
+    try:
+        # Setup buckets
+        bucket_main = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
+        bucket_other = datastore.create_bucket(bucket_id=bid2, type="test", client="test", hostname="test", name=name)
+        # Prepare buckets
+        e1 = Event(data={"title": "(2) YouTube"},
+                   timestamp=starttime,
+                   duration=timedelta(seconds=1))
+        bucket_main.insert(e1)
+        # Query
+        result = query(qname, example_query, starttime, endtime, datastore)
+        # Assert
+        assert(result[0]["data"]["title"] == "YouTube")
+    finally:
         datastore.delete_bucket(bid1)
+        datastore.delete_bucket(bid2)
