@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from aw_core.models import Event
-from aw_transform import filter_period_intersect, filter_keyvals, sort_by_timestamp, sort_by_duration, merge_events_by_keys, split_url_events, simplify_string
+from aw_transform import filter_period_intersect, filter_keyvals_regex, filter_keyvals, sort_by_timestamp, sort_by_duration, merge_events_by_keys, split_url_events, simplify_string
 
 
 def test_simplify_string():
@@ -23,18 +23,25 @@ def test_simplify_string():
 
 
 def test_filter_keyval():
-    labels = ["a", "c"]
+    labels = ["aa", "cc"]
     events = [
-        Event(data={"label": "a"}),
-        Event(data={"label": "b"}),
-        Event(data={"label": "c"}),
+        Event(data={"label": "aa"}),
+        Event(data={"label": "bb"}),
+        Event(data={"label": "cc"}),
     ]
     included_events = filter_keyvals(events, "label", labels)
     excluded_events = filter_keyvals(events, "label", labels, exclude=True)
     assert len(included_events) == 2
     assert len(excluded_events) == 1
 
-    events_re = filter_keyvals(events, "label", "a|c")
+
+def test_filter_keyval_regex():
+    events = [
+        Event(data={"label": "aa"}),
+        Event(data={"label": "bb"}),
+        Event(data={"label": "cc"}),
+    ]
+    events_re = filter_keyvals_regex(events, "label", "aa|cc")
     assert len(events_re) == 2
 
 

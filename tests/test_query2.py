@@ -293,3 +293,41 @@ def test_query2_test_merged_keys(datastore):
         assert(result["events"][1]["duration"] == timedelta(seconds=1))
     finally:
         datastore.delete_bucket(bid)
+
+
+@pytest.mark.parametrize("datastore", param_datastore_objects())
+def test_query2_fancy_query(datastore):
+    """
+    Tests:
+     - find_bucket
+     - simplify_window_titles
+    """
+    name = "A label/name for a test bucket"
+    bid1 = "bucket-the-one"
+    bid2 = "bucket-not-the-one"
+    qname = "test_query_basic_fancy"
+    starttime = iso8601.parse_date("1970")
+    endtime = starttime + timedelta(hours=1)
+
+    example_query = """
+    bid = find_bucket("{}");
+    events = query_bucket(bid);
+    RETURN = simplify_window_titles(events, "title");
+    """.format(bid1[:10])
+
+    try:
+        # Setup buckets
+        bucket_main = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
+        bucket_other = datastore.create_bucket(bucket_id=bid2, type="test", client="test", hostname="test", name=name)
+        # Prepare buckets
+        e1 = Event(data={"title": "(2) YouTube"},
+                   timestamp=starttime,
+                   duration=timedelta(seconds=1))
+        bucket_main.insert(e1)
+        # Query
+        result = query(qname, example_query, starttime, endtime, datastore)
+        # Assert
+        assert(result[0]["data"]["title"] == "YouTube")
+    finally:
+        datastore.delete_bucket(bid1)
+        datastore.delete_bucket(bid2)
