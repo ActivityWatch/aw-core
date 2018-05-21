@@ -87,7 +87,7 @@ def detect_db_version(data_dir: str, max_version: Optional[int] = None) -> Optio
     re_matches = [r.search(filename) for filename in files]
     versions = [int(match.group(0)[1:]) for match in re_matches if match]
     if max_version:
-        versions = list(filter(lambda v: v <= max_version, versions))
+        versions = [v for v in versions if v <= max_version]
     return max(versions) if versions else None
 
 

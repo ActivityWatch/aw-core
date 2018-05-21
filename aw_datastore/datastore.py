@@ -95,7 +95,7 @@ class Bucket:
 
         # Call insert
         if isinstance(events, Event):
-            oldest_event = events
+            oldest_event = events  # type: Optional[Event]
             if events.timestamp + events.duration > now:
                 self.logger.warning("Event inserted into bucket {} reaches into the future. Current UTC time: {}. Event data: {}".format(self.bucket_id, str(now), str(events)))
             inserted = self.ds.storage_strategy.insert_one(self.bucket_id, events)
