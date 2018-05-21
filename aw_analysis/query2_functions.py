@@ -1,11 +1,10 @@
-import logging
 import iso8601
 from typing import Callable, Dict, Any, List
 
 from aw_core.models import Event
 from aw_datastore import Datastore
 
-from aw_transform import filter_period_intersect, filter_keyvals, merge_events_by_keys, sort_by_timestamp, sort_by_duration, limit_events, split_url_events, simplify_string
+from aw_transform import filter_period_intersect, filter_keyvals, filter_keyvals_regex, merge_events_by_keys, sort_by_timestamp, sort_by_duration, limit_events, split_url_events, simplify_string
 
 from .query2_error import QueryFunctionException
 
@@ -83,6 +82,13 @@ def q2_exclude_keyvals(datastore: Datastore, namespace: TNamespace, events: list
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(key, str)
     return filter_keyvals(events, key, list(vals), True)
+
+
+@q2_function
+def q2_filter_keyvals_regex(datastore: Datastore, namespace: TNamespace, events: list, key: str, regex: str) -> List[Event]:
+    _verify_variable_is_type(events, list)
+    _verify_variable_is_type(key, str)
+    return filter_keyvals_regex(events, key, regex)
 
 
 @q2_function
