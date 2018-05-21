@@ -43,6 +43,25 @@ def q2_function(f):
 
 
 """
+Getting buckets
+"""
+
+
+@q2_function
+def q2_find_bucket(datastore: Datastore, namespace: TNamespace, filter_str: str, hostname: str = None):
+    """Find bucket by using a filter_str (to avoid hardcoding bucket names)"""
+    for bucket in datastore.buckets():
+        if filter_str in bucket:
+            bucket_metadata = datastore[bucket].metadata()
+            if hostname:
+                if bucket_metadata["hostname"] == hostname:
+                    return bucket
+            else:
+                return bucket
+    raise QueryFunctionException("Unable to find bucket matching '{}' (hostname filter set to '{}')".format(filter_str, hostname))
+
+
+"""
     Data gathering functions
 """
 
