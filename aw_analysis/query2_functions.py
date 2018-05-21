@@ -49,7 +49,7 @@ def q2_function(f):
 
 
 @q2_function
-def q2_query_bucket(datastore: Datastore, namespace: dict, bucketname: str) -> List[Event]:
+def q2_query_bucket(datastore: Datastore, namespace: TNamespace, bucketname: str) -> List[Event]:
     _verify_variable_is_type(bucketname, str)
     _verify_bucket_exists(datastore, bucketname)
     starttime = iso8601.parse_date(namespace["STARTTIME"])
@@ -58,7 +58,7 @@ def q2_query_bucket(datastore: Datastore, namespace: dict, bucketname: str) -> L
 
 
 @q2_function
-def q2_query_bucket_eventcount(datastore: Datastore, namespace: dict, bucketname: str) -> int:
+def q2_query_bucket_eventcount(datastore: Datastore, namespace: TNamespace, bucketname: str) -> int:
     _verify_variable_is_type(bucketname, str)
     _verify_bucket_exists(datastore, bucketname)
     starttime = iso8601.parse_date(namespace["STARTTIME"])
@@ -72,28 +72,28 @@ def q2_query_bucket_eventcount(datastore: Datastore, namespace: dict, bucketname
 
 
 @q2_function
-def q2_filter_keyvals(datastore: Datastore, namespace: dict, events: list, key: str, *vals) -> List[Event]:
+def q2_filter_keyvals(datastore: Datastore, namespace: TNamespace, events: list, key: str, *vals) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(key, str)
     return filter_keyvals(events, key, list(vals), False)
 
 
 @q2_function
-def q2_exclude_keyvals(datastore: Datastore, namespace: dict, events: list, key: str, *vals) -> List[Event]:
+def q2_exclude_keyvals(datastore: Datastore, namespace: TNamespace, events: list, key: str, *vals) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(key, str)
     return filter_keyvals(events, key, list(vals), True)
 
 
 @q2_function
-def q2_filter_period_intersect(datastore: Datastore, namespace: dict, events: list, filterevents: list) -> List[Event]:
+def q2_filter_period_intersect(datastore: Datastore, namespace: TNamespace, events: list, filterevents: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(filterevents, list)
     return filter_period_intersect(events, filterevents)
 
 
 @q2_function
-def q2_limit_events(datastore: Datastore, namespace: dict, events: list, count: int) -> List[Event]:
+def q2_limit_events(datastore: Datastore, namespace: TNamespace, events: list, count: int) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(count, int)
     return limit_events(events, count)
@@ -105,7 +105,7 @@ def q2_limit_events(datastore: Datastore, namespace: dict, events: list, count: 
 
 
 @q2_function
-def q2_merge_events_by_keys(datastore: Datastore, namespace: dict, events: list, *keys) -> List[Event]:
+def q2_merge_events_by_keys(datastore: Datastore, namespace: TNamespace, events: list, *keys) -> List[Event]:
     _verify_variable_is_type(events, list)
     return merge_events_by_keys(events, keys)
 
@@ -116,13 +116,13 @@ def q2_merge_events_by_keys(datastore: Datastore, namespace: dict, events: list,
 
 
 @q2_function
-def q2_sort_by_timestamp(datastore: Datastore, namespace: dict, events: list) -> List[Event]:
+def q2_sort_by_timestamp(datastore: Datastore, namespace: TNamespace, events: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     return sort_by_timestamp(events)
 
 
 @q2_function
-def q2_sort_by_duration(datastore: Datastore, namespace: dict, events: list) -> List[Event]:
+def q2_sort_by_duration(datastore: Datastore, namespace: TNamespace, events: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     return sort_by_duration(events)
 
@@ -133,13 +133,13 @@ def q2_sort_by_duration(datastore: Datastore, namespace: dict, events: list) -> 
 
 
 @q2_function
-def q2_split_url_events(datastore: Datastore, namespace: dict, events: list) -> List[Event]:
+def q2_split_url_events(datastore: Datastore, namespace: TNamespace, events: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     return split_url_events(events)
 
 
 @q2_function
-def q2_simplify_window_titles(datastore: Datastore, namespace: dict, events: list, key: str) -> List[Event]:
+def q2_simplify_window_titles(datastore: Datastore, namespace: TNamespace, events: list, key: str) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(key, str)
     return simplify_string(events, key=key)
@@ -151,7 +151,7 @@ def q2_simplify_window_titles(datastore: Datastore, namespace: dict, events: lis
 
 
 @q2_function
-def q2_nop(datastore: Datastore, namespace: dict):
+def q2_nop(datastore: Datastore, namespace: TNamespace):
     """
     No operation function for unittesting
     """
