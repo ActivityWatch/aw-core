@@ -298,7 +298,6 @@ def test_limit(bucket_cm):
         for i in range(5):
             bucket.insert(Event(timestamp=now))
 
-        print(len(bucket.get(limit=1)))
         assert 0 == len(bucket.get(limit=0))
         assert 1 == len(bucket.get(limit=1))
         assert 3 == len(bucket.get(limit=3))
