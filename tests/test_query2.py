@@ -37,13 +37,13 @@ def test_query2_test_token_parsing():
 
     assert _parse_token('', ns) == ((None, ""), "")
 
-    with pytest.raises(QueryException):
+    with pytest.raises(QueryParseException):
         _parse_token(None, ns)
 
-    with pytest.raises(QueryException):
+    with pytest.raises(QueryParseException):
         _parse_token('"', ns)
 
-    with pytest.raises(QueryException):
+    with pytest.raises(QueryParseException):
         _parse_token("#", ns)
 
 
@@ -56,58 +56,27 @@ def test_dict():
     assert expected_res == d.interpret(ds, ns)
 
     # Key in dict is not a string
-    with pytest.raises(QueryException):
+    with pytest.raises(QueryParseException):
         d_str = "{b: 1}"
         d = QDict.parse(d_str, ns)
-<<<<<<< HEAD
-
     # Char following key string is not a :
-    with pytest.raises(QueryException):
+    with pytest.raises(QueryParseException):
         d_str = "{'test'p 1}"
         d = QDict.parse(d_str, ns)
 
-    with pytest.raises(QueryException):
+    with pytest.raises(QueryParseException):
         d_str = "{'test': #}"
         d = QDict.parse(d_str, ns)
 
     # Semicolon without key
-    with pytest.raises(QueryException):
+    with pytest.raises(QueryParseException):
         d_str = "{:}"
         d = QDict.parse(d_str, ns)
 
     # Trailing comma
-    with pytest.raises(QueryException):
+    with pytest.raises(QueryParseException):
         d_str = "{'test':1,}"
         d = QDict.parse(d_str, ns)
-=======
-        assert False
-    except QueryParseException:
-        pass
-    try: # Char following key string is not a :
-        d_str = "{'test'p 1}"
-        d = QDict.parse(d_str, ns)
-        assert False
-    except QueryParseException:
-        pass
-    try: # Value is not a valid token
-        d_str = "{'test': #}"
-        d = QDict.parse(d_str, ns)
-        assert False
-    except QueryParseException:
-        pass
-    try: # Semicolon without key
-        d_str = "{:}"
-        d = QDict.parse(d_str, ns)
-        assert False
-    except QueryParseException:
-        pass
-    try: # Trailing comma
-        d_str = "{'test':1,}"
-        d = QDict.parse(d_str, ns)
-        assert False
-    except QueryParseException:
-        pass
->>>>>>> Fixed bad function parsing, added query_bucket_period timeparse error test, improved error handling in test_query2
 
 
 def test_list():
@@ -124,37 +93,19 @@ def test_list():
     assert expected_res == l.interpret(ds, ns)
 
     # Comma without pre/post value
-    with pytest.raises(QueryException):
+    with pytest.raises(QueryParseException):
         l_str = "[,]"
         l = QList.parse(l_str, ns)
-<<<<<<< HEAD
 
     # Comma without post value
-    with pytest.raises(QueryException):
+    with pytest.raises(QueryParseException):
         l_str = "[1,]"
         l = QList.parse(l_str, ns)
 
     # Comma without pre value
-    with pytest.raises(QueryException):
+    with pytest.raises(QueryParseException):
         l_str = "[,2]"
         l = QList.parse(l_str, ns)
-=======
-        assert False
-    except QueryParseException:
-        pass
-    try: # Comma without post value
-        l_str = "[1,]"
-        l = QList.parse(l_str, ns)
-        assert False
-    except QueryParseException:
-        pass
-    try: # Comma without pre value
-        l_str = "[,2]"
-        l = QList.parse(l_str, ns)
-        assert False
-    except QueryParseException:
-        pass
->>>>>>> Fixed bad function parsing, added query_bucket_period timeparse error test, improved error handling in test_query2
 
 
 def test_query2_bogus_query():
@@ -163,83 +114,35 @@ def test_query2_bogus_query():
     qenddate = qstartdate
 
     # Nothing to assign
-    with pytest.raises(QueryException):
+    with pytest.raises(QueryParseException):
         example_query = "a="
-<<<<<<< HEAD
         query(qname, example_query, qstartdate, qenddate, None)
 
     # Assign to non-variable
-    with pytest.raises(QueryException):
+    with pytest.raises(QueryParseException):
         example_query = "1=2"
         query(qname, example_query, qstartdate, qenddate, None)
 
     # Unclosed function
-    with pytest.raises(QueryException):
+    with pytest.raises(QueryParseException):
         example_query = "a=unclosed_function(var1"
         query(qname, example_query, qstartdate, qenddate, None)
 
-    # Call a function which doesn't exist
-    with pytest.raises(QueryException):
-        example_query = "a=non_existing_function() "
-        query(qname, example_query, qstartdate, qenddate, None)
-
     # Two tokens in assignment
-    with pytest.raises(QueryException):
+    with pytest.raises(QueryParseException):
         example_query = "asd nop()=2"
         query(qname, example_query, qstartdate, qenddate, None)
 
     # Unclosed string
-    with pytest.raises(QueryException):
+    with pytest.raises(QueryParseException):
         example_query = 'asd="something is wrong with me'
         query(qname, example_query, qstartdate, qenddate, None)
 
     # Two tokens in value
-    with pytest.raises(QueryException):
+    with pytest.raises(QueryParseException):
         example_query = "asd=asd1 asd2"
         query(qname, example_query, qstartdate, qenddate, None)
 
-=======
-        result = query(qname, example_query, qstartdate, qenddate, None)
-        assert(False)
-    except QueryParseException:
-        pass
-    try: # Assign to non-variable
-        example_query = "1=2"
-        result = query(qname, example_query, qstartdate, qenddate, None)
-        assert(False)
-    except QueryParseException:
-        pass
-    try: # Unclosed function
-        example_query = "a=unclosed_function(var1"
-        result = query(qname, example_query, qstartdate, qenddate, None)
-        assert(False)
-    except QueryParseException:
-        pass
-    try: # Call a function which doesn't exist
-        example_query = "a=non_existing_function() "
-        result = query(qname, example_query, qstartdate, qenddate, None)
-        assert(False)
-    except QueryInterpretException:
-        pass
-    try: # Two tokens in assignment
-        example_query = "asd nop()=2"
-        result = query(qname, example_query, qstartdate, qenddate, None)
-        assert(False)
-    except QueryParseException:
-        pass
-    try: # Unvlosed string
-        example_query = 'asd="something is wrong with me'
-        result = query(qname, example_query, qstartdate, qenddate, None)
-        assert(False)
-    except QueryParseException:
-        pass
-    try: # Two tokens in value
-        example_query = "asd=asd1 asd2"
-        result = query(qname, example_query, qstartdate, qenddate, None)
-        assert(False)
-    except QueryParseException:
-        pass
->>>>>>> Fixed bad function parsing, added query_bucket_period timeparse error test, improved error handling in test_query2
 
 def test_query2_query_function_calling():
     qname = "asd"
@@ -247,28 +150,15 @@ def test_query2_query_function_calling():
     endtime = iso8601.parse_date("1970-01-02")
 
     # Function which doesn't exist
-    with pytest.raises(QueryException):
+    with pytest.raises(QueryInterpretException):
         example_query = "RETURN=asd();"
-<<<<<<< HEAD
         query(qname, example_query, starttime, endtime, None)
 
     # Function which does exist with invalid arguments
-    with pytest.raises(QueryException):
+    with pytest.raises(QueryInterpretException):
         example_query = "RETURN=nop(badarg);"
         query(qname, example_query, starttime, endtime, None)
 
-=======
-        result = query(qname, example_query, starttime, endtime, None)
-        assert False
-    except QueryInterpretException as e:
-        print(e)
-    try: # Function which does exist with invalid arguments
-        example_query = "RETURN=nop(badarg);"
-        result = query(qname, example_query, starttime, endtime, None)
-        assert False
-    except QueryInterpretException as e:
-        print(e)
->>>>>>> Fixed bad function parsing, added query_bucket_period timeparse error test, improved error handling in test_query2
     # Function which does exist with valid arguments
     example_query = "RETURN=nop();"
     query(qname, example_query, starttime, endtime, None)
@@ -290,12 +180,10 @@ def test_query2_return_value():
     result = query(qname, example_query, starttime, endtime, None)
     assert(result == {'a': 1})
 
-    try:  # Nothing to return
+    # Nothing to return
+    with pytest.raises(QueryParseException):
         example_query = "a=1"
         result = query(qname, example_query, starttime, endtime, None)
-        assert False
-    except QueryParseException:
-        pass
 
 
 def test_query2_multiline():
@@ -310,20 +198,6 @@ RETURN=my_multiline_string;
     result = query(qname, example_query, starttime, endtime, None)
     assert result == "a\nb"
 
-
-@pytest.mark.parametrize("datastore", param_datastore_objects())
-def test_query2_query_bucket(datastore):
-    qname = "asd"
-    starttime=iso8601.parse_date("1970-01-01")
-    endtime=iso8601.parse_date("1970-01-02")
-    bid = 'a'
-    try:
-        bucket = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name="asd")
-        example_query = "RETURN=query_bucket_period('{}', 'poop', 'p')".format(bid)
-        with pytest.raises(QueryFunctionException):
-            result = query(qname, example_query, starttime, endtime, datastore)
-    finally:
-        datastore.delete_bucket(bid)
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query2_query_functions(datastore):
