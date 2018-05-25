@@ -171,10 +171,12 @@ class SqliteStorage(AbstractStorage):
 
     def get_events(self, bucket_id: str, limit: int,
                    starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
+        if limit == 0:
+            return []
+        elif limit < 0:
+            limit = -1
         self.commit()
         c = self.conn.cursor()
-        if limit <= 0:
-            limit = -1
         starttime_i = starttime.timestamp()*1000000 if starttime else 0
         endtime_i = endtime.timestamp()*1000000 if endtime else MAX_TIMESTAMP
         query = "SELECT id, starttime, endtime, datastr " + \
