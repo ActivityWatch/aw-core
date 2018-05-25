@@ -12,6 +12,9 @@ build:
 test:
 	python3 -m pytest tests -v --cov=aw_core --cov=aw_datastore --cov=aw_transform --cov=aw_analysis
 
+coverage_html: test
+	python3 -m coverage html -d coverage_html
+
 benchmark:
 	python3 -m aw_datastore.benchmark
 
