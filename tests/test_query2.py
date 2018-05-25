@@ -120,27 +120,27 @@ def test_query2_bogus_query():
 
     # Assign to non-variable
     with pytest.raises(QueryParseException):
-        example_query = "1=2"
+        example_query = "1 = 2"
         query(qname, example_query, qstartdate, qenddate, None)
 
     # Unclosed function
     with pytest.raises(QueryParseException):
-        example_query = "a=unclosed_function(var1"
+        example_query = "a = unclosed_function(var1"
         query(qname, example_query, qstartdate, qenddate, None)
 
     # Two tokens in assignment
     with pytest.raises(QueryParseException):
-        example_query = "asd nop()=2"
+        example_query = "asd nop() = 2"
         query(qname, example_query, qstartdate, qenddate, None)
 
     # Unclosed string
     with pytest.raises(QueryParseException):
-        example_query = 'asd="something is wrong with me'
+        example_query = 'asd = "something is wrong with me'
         query(qname, example_query, qstartdate, qenddate, None)
 
     # Two tokens in value
     with pytest.raises(QueryParseException):
-        example_query = "asd=asd1 asd2"
+        example_query = "asd = asd1 asd2"
         query(qname, example_query, qstartdate, qenddate, None)
 
 
@@ -151,16 +151,16 @@ def test_query2_query_function_calling():
 
     # Function which doesn't exist
     with pytest.raises(QueryInterpretException):
-        example_query = "RETURN=asd();"
+        example_query = "RETURN = asd();"
         query(qname, example_query, starttime, endtime, None)
 
     # Function which does exist with invalid arguments
     with pytest.raises(QueryInterpretException):
-        example_query = "RETURN=nop(badarg);"
+        example_query = "RETURN = nop(badarg);"
         query(qname, example_query, starttime, endtime, None)
 
     # Function which does exist with valid arguments
-    example_query = "RETURN=nop();"
+    example_query = "RETURN = nop();"
     query(qname, example_query, starttime, endtime, None)
 
 
@@ -168,15 +168,15 @@ def test_query2_return_value():
     qname = "asd"
     starttime = iso8601.parse_date("1970-01-01")
     endtime = iso8601.parse_date("1970-01-02")
-    example_query = "RETURN=1;"
+    example_query = "RETURN = 1;"
     result = query(qname, example_query, starttime, endtime, None)
     assert(result == 1)
 
-    example_query = "RETURN='testing 123'"
+    example_query = "RETURN = 'testing 123'"
     result = query(qname, example_query, starttime, endtime, None)
     assert(result == "testing 123")
 
-    example_query = "RETURN={'a': 1}"
+    example_query = "RETURN = {'a': 1}"
     result = query(qname, example_query, starttime, endtime, None)
     assert(result == {'a': 1})
 
@@ -191,9 +191,9 @@ def test_query2_multiline():
     starttime = iso8601.parse_date("1970-01-01")
     endtime = iso8601.parse_date("1970-01-02")
     example_query = """
-my_multiline_string="a
+my_multiline_string = "a
 b";
-RETURN=my_multiline_string;
+RETURN = my_multiline_string;
     """
     result = query(qname, example_query, starttime, endtime, None)
     assert result == "a\nb"
@@ -213,19 +213,19 @@ def test_query2_query_functions(datastore):
 
     example_query = """
     bid = "{bid}";
-    events=query_bucket(bid);
-    events2=query_bucket(bid);
-    events2=filter_keyvals(events2, "label", ["test1"]);
-    events2=exclude_keyvals(events2, "label", ["test2"]);
-    events=filter_period_intersect(events, events2);
-    events=limit_events(events, 1);
-    events=merge_events_by_keys(events, ["label"]);
-    events=split_url_events(events);
-    events=sort_by_timestamp(events);
-    events=sort_by_duration(events);
-    eventcount=query_bucket_eventcount(bid);
-    asd=nop();
-    RETURN={{"events": events, "eventcount": eventcount}};
+    events = query_bucket(bid);
+    events2 = query_bucket(bid);
+    events2 = filter_keyvals(events2, "label", ["test1"]);
+    events2 = exclude_keyvals(events2, "label", ["test2"]);
+    events = filter_period_intersect(events, events2);
+    events = limit_events(events, 1);
+    events = merge_events_by_keys(events, ["label"]);
+    events = split_url_events(events);
+    events = sort_by_timestamp(events);
+    events = sort_by_duration(events);
+    eventcount = query_bucket_eventcount(bid);
+    asd = nop();
+    RETURN = {{"events": events, "eventcount": eventcount}};
     """.format(bid=bid)
     try:
         bucket = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name="asd")
@@ -295,12 +295,12 @@ def test_query2_test_merged_keys(datastore):
     endtime = starttime + timedelta(hours=1)
 
     example_query = """
-    bid1="{bid}";
-    events=query_bucket(bid1);
-    events=merge_events_by_keys(events, ["label1", "label2"]);
-    events=sort_by_duration(events);
-    eventcount=query_bucket_eventcount(bid1);
-    RETURN={{"events": events, "eventcount": eventcount}};
+    bid1 = "{bid}";
+    events = query_bucket(bid1);
+    events = merge_events_by_keys(events, ["label1", "label2"]);
+    events = sort_by_duration(events);
+    eventcount = query_bucket_eventcount(bid1);
+    RETURN = {{"events": events, "eventcount": eventcount}};
     """.format(bid=bid)
     try:
         # Setup buckets
