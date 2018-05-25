@@ -198,6 +198,8 @@ class PeeweeStorage(AbstractStorage):
 
     def get_events(self, bucket_id: str, limit: int,
                    starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
+        if limit == 0:
+            return []
         q = EventModel.select() \
                       .where(EventModel.bucket == self.bucket_keys[bucket_id]) \
                       .order_by(EventModel.timestamp.desc()) \

@@ -4,7 +4,7 @@ from typing import Callable, Dict, Any, List
 from aw_core.models import Event
 from aw_datastore import Datastore
 
-from aw_transform import filter_period_intersect, filter_keyvals, filter_keyvals_regex, merge_events_by_keys, sort_by_timestamp, sort_by_duration, limit_events, split_url_events, simplify_string
+from aw_transform import filter_period_intersect, filter_keyvals, filter_keyvals_regex, merge_events_by_keys, sort_by_timestamp, sort_by_duration, split_url_events, simplify_string
 
 from .query2_error import QueryFunctionException
 
@@ -70,8 +70,11 @@ def q2_find_bucket(datastore: Datastore, namespace: TNamespace, filter_str: str,
 def q2_query_bucket(datastore: Datastore, namespace: TNamespace, bucketname: str) -> List[Event]:
     _verify_variable_is_type(bucketname, str)
     _verify_bucket_exists(datastore, bucketname)
-    starttime = iso8601.parse_date(namespace["STARTTIME"])
-    endtime = iso8601.parse_date(namespace["ENDTIME"])
+    try:
+        starttime = iso8601.parse_date(namespace["STARTTIME"])
+        endtime = iso8601.parse_date(namespace["ENDTIME"])
+    except iso8601.ParseError:
+        raise QueryFunctionException("Unable to parse starttime/endtime for query_bucket")
     return datastore[bucketname].get(starttime=starttime, endtime=endtime)
 
 
@@ -90,17 +93,19 @@ def q2_query_bucket_eventcount(datastore: Datastore, namespace: TNamespace, buck
 
 
 @q2_function
-def q2_filter_keyvals(datastore: Datastore, namespace: TNamespace, events: list, key: str, *vals) -> List[Event]:
+def q2_filter_keyvals(datastore: Datastore, namespace: TNamespace, events: list, key: str, vals: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(key, str)
-    return filter_keyvals(events, key, list(vals), False)
+    _verify_variable_is_type(vals, list)
+    return filter_keyvals(events, key, vals, False)
 
 
 @q2_function
-def q2_exclude_keyvals(datastore: Datastore, namespace: TNamespace, events: list, key: str, *vals) -> List[Event]:
+def q2_exclude_keyvals(datastore: Datastore, namespace: dict, events: list, key: str, vals: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(key, str)
-    return filter_keyvals(events, key, list(vals), True)
+    _verify_variable_is_type(vals, list)
+    return filter_keyvals(events, key, vals, True)
 
 
 @q2_function
@@ -121,7 +126,7 @@ def q2_filter_period_intersect(datastore: Datastore, namespace: TNamespace, even
 def q2_limit_events(datastore: Datastore, namespace: TNamespace, events: list, count: int) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(count, int)
-    return limit_events(events, count)
+    return events[:count]
 
 
 """
@@ -130,8 +135,9 @@ def q2_limit_events(datastore: Datastore, namespace: TNamespace, events: list, c
 
 
 @q2_function
-def q2_merge_events_by_keys(datastore: Datastore, namespace: TNamespace, events: list, *keys) -> List[Event]:
+def q2_merge_events_by_keys(datastore: Datastore, namespace: dict, events: list, keys: list) -> List[Event]:
     _verify_variable_is_type(events, list)
+    _verify_variable_is_type(keys, list)
     return merge_events_by_keys(events, keys)
 
 
