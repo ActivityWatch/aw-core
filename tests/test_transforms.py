@@ -101,16 +101,47 @@ def test_sort_by_duration():
     assert events_sorted == events[::-1]
 
 
-def test_merge_events_by_keys():
+def test_merge_events_by_keys_1():
     now = datetime.now(timezone.utc)
     events = []
-    e1 = Event(data={"label": "a"}, timestamp=now, duration=timedelta(seconds=1))
-    e2 = Event(data={"label": "b"}, timestamp=now, duration=timedelta(seconds=1))
-    events = events + [e1] * 10
-    events = events + [e2] * 10
+    e1_data = {"label": "a"}
+    e2_data = {"label": "b"}
+    e1 = Event(data=e1_data, timestamp=now, duration=timedelta(seconds=1))
+    e2 = Event(data=e2_data, timestamp=now, duration=timedelta(seconds=1))
+    events = events + [e1]*10
+    events = events + [e2]*5
     result = merge_events_by_keys(events, ["label"])
+    result = sort_by_duration(result)
+    print(result)
+    print(len(result))
     assert len(result) == 2
     assert result[0].duration == timedelta(seconds=10)
+    assert result[1].duration == timedelta(seconds=5)
+
+
+def test_merge_events_by_keys_2():
+    now = datetime.now(timezone.utc)
+    events = []
+    e1_data = {"k1": "a", "k2": "a"}
+    e2_data = {"k1": "a", "k2": "c"}
+    e3_data = {"k1": "b", "k2": "a"}
+    e1 = Event(data=e1_data, timestamp=now, duration=timedelta(seconds=1))
+    e2 = Event(data=e2_data, timestamp=now, duration=timedelta(seconds=1))
+    e3 = Event(data=e3_data, timestamp=now, duration=timedelta(seconds=1))
+    events = events + [e1]*10
+    events = events + [e2]*9
+    events = events + [e3]*8
+    result = merge_events_by_keys(events, ["k1", "k2"])
+    result = sort_by_duration(result)
+    print(result)
+    print(len(result))
+    assert len(result) == 3
+    assert result[0].data == e1_data
+    assert result[0].duration == timedelta(seconds=10)
+    assert result[1].data == e2_data
+    assert result[1].duration == timedelta(seconds=9)
+    assert result[2].data == e3_data
+    assert result[2].duration == timedelta(seconds=8)
 
 
 def test_url_parse_event():
