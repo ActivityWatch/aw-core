@@ -4,7 +4,7 @@ from typing import Callable, Dict, Any, List
 from aw_core.models import Event
 from aw_datastore import Datastore
 
-from aw_transform import filter_period_intersect, filter_keyvals, filter_keyvals_regex, merge_events_by_keys, sort_by_timestamp, sort_by_duration, limit_events, split_url_events, simplify_string
+from aw_transform import filter_period_intersect, filter_keyvals, filter_keyvals_regex, merge_events_by_keys, sort_by_timestamp, sort_by_duration, split_url_events, simplify_string
 
 from .query2_error import QueryFunctionException
 
@@ -74,17 +74,7 @@ def q2_query_bucket(datastore: Datastore, namespace: TNamespace, bucketname: str
         starttime = iso8601.parse_date(namespace["STARTTIME"])
         endtime = iso8601.parse_date(namespace["ENDTIME"])
     except iso8601.ParseError:
-        raise QueryFunctionException("Unable to parse starttime/endtime to query_bucket_date")
-    return datastore[bucketname].get(starttime=starttime, endtime=endtime)
-
-def q2_query_bucket_period(datastore: Datastore, namespace: dict, bucketname: str, starttime_str: str, endtime_str: str):
-    # Uses hardcoded timeperiods instead of the STARTTIME/ENDTIME variables
-    _verify_bucket_exists(datastore, bucketname)
-    try:
-        starttime = iso8601.parse_date(starttime_str)
-        endtime = iso8601.parse_date(endtime_str)
-    except iso8601.ParseError:
-        raise QueryFunctionException("Unable to parse starttime/endtime to query_bucket_date")
+        raise QueryFunctionException("Unable to parse starttime/endtime for query_bucket")
     return datastore[bucketname].get(starttime=starttime, endtime=endtime)
 
 

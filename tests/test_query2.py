@@ -59,6 +59,12 @@ def test_dict():
     with pytest.raises(QueryParseException):
         d_str = "{b: 1}"
         d = QDict.parse(d_str, ns)
+
+    # Key in dict without a value
+    with pytest.raises(QueryParseException):
+        d_str = "{'test': }"
+        d = QDict.parse(d_str, ns)
+
     # Char following key string is not a :
     with pytest.raises(QueryParseException):
         d_str = "{'test'p 1}"
@@ -199,6 +205,37 @@ RETURN = my_multiline_string;
     assert result == "a\nb"
 
 
+def test_query2_function_invalid_argument_count():
+    qname = "asd"
+    starttime = iso8601.parse_date("1970-01-01")
+    endtime = iso8601.parse_date("1970-01-02")
+    example_query = "RETURN=nop(nop())"
+    with pytest.raises(QueryInterpretException):
+        result = query(qname, example_query, starttime, endtime, None)
+
+
+@pytest.mark.parametrize("datastore", param_datastore_objects())
+def test_query2_function_in_function(datastore):
+    qname = "asd"
+    bid = "test_bucket"
+    starttime = iso8601.parse_date("1970-01-01")
+    endtime = iso8601.parse_date("1970-01-02")
+    example_query = """
+    RETURN=limit_events(query_bucket("{bid}"), 1);
+    """.format(bid=bid)
+    try:
+        # Setup buckets
+        bucket1 = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name="test")
+        # Prepare buckets
+        e1 = Event(data={}, timestamp=starttime, duration=timedelta(seconds=1))
+        e2 = Event(data={}, timestamp=starttime+timedelta(seconds=1), duration=timedelta(seconds=1))
+        bucket1.insert(e1)
+        result = query(qname, example_query, starttime, endtime, datastore)
+        assert 1 == len(result)
+    finally:
+        datastore.delete_bucket(bid)
+
+
 @pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query2_query_functions(datastore):
     """
@@ -218,6 +255,7 @@ def test_query2_query_functions(datastore):
     events2 = filter_keyvals(events2, "label", ["test1"]);
     events2 = exclude_keyvals(events2, "label", ["test2"]);
     events = filter_period_intersect(events, events2);
+    events = filter_keyvals_regex(events, "label", ".*");
     events = limit_events(events, 1);
     events = merge_events_by_keys(events, ["label"]);
     events = split_url_events(events);

@@ -219,7 +219,7 @@ class QDict(QToken):
             # parse val
             (val_t, val_str), entries_str = _parse_token(entries_str, namespace)
             if not val_t:
-                raise QueryException("Dict expected a value, got nothing")
+                raise QueryParseException("Dict expected a value, got nothing")
             val = val_t.parse(val_str, namespace)
             # set
             d[key] = val
