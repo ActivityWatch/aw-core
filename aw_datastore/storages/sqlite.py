@@ -63,7 +63,6 @@ class SqliteStorage(AbstractStorage):
         self.conn.execute(CREATE_BUCKETS_TABLE)
         self.conn.execute(CREATE_EVENTS_TABLE)
         self.conn.execute(INDEX_EVENTS_TABLE)
-        self.conn.execute("PRAGMA journal_mode = WAL;");
         self.commit()
 
         if new_db_file:
