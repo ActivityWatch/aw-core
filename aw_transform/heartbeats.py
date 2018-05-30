@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 def heartbeat_reduce(events: List[Event], pulsetime: float) -> List[Event]:
     """Merges consecutive events together according to the rules of `heartbeat_merge`."""
     reduced = []
-    if len(events) > 0:
+    if events:
         reduced.append(events.pop(0))
     for heartbeat in events:
         merged = heartbeat_merge(reduced[-1], heartbeat, pulsetime)
@@ -27,12 +27,24 @@ def heartbeat_merge(last_event: Event, heartbeat: Event, pulsetime: float) -> Op
     """
     Merges two events if they have identical labels and are
     separated by a time smaller than :code:`pulsetime` seconds.
+
+    Heartbeats can be close enough to be merged in two ways:
+     - Ends are close :code:`(e2.timestamp - (e1.timestamp + e2.duration)) < pulsetime`
+       - The heatbeat is then considered to be within the pulsetime window.
+     - They share a start (e1.timestamp == e2.timestamp)
+       - We then assume we want to update the duration regardless of gap.
     """
     if last_event.data == heartbeat.data:
+        # Seconds between end of last_event and start of heartbeat
         gap = heartbeat.timestamp - (last_event.timestamp + last_event.duration)
+        within_pulsetime_window = gap <= timedelta(seconds=pulsetime)
 
-        if gap <= timedelta(seconds=pulsetime):
-            # Heartbeat was within pulsetime window, set duration of last event appropriately
+        same_start = heartbeat.timestamp == last_event.timestamp
+
+        # First condition checks if within pulsetime window
+        # Second condition checks if the new event is just an updated version of the last one
+        if within_pulsetime_window or same_start:
+            # Seconds between end of last_event and start of timestamp
             new_duration = (heartbeat.timestamp - last_event.timestamp) + heartbeat.duration
             if last_event.duration < timedelta(0):
                 logger.warning("Merging heartbeats would result in a negative duration, refusing to merge.")
