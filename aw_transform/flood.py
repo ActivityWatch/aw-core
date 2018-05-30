@@ -8,7 +8,7 @@ from aw_core.models import Event
 logger = logging.getLogger(__name__)
 
 
-def flood(events: List[Event], pulsetime: float=5):
+def flood(events: List[Event], pulsetime: float=5) -> List[Event]:
     """
     See details on flooding here:
      - https://github.com/ActivityWatch/activitywatch/issues/124
@@ -18,13 +18,15 @@ def flood(events: List[Event], pulsetime: float=5):
     events = deepcopy(events)
     events = sorted(events, key=lambda e: e.timestamp)
 
+    warned_about_negative_gap = False
+
     for e1, e2 in zip(events[:-1], events[1:]):
         gap = e2.timestamp - (e1.timestamp + e1.duration)
 
         # Sanity check
-        if gap < timedelta(0):
-            logger.warning("Gap was of negative duration ({}s), this might cause issues".format(gap.total_seconds()))
-            logger.warning(str(e1))
+        if gap < timedelta(0) and not warned_about_negative_gap:
+            logger.warning("Gap was of negative duration ({}s), this might cause issues. This error message will not show again for this batch of events. Events: {} {}".format(gap.total_seconds(), e1, e2))
+            warned_about_negative_gap = True
 
         if gap <= timedelta(seconds=pulsetime):
             e2_end = e2.timestamp + e2.duration
