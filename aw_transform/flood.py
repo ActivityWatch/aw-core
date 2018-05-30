@@ -16,27 +16,22 @@ def flood(events, pulsetime=5, trixy=False):
     events = sorted(events, key=lambda e: e.timestamp)
 
     for e1, e2 in zip(events[:-1], events[1:]):
-        if e1.data["app"] == e2.data["app"]:
-            gap = e2.timestamp - (e1.timestamp + e1.duration)
+        gap = e2.timestamp - (e1.timestamp + e1.duration)
 
-            # Sanity check
-            if gap < timedelta(0):
-                logger.warning("Gap was of negative duration ({}s), this might cause issues".format(gap.total_seconds()))
-                logger.warning(e1)
+        # Sanity check
+        if gap < timedelta(0):
+            logger.warning("Gap was of negative duration ({}s), this might cause issues".format(gap.total_seconds()))
+            logger.warning(e1)
 
-            if gap <= timedelta(seconds=pulsetime):
-                if trixy:
-                    # NOTE: I'm not sure if this "trixy" thing is a good idea.
-                    #       At the very least it seems to have some problems right now.
-                    if e1.duration >= e2.duration:
-                        # Extend e1 forwards until e2
-                        e1.duration = e2.timestamp - e1.timestamp
-                    else:
-                        # Extend e2 backwards until e1
-                        e2_end = e2.timestamp + e2.duration
-                        e2.timestamp = e1.timestamp
-                        e2.duration = e2_end - e2.timestamp
-                else:
-                    e1.duration = e2.timestamp - e1.timestamp
+        if gap <= timedelta(seconds=pulsetime):
+            # Prioritize flooding from the longer event
+            if e1.duration >= e2.duration:
+                # Extend e1 forwards to start of e2
+                e1.duration = e2.timestamp - e1.timestamp
+            else:
+                # Extend e2 backwards to end of e1
+                e2_end = e2.timestamp + e2.duration
+                e2.timestamp = e1.timestamp + e1.duration
+                e2.duration = e2_end - e2.timestamp
 
     return events
