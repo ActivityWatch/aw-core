@@ -25,7 +25,9 @@ def flood(events: List[Event], pulsetime: float=5) -> List[Event]:
 
         # Sanity check
         if gap < timedelta(0) and not warned_about_negative_gap:
-            logger.warning("Gap was of negative duration ({}s), this might cause issues. This error message will not show again for this batch of events. Events: {} {}".format(gap.total_seconds(), e1, e2))
+            logger.warning("Gap was of negative duration ({}s). This error will only show once per batch.".format(gap.total_seconds()))
+            # logger.warning("Event 1 (id {}): {} {}".format(e1.id, e1.timestamp, e1.duration))
+            # logger.warning("Event 2 (id {}): {} {}".format(e2.id, e2.timestamp, e2.duration))
             warned_about_negative_gap = True
 
         if gap <= timedelta(seconds=pulsetime):
