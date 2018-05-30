@@ -34,6 +34,9 @@ def heartbeat_merge(last_event: Event, heartbeat: Event, pulsetime: float) -> Op
         if gap <= timedelta(seconds=pulsetime):
             # Heartbeat was within pulsetime window, set duration of last event appropriately
             last_event.duration = (heartbeat.timestamp - last_event.timestamp) + heartbeat.duration
+            if last_event.duration < timedelta(0):
+                logger.warning("Heartbeat got a negative duration, forcing to zero.")
+                last_event.duration = timedelta(0)
             return last_event
 
     return None
