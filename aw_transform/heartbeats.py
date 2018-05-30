@@ -25,20 +25,15 @@ def heartbeat_reduce(events: List[Event], pulsetime: float) -> List[Event]:
 
 def heartbeat_merge(last_event: Event, heartbeat: Event, pulsetime: float) -> Optional[Event]:
     """
-    Merges two events if they have identical data and are either:
-     - Separated by a time smaller than :code:`pulsetime` seconds.
-     - Sharing the same starting timestamp.
+    Merges two events if they have identical data
+    and the heartbeat timestamp is within the pulsetime window.
     """
     if last_event.data == heartbeat.data:
         # Seconds between end of last_event and start of heartbeat
-        gap = heartbeat.timestamp - (last_event.timestamp + last_event.duration)
-        within_pulsetime_window = gap <= timedelta(seconds=pulsetime)
+        pulseperiod_end = last_event.timestamp + last_event.duration + timedelta(seconds=pulsetime)
+        within_pulsetime_window = last_event.timestamp <= heartbeat.timestamp <= pulseperiod_end
 
-        same_start = heartbeat.timestamp == last_event.timestamp
-
-        # First condition checks if within pulsetime window
-        # Second condition checks if the new event is just an updated version of the last one
-        if within_pulsetime_window or same_start:
+        if within_pulsetime_window:
             # Seconds between end of last_event and start of timestamp
             new_duration = (heartbeat.timestamp - last_event.timestamp) + heartbeat.duration
             if last_event.duration < timedelta(0):
