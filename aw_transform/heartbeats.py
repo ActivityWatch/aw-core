@@ -25,14 +25,9 @@ def heartbeat_reduce(events: List[Event], pulsetime: float) -> List[Event]:
 
 def heartbeat_merge(last_event: Event, heartbeat: Event, pulsetime: float) -> Optional[Event]:
     """
-    Merges two events if they have identical labels and are
-    separated by a time smaller than :code:`pulsetime` seconds.
-
-    Heartbeats can be close enough to be merged in two ways:
-     - Ends are close :code:`(e2.timestamp - (e1.timestamp + e2.duration)) < pulsetime`
-       - The heatbeat is then considered to be within the pulsetime window.
-     - They share a start (e1.timestamp == e2.timestamp)
-       - We then assume we want to update the duration regardless of gap.
+    Merges two events if they have identical data and are either:
+     - Separated by a time smaller than :code:`pulsetime` seconds.
+     - Sharing the same starting timestamp.
     """
     if last_event.data == heartbeat.data:
         # Seconds between end of last_event and start of heartbeat
