@@ -1,10 +1,22 @@
 import iso8601
 from typing import Callable, Dict, Any, List
+from inspect import signature
+from functools import wraps
 
 from aw_core.models import Event
 from aw_datastore import Datastore
 
-from aw_transform import filter_period_intersect, filter_keyvals, filter_keyvals_regex, merge_events_by_keys, sort_by_timestamp, sort_by_duration, split_url_events, simplify_string
+from aw_transform import (
+    filter_period_intersect,
+    filter_keyvals,
+    filter_keyvals_regex,
+    merge_events_by_keys,
+    sort_by_timestamp,
+    sort_by_duration,
+    split_url_events,
+    simplify_string,
+    flood
+)
 
 from .query2_error import QueryFunctionException
 
@@ -34,21 +46,37 @@ query2_functions = {}  # type: Dict[str, TQueryFunction]
 
 
 def q2_function(f):
-    """Decorator used to register query functions"""
+    """
+    Decorator used to register query functions.
+
+    Automatically adds mock arguments for Datastore and TNamespace
+    if not in function signature.
+    """
+    sig = signature(f)
+
+    @wraps(f)
+    def g(datastore: Datastore, namespace: TNamespace, *args, **kwargs):
+        args = (datastore, namespace, *args)
+        if TNamespace not in (sig.parameters[p].annotation for p in sig.parameters):
+            args = (args[0], *args[2:])
+        if Datastore not in (sig.parameters[p].annotation for p in sig.parameters):
+            args = (args[1:])
+        return f(*args, **kwargs)
+
     fname = f.__name__
     if fname[:3] == "q2_":
         fname = fname[3:]
-    query2_functions[fname] = f
-    return f
+    query2_functions[fname] = g
+    return g
 
 
 """
-Getting buckets
+    Getting buckets
 """
 
 
 @q2_function
-def q2_find_bucket(datastore: Datastore, namespace: TNamespace, filter_str: str, hostname: str = None):
+def q2_find_bucket(datastore: Datastore, filter_str: str, hostname: str = None):
     """Find bucket by using a filter_str (to avoid hardcoding bucket names)"""
     for bucket in datastore.buckets():
         if filter_str in bucket:
@@ -93,7 +121,7 @@ def q2_query_bucket_eventcount(datastore: Datastore, namespace: TNamespace, buck
 
 
 @q2_function
-def q2_filter_keyvals(datastore: Datastore, namespace: TNamespace, events: list, key: str, vals: list) -> List[Event]:
+def q2_filter_keyvals(events: list, key: str, vals: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(key, str)
     _verify_variable_is_type(vals, list)
@@ -101,7 +129,7 @@ def q2_filter_keyvals(datastore: Datastore, namespace: TNamespace, events: list,
 
 
 @q2_function
-def q2_exclude_keyvals(datastore: Datastore, namespace: dict, events: list, key: str, vals: list) -> List[Event]:
+def q2_exclude_keyvals(events: list, key: str, vals: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(key, str)
     _verify_variable_is_type(vals, list)
@@ -109,21 +137,21 @@ def q2_exclude_keyvals(datastore: Datastore, namespace: dict, events: list, key:
 
 
 @q2_function
-def q2_filter_keyvals_regex(datastore: Datastore, namespace: TNamespace, events: list, key: str, regex: str) -> List[Event]:
+def q2_filter_keyvals_regex(events: list, key: str, regex: str) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(key, str)
     return filter_keyvals_regex(events, key, regex)
 
 
 @q2_function
-def q2_filter_period_intersect(datastore: Datastore, namespace: TNamespace, events: list, filterevents: list) -> List[Event]:
+def q2_filter_period_intersect(events: list, filterevents: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(filterevents, list)
     return filter_period_intersect(events, filterevents)
 
 
 @q2_function
-def q2_limit_events(datastore: Datastore, namespace: TNamespace, events: list, count: int) -> List[Event]:
+def q2_limit_events(events: list, count: int) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(count, int)
     return events[:count]
@@ -135,7 +163,7 @@ def q2_limit_events(datastore: Datastore, namespace: TNamespace, events: list, c
 
 
 @q2_function
-def q2_merge_events_by_keys(datastore: Datastore, namespace: dict, events: list, keys: list) -> List[Event]:
+def q2_merge_events_by_keys(events: list, keys: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(keys, list)
     return merge_events_by_keys(events, keys)
@@ -147,15 +175,25 @@ def q2_merge_events_by_keys(datastore: Datastore, namespace: dict, events: list,
 
 
 @q2_function
-def q2_sort_by_timestamp(datastore: Datastore, namespace: TNamespace, events: list) -> List[Event]:
+def q2_sort_by_timestamp(events: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     return sort_by_timestamp(events)
 
 
 @q2_function
-def q2_sort_by_duration(datastore: Datastore, namespace: TNamespace, events: list) -> List[Event]:
+def q2_sort_by_duration(events: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     return sort_by_duration(events)
+
+
+"""
+    Flood functions
+"""
+
+
+@q2_function
+def q2_flood(events: list) -> List[Event]:
+    return flood(events)
 
 
 """
@@ -164,13 +202,13 @@ def q2_sort_by_duration(datastore: Datastore, namespace: TNamespace, events: lis
 
 
 @q2_function
-def q2_split_url_events(datastore: Datastore, namespace: TNamespace, events: list) -> List[Event]:
+def q2_split_url_events(events: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     return split_url_events(events)
 
 
 @q2_function
-def q2_simplify_window_titles(datastore: Datastore, namespace: TNamespace, events: list, key: str) -> List[Event]:
+def q2_simplify_window_titles(events: list, key: str) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(key, str)
     return simplify_string(events, key=key)
@@ -182,8 +220,6 @@ def q2_simplify_window_titles(datastore: Datastore, namespace: TNamespace, event
 
 
 @q2_function
-def q2_nop(datastore: Datastore, namespace: TNamespace):
-    """
-    No operation function for unittesting
-    """
+def q2_nop():
+    """No operation function for unittesting"""
     return 1
