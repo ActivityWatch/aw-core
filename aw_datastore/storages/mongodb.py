@@ -111,7 +111,7 @@ class MongoDBStorage(AbstractStorage):
         dict_event = event.copy()
         dict_event = self._transform_event(dict_event)
         returned = self.db[bucket]["events"].insert_one(dict_event)
-        event.id = returned.inserted_id
+        event.id = str(returned.inserted_id)
         return event
 
     def insert_many(self, bucket: str, events: List[Event]):
