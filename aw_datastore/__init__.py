@@ -14,8 +14,8 @@ def get_storage_methods() -> Dict[str, Callable[[Any], storages.AbstractStorage]
         MemoryStorage.sid: MemoryStorage,
     }  # type: Dict[str, Callable[[Any], storages.AbstractStorage]]
 
-    # MongoDB is not supported on Windows or macOS
-    if _platform.system() == "Linux":  # pragma: no branch
+    # MongoDB is not supported on Windows
+    if _platform.system() in ("Linux", "Darwin"):  # pragma: no branch
         try:
             import pymongo
             methods[MongoDBStorage.sid] = MongoDBStorage
