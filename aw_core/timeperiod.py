@@ -4,6 +4,7 @@ from typing import Optional, Union
 
 class TimePeriod:
     # Inspired by: http://www.codeproject.com/Articles/168662/Time-Period-Library-for-NET
+    # TODO: Move to its own package
     def __init__(self, start: datetime, end: datetime) -> None:
         self.start = start
         self.end = end
