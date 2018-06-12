@@ -33,8 +33,8 @@ class TimePeriodTest(unittest.TestCase):
         now = datetime.now()
         tp1 = TimePeriod(now, now + timedelta(hours=1))
         tp2 = TimePeriod(now - timedelta(hours=1), now)
-        assert tp1.intersection(tp2) == None
-        assert tp2.intersection(tp1) == None
+        assert tp1.intersection(tp2) is None
+        assert tp2.intersection(tp1) is None
 
     def test_contains(self):
         now = datetime.now()
@@ -45,7 +45,20 @@ class TimePeriodTest(unittest.TestCase):
 
     def test_overlaps(self):
         now = datetime.now()
+        # If periods are just "touching", they should not count as overlap
+        tp1 = TimePeriod(now - timedelta(hours=1), now)
+        tp2 = TimePeriod(now, now + timedelta(hours=1))
+        assert not tp1.overlaps(tp2)
+        assert not tp2.overlaps(tp1)
+
+        # If outer contains inner, or vice versa, they overlap
         tp1 = TimePeriod(now, now + timedelta(hours=1))
+        tp2 = TimePeriod(now - timedelta(hours=1), now + timedelta(hours=2))
+        assert tp1.overlaps(tp2)
+        assert tp2.overlaps(tp1)
+
+        # If start/end is contained in the other event, they overlap
+        tp1 = TimePeriod(now, now + timedelta(hours=2))
         tp2 = TimePeriod(now - timedelta(hours=1), now + timedelta(hours=1))
         assert tp1.overlaps(tp2)
         assert tp2.overlaps(tp1)
