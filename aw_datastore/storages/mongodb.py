@@ -45,9 +45,13 @@ class MongoDBStorage(AbstractStorage):
         }
         self.db[bucket_id]["metadata"].insert_one(metadata)
 
-    def delete_bucket(self, bucket_id: str) -> None:
-        self.db[bucket_id]["events"].drop()
-        self.db[bucket_id]["metadata"].drop()
+    def delete_bucket(self, bucket_id: str) -> bool:
+        print(self.db.collection_names())
+        if bucket_id + ".metadata" in self.db.collection_names():
+            self.db[bucket_id]["events"].drop()
+            self.db[bucket_id]["metadata"].drop()
+            return True
+        return False
 
     def buckets(self) -> Dict[str, dict]:
         bucketnames = set()
@@ -91,7 +95,7 @@ class MongoDBStorage(AbstractStorage):
         return events
 
     def get_eventcount(self, bucket_id: str,
-                   starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
+                       starttime: datetime = None, endtime: datetime = None) -> int:
         query_filter = {}  # type: Dict[str, dict]
         if starttime or endtime:
             query_filter["timestamp"] = {}
@@ -102,7 +106,7 @@ class MongoDBStorage(AbstractStorage):
         return self.db[bucket_id]["events"].find(query_filter).count()
 
     def _transform_event(self, event: dict) -> dict:
-        if "duration" in event:
+        if "duration" in event:  # pragma: no cover
             event["duration"] = event["duration"].total_seconds()
         return event
 

@@ -26,7 +26,7 @@ class AbstractStorage(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def delete_bucket(self, bucket_id: str) -> None:
+    def delete_bucket(self, bucket_id: str) -> bool:
         raise NotImplementedError
 
     @abstractmethod
@@ -35,11 +35,11 @@ class AbstractStorage(metaclass=ABCMeta):
 
     @abstractmethod
     def get_events(self, bucket_id: str, limit: int,
-                   starttime: Optional[datetime]=None, endtime: Optional[datetime]=None) -> List[Event]:
+                   starttime: datetime=None, endtime: datetime=None) -> List[Event]:
         raise NotImplementedError
 
     def get_eventcount(self, bucket_id: str,
-                   starttime: Optional[datetime]=None, endtime: Optional[datetime]=None) -> int:
+                   starttime: datetime=None, endtime: datetime=None) -> int:
         raise NotImplementedError
 
     @abstractmethod

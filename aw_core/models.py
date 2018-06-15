@@ -105,9 +105,9 @@ class Event(dict):
 
     @duration.setter
     def duration(self, duration: Duration) -> None:
-        if type(duration) == timedelta:
+        if isinstance(duration, timedelta):
             self["duration"] = duration
         elif isinstance(duration, numbers.Real):
             self["duration"] = timedelta(seconds=duration)  # type: ignore
         else:
-            logger.error("Couldn't parse duration of invalid type {}".format(type(duration)))
+            raise TypeError("Couldn't parse duration of invalid type {}".format(type(duration)))

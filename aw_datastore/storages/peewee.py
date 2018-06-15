@@ -86,7 +86,7 @@ def detect_db_version(data_dir: str, max_version: Optional[int] = None) -> Optio
     r = re.compile("v[0-9]+")
     re_matches = [r.search(filename) for filename in files]
     versions = [int(match.group(0)[1:]) for match in re_matches if match]
-    if max_version:
+    if max_version:  # pragma: no cover
         versions = [v for v in versions if v <= max_version]
     return max(versions) if versions else None
 
@@ -98,7 +98,7 @@ class PeeweeStorage(AbstractStorage):
         data_dir = get_data_dir("aw-server")
         current_db_version = detect_db_version(data_dir, max_version=LATEST_VERSION)
 
-        if current_db_version is not None and current_db_version < LATEST_VERSION:
+        if current_db_version is not None and current_db_version < LATEST_VERSION:  # pragma: no cover
             # DB file found but was of an older version
             logger.info("Latest version database file found was of an older version")
             logger.info("Creating database file for new version {}".format(LATEST_VERSION))
@@ -113,10 +113,8 @@ class PeeweeStorage(AbstractStorage):
         # db.connect()
 
         self.bucket_keys = {}
-        if not BucketModel.table_exists():
-            BucketModel.create_table()
-        if not EventModel.table_exists():
-            EventModel.create_table()
+        BucketModel.create_table(safe=True)
+        EventModel.create_table(safe=True)
         self.update_bucket_keys()
 
     def update_bucket_keys(self):
@@ -133,13 +131,18 @@ class PeeweeStorage(AbstractStorage):
                            hostname=hostname, created=created, name=name)
         self.update_bucket_keys()
 
-    def delete_bucket(self, bucket_id: str):
-        EventModel.delete().where(EventModel.bucket == self.bucket_keys[bucket_id]).execute()
-        BucketModel.delete().where(BucketModel.key == self.bucket_keys[bucket_id]).execute()
-        self.update_bucket_keys()
+    def delete_bucket(self, bucket_id: str) -> bool:
+        if bucket_id in self.bucket_keys:
+            EventModel.delete().where(EventModel.bucket == self.bucket_keys[bucket_id]).execute()
+            BucketModel.delete().where(BucketModel.key == self.bucket_keys[bucket_id]).execute()
+            self.update_bucket_keys()
+            return True
+        return False
 
     def get_metadata(self, bucket_id: str):
-        return BucketModel.get(BucketModel.key == self.bucket_keys[bucket_id]).json()
+        if bucket_id in self.bucket_keys:
+            return BucketModel.get(BucketModel.key == self.bucket_keys[bucket_id]).json()
+        return None
 
     def insert_one(self, bucket_id: str, event: Event) -> Event:
         e = EventModel.from_event(self.bucket_keys[bucket_id], event)
@@ -214,7 +217,7 @@ class PeeweeStorage(AbstractStorage):
         return [Event(**e) for e in list(map(EventModel.json, q.execute()))]
 
     def get_eventcount(self, bucket_id: str,
-                   starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
+                       starttime: datetime = None, endtime: datetime = None):
         q = EventModel.select() \
                       .where(EventModel.bucket == self.bucket_keys[bucket_id])
         if starttime:

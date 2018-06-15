@@ -64,7 +64,7 @@ def filter_period_intersect(events: List[Event], filterevents: List[Event]) -> L
             elif fp.end <= ep.start:
                 # Event started after filter event ended
                 f_i += 1
-            else:
+            else:  # pragma: no cover
                 logger.warning("Unclear if/how this could be reachable, skipping period")
                 e_i += 1
                 f_i += 1
