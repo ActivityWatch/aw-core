@@ -7,6 +7,7 @@ from aw_transform import (
     filter_keyvals,
     sort_by_timestamp,
     sort_by_duration,
+    sum_durations,
     merge_events_by_keys,
     chunk_events_by_key,
     split_url_events,
@@ -109,6 +110,15 @@ def test_sort_by_duration():
     events.append(Event(timestamp=now + timedelta(seconds=1), duration=timedelta(seconds=2)))
     events_sorted = sort_by_duration(events)
     assert events_sorted == events[::-1]
+
+
+def test_sum_durations():
+    now = datetime.now(timezone.utc)
+    events = []
+    for i in range(10):
+        events.append(Event(timestamp=now + timedelta(seconds=i), duration=timedelta(seconds=1)))
+    result = sum_durations(events)
+    assert result == timedelta(seconds=10)
 
 
 def test_merge_events_by_keys_1():

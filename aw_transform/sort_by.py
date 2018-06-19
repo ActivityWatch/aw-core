@@ -15,3 +15,9 @@ def sort_by_duration(events) -> List[Event]:
 
 def limit_events(events, count) -> List[Event]:
     return events[:count]
+
+def sum_durations(events) -> float:
+    s = timedelta()
+    for event in events:
+        s += event.duration
+    return s

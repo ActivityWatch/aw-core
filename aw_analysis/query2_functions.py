@@ -14,6 +14,7 @@ from aw_transform import (
     chunk_events_by_key,
     sort_by_timestamp,
     sort_by_duration,
+    sum_durations,
     split_url_events,
     simplify_string,
     flood
@@ -192,6 +193,17 @@ def q2_sort_by_timestamp(events: list) -> List[Event]:
 def q2_sort_by_duration(events: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     return sort_by_duration(events)
+
+
+"""
+    Summarizing functions
+"""
+
+
+@q2_function
+def q2_sum_durations(events: list) -> List[Event]:
+    _verify_variable_is_type(events, list)
+    return sum_durations(events)
 
 
 """
