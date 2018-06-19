@@ -11,6 +11,7 @@ from aw_transform import (
     filter_keyvals,
     filter_keyvals_regex,
     merge_events_by_keys,
+    chunk_events_by_key,
     sort_by_timestamp,
     sort_by_duration,
     split_url_events,
@@ -167,6 +168,13 @@ def q2_merge_events_by_keys(events: list, keys: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(keys, list)
     return merge_events_by_keys(events, keys)
+
+
+@q2_function
+def q2_chunk_events_by_key(events: list, key: str) -> List[Event]:
+    _verify_variable_is_type(events, list)
+    _verify_variable_is_type(key, str)
+    return chunk_events_by_key(events, key)
 
 
 """
