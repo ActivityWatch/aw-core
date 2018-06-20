@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 def chunk_events_by_key(events, key) -> List[Event]:
-    chunked_events = []
+    chunked_events = [] # type: List[Event]
     for event in events:
         if key not in event.data:
             pass

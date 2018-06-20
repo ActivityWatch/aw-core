@@ -2,6 +2,7 @@ import iso8601
 from typing import Callable, Dict, Any, List
 from inspect import signature
 from functools import wraps
+from datetime import timedelta
 
 from aw_core.models import Event
 from aw_datastore import Datastore
@@ -201,7 +202,7 @@ def q2_sort_by_duration(events: list) -> List[Event]:
 
 
 @q2_function
-def q2_sum_durations(events: list) -> List[Event]:
+def q2_sum_durations(events: list) -> timedelta:
     _verify_variable_is_type(events, list)
     return sum_durations(events)
 
