@@ -12,9 +12,9 @@ def filter_keyvals(events: List[Event], key: str, vals: List[str], exclude=False
         return key in event.data and event.data[key] in vals
 
     if exclude:
-      return [e for e in events if not predicate(e)]
+        return [e for e in events if not predicate(e)]
     else:
-      return [e for e in events if predicate(e)]
+        return [e for e in events if predicate(e)]
 
 
 def filter_keyvals_regex(events: List[Event], key: str, regex: str) -> List[Event]:
@@ -23,4 +23,4 @@ def filter_keyvals_regex(events: List[Event], key: str, regex: str) -> List[Even
     def predicate(event):
         return bool(r.findall(event.data[key]))
 
-    return list(filter(lambda e: predicate(e), events))
+    return [e for e in events if predicate(e)]
