@@ -258,9 +258,11 @@ def test_query2_query_functions(datastore):
     events = filter_keyvals_regex(events, "label", ".*");
     events = limit_events(events, 1);
     events = merge_events_by_keys(events, ["label"]);
+    events = chunk_events_by_key(events, "label");
     events = split_url_events(events);
     events = sort_by_timestamp(events);
     events = sort_by_duration(events);
+    duration = sum_durations(events);
     eventcount = query_bucket_eventcount(bid);
     asd = nop();
     RETURN = {{"events": events, "eventcount": eventcount}};
