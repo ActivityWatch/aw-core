@@ -22,13 +22,6 @@ def _replace_event_period(event: Event, period: TimePeriod) -> Event:
     return e
 
 
-def _earliest_event(e1, e2):
-    if e1.timestamp <= e2.timestamp:
-        return e1
-    else:
-        return e2
-
-
 def _concurrent_eventpairs(events1, events2) -> Iterable[Tuple[Event, Event]]:
     e1_i = 0
     e2_i = 0
