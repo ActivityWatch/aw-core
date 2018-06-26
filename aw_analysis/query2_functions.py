@@ -11,6 +11,7 @@ from aw_transform import (
     filter_period_intersect,
     filter_keyvals,
     filter_keyvals_regex,
+    period_union,
     merge_events_by_keys,
     chunk_events_by_key,
     sort_by_timestamp,
@@ -151,6 +152,13 @@ def q2_filter_period_intersect(events: list, filterevents: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(filterevents, list)
     return filter_period_intersect(events, filterevents)
+
+
+@q2_function
+def q2_period_union(events1: list, events2: list) -> List[Event]:
+    _verify_variable_is_type(events1, list)
+    _verify_variable_is_type(events2, list)
+    return period_union(events1, events2)
 
 
 @q2_function

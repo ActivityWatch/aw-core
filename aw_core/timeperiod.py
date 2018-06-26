@@ -72,4 +72,4 @@ class TimePeriod:
         if not self.gap(other):
             return TimePeriod(min(self.start, other.start), max(self.end, other.end))
         else:
-            raise Exception("TimePeriods must be overlapping or adjacent to be unioned")
+            raise Exception("TimePeriods must not have a gap if they are to be unioned")
