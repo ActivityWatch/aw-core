@@ -5,6 +5,7 @@ from aw_transform import (
     filter_period_intersect,
     filter_keyvals_regex,
     filter_keyvals,
+    period_union,
     sort_by_timestamp,
     sort_by_duration,
     sum_durations,
@@ -92,6 +93,28 @@ def test_filter_period_intersect():
     assert len(filtered_events) == 2
     assert filtered_events[0].duration == timedelta(minutes=15)
     assert filtered_events[1].duration == timedelta(minutes=15)
+
+
+def test_period_union():
+    now = datetime.now(timezone.utc)
+
+    # Events overlapping
+    events1 = [Event(timestamp=now, duration=timedelta(seconds=10))]
+    events2 = [Event(timestamp=now + timedelta(seconds=9), duration=timedelta(seconds=10))]
+    unioned_events = period_union(events1, events2)
+    assert len(unioned_events) == 1
+
+    # Events adjacent but not overlapping
+    events1 = [Event(timestamp=now, duration=timedelta(seconds=10))]
+    events2 = [Event(timestamp=now + timedelta(seconds=10), duration=timedelta(seconds=10))]
+    unioned_events = period_union(events1, events2)
+    assert len(unioned_events) == 1
+
+    # Events not overlapping or adjacent
+    events1 = [Event(timestamp=now, duration=timedelta(seconds=10))]
+    events2 = [Event(timestamp=now + timedelta(seconds=11), duration=timedelta(seconds=10))]
+    unioned_events = period_union(events1, events2)
+    assert len(unioned_events) == 2
 
 
 def test_sort_by_timestamp():
