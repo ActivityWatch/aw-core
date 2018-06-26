@@ -48,7 +48,7 @@ def _concurrent_eventpairs(events1, events2) -> Iterable[Tuple[Event, Event]]:
                 # Event started after filter event ended
                 e2_i += 1
             else:
-                logger.warning("Should be reachable, skipping period")
+                logger.error("Should be unreachable, skipping period")
                 e1_i += 1
                 e2_i += 1
 
