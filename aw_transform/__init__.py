@@ -1,5 +1,6 @@
 from .filter_keyvals import filter_keyvals, filter_keyvals_regex
 from .filter_period_intersect import filter_period_intersect
+from .period_union import period_union
 from .heartbeats import heartbeat_merge, heartbeat_reduce
 from .merge_events_by_keys import merge_events_by_keys
 from .chunk_events_by_key import chunk_events_by_key

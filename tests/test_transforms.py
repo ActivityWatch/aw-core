@@ -11,7 +11,8 @@ from aw_transform import (
     merge_events_by_keys,
     chunk_events_by_key,
     split_url_events,
-    simplify_string
+    simplify_string,
+    period_union
 )
 
 
@@ -227,3 +228,35 @@ def test_url_parse_event():
     assert result[0].data["params"] == ""
     assert result[0].data["options"] == ""
     assert result[0].data["identifier"] == ""
+
+
+def test_period_union():
+    now = datetime.now(timezone.utc)
+
+    e1 = Event(timestamp=now - timedelta(seconds=20), duration=timedelta(seconds=5))
+    e2 = Event(timestamp=now - timedelta(seconds=10), duration=timedelta(seconds=5))
+    e3 = Event(timestamp=now, duration=timedelta(seconds=1))
+    e4 = Event(timestamp=now + timedelta(seconds=20), duration=timedelta(seconds=1))
+
+    # union separate event lists with duplicates
+    events_union = period_union([e1, e2, e4], [e2, e3])
+    assert events_union == [e1, e2, e3, e4]
+
+    e1 = Event(timestamp=now - timedelta(seconds=20), duration=timedelta(seconds=5))
+    e2 = Event(timestamp=now - timedelta(seconds=10), duration=timedelta(seconds=5))
+    e3 = Event(timestamp=now - timedelta(seconds=10), duration=timedelta(seconds=10))
+    e4 = Event(timestamp=now - timedelta(seconds=5), duration=timedelta(seconds=5))
+    e5 = Event(timestamp=now, duration=timedelta(seconds=10))
+
+    # union event lists with intersecting duplicates
+    events_union = period_union([e3, e2, e5], [e1, e3, e4, e5])
+    assert events_union == [e1, e2, e3, e4, e5]
+
+    e1 = Event(timestamp=now - timedelta(seconds=30), duration=timedelta(seconds=15))
+    e2 = Event(timestamp=now, duration=timedelta(seconds=3))
+    e3 = Event(timestamp=now, duration=timedelta(seconds=5))
+    e4 = Event(timestamp=now, duration=timedelta(seconds=10))
+
+    # union event lists with same timestamp but different duration duplicates
+    events_union = period_union([e1, e2, e4], [e3, e2, e1])
+    assert events_union == [e1, e2, e3, e4]
