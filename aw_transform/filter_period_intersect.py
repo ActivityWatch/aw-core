@@ -83,8 +83,7 @@ def period_union(events1: List[Event], events2: List[Event]) -> List[Event]:
     Takes a list of two events and returns a new list of events covering the union
     of the timeperiods contained in the eventlists with no overlapping events.
 
-    WARNING: This function gives no guarantees about what will end up in the data
-             attribute of returned events, only use it when the event data is irrelevant.
+    WARNING: This function strips all data from events as it cannot keep it consistent.
 
     Example:
       events1   |   =======       ========= |
@@ -106,8 +105,52 @@ def period_union(events1: List[Event], events2: List[Event]) -> List[Event]:
             merged_events[-1] = _replace_event_period(last_event, new_period)
         else:
             merged_events.append(e)
+    for event in merged_events:
+        # Clear data
+        event.data = {}
     return merged_events
 
 
 def union(events1: List[Event], events2: List[Event]) -> List[Event]:
-    return sorted(events1 + events2)
+    """
+    Concatenates and sorts union of 2 event lists and removes duplicates.
+
+    Example that merges events from a backup-bucket with events from a "living" bucket:
+      events = union(events_backup, events_living)
+    """
+
+    events1 = sorted(events1, key=lambda e: (e.timestamp, e.duration))
+    events2 = sorted(events2, key=lambda e: (e.timestamp, e.duration))
+    events_union = []
+
+    e1_i = 0
+    e2_i = 0
+    while e1_i < len(events1) and e2_i < len(events2):
+        e1 = events1[e1_i]
+        e2 = events2[e2_i]
+
+        if e1 == e2:
+            events_union.append(e1)
+            e1_i += 1
+            e2_i += 1
+        else:
+            if e1.timestamp < e2.timestamp:
+                events_union.append(e1)
+                e1_i += 1
+            elif e1.timestamp > e2.timestamp:
+                events_union.append(e2)
+                e2_i += 1
+            elif e1.duration < e2.duration:
+                events_union.append(e1)
+                e1_i += 1
+            else:
+                events_union.append(e2)
+                e2_i += 1
+
+    if e1_i < len(events1):
+        events_union.extend(events1[e1_i:])
+
+    if e2_i < len(events2):
+        events_union.extend(events2[e2_i:])
+
+    return events_union
