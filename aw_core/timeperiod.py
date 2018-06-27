@@ -6,7 +6,9 @@ class TimePeriod:
     # Inspired by: http://www.codeproject.com/Articles/168662/Time-Period-Library-for-NET
     # TODO: Move to its own package
     def __init__(self, start: datetime, end: datetime) -> None:
-        # assert start <= end
+        # TODO: Introduce once tested in production (where negative duration events might occur)
+        # if start > end:
+        #     raise ValueError("TimePeriod cannot have negative duration, start '{}' came after end '{}'".format(start, end))
         self.start = start
         self.end = end
 
@@ -16,12 +18,12 @@ class TimePeriod:
 
     def overlaps(self, other: "TimePeriod") -> bool:
         """Checks if this timeperiod is overlapping partially or entirely with another timeperiod"""
-        return self.start < other.start < self.end \
-            or self.start < other.end < self.end \
-            or other.start < self.start and self.end < other.end \
-            or self == other
+        return self.start <= other.start < self.end \
+            or self.start < other.end <= self.end \
+            or self in other
 
     def intersects(self, other: "TimePeriod") -> bool:
+        """Alias for overlaps"""
         return self.overlaps(other)
 
     def contains(self, other: Union[datetime, "TimePeriod"]) -> bool:
