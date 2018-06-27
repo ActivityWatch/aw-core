@@ -53,7 +53,7 @@ def test_contains():
     assert tp2 in tp1
     assert tp1 not in tp2
 
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         assert 0 in tp1
 
 

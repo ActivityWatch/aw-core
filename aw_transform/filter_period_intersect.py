@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 def _get_event_period(event: Event) -> TimePeriod:
-    # TODO: Better parsing of event duration
     start = event.timestamp
     end = start + event.duration
     return TimePeriod(start, end)
@@ -22,7 +21,8 @@ def _replace_event_period(event: Event, period: TimePeriod) -> Event:
     return e
 
 
-def _concurrent_eventpairs(events1, events2) -> Iterable[Tuple[Event, Event]]:
+def _intersecting_eventpairs(events1: List[Event], events2: List[Event]) -> Iterable[Tuple[Event, Event, TimePeriod]]:
+    """A generator that yields each overlapping pair of events from two eventlists along with a TimePeriod of the intersection"""
     e1_i = 0
     e2_i = 0
     while e1_i < len(events1) and e2_i < len(events2):
@@ -33,8 +33,8 @@ def _concurrent_eventpairs(events1, events2) -> Iterable[Tuple[Event, Event]]:
 
         ip = e1_p.intersection(e2_p)
         if ip:
-            # If events intersected, add event with intersected duration and try next event
-            yield (e1, e2)
+            # If events intersected, yield events
+            yield (e1, e2, ip)
             if e1_p.end <= e2_p.end:
                 e1_i += 1
             else:
@@ -61,30 +61,37 @@ def filter_period_intersect(events: List[Event], filterevents: List[Event]) -> L
     Useful for example when you want to filter away events or
     part of events during which a user was AFK.
 
-    Example:
+    Usage:
       windowevents_notafk = filter_period_intersect(windowevents, notafkevents)
+
+    Example:
+      events1   |   =======        ======== |
+      events2   | ------  ---  ---   ----   |
+      result    |   ====  =          ====   |
 
     A JavaScript version used to exist in aw-webui but was removed in `this PR <https://github.com/ActivityWatch/aw-webui/pull/48>`_.
     """
 
-    events = sorted(events, key=lambda e: e.timestamp)
-    filterevents = sorted(filterevents, key=lambda e: e.timestamp)
-    filtered_events = []
+    events = sorted(events)
+    filterevents = sorted(filterevents)
 
-    for (e1, e2) in _concurrent_eventpairs(events, filterevents):
-        e1_p = _get_event_period(e1)
-        e2_p = _get_event_period(e2)
-
-        ip = e1_p.intersection(e2_p)
-        if ip:
-            # If events intersected, add event with intersected duration
-            filtered_events.append(_replace_event_period(e1, ip))
-
-    return filtered_events
+    return [_replace_event_period(e1, ip) for (e1, _, ip) in _intersecting_eventpairs(events, filterevents)]
 
 
 def period_union(events1: List[Event], events2: List[Event]) -> List[Event]:
-    events = sorted(events1 + events2, key=lambda e: e.timestamp)
+    """
+    Takes a list of two events and returns a new list of events covering the union
+    of the timeperiods contained in the eventlists with no overlapping events.
+
+    WARNING: This function gives no guarantees about what will end up in the data
+             attribute of returned events, only use it when the event data is irrelevant.
+
+    Example:
+      events1   |   =======       ========= |
+      events2   | ------  ---  --    ----   |
+      result    | -----------  -- ========= |
+    """
+    events = sorted(events1 + events2)
     merged_events = []
     if events:
         merged_events.append(events.pop(0))
@@ -100,3 +107,7 @@ def period_union(events1: List[Event], events2: List[Event]) -> List[Event]:
         else:
             merged_events.append(e)
     return merged_events
+
+
+def union(events1: List[Event], events2: List[Event]) -> List[Event]:
+    return sorted(events1 + events2)

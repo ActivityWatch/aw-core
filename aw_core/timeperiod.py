@@ -15,20 +15,23 @@ class TimePeriod:
         return self.end - self.start
 
     def overlaps(self, other: "TimePeriod") -> bool:
-        """Checks if this event is overlapping partially or entirely with another event"""
+        """Checks if this timeperiod is overlapping partially or entirely with another timeperiod"""
         return self.start < other.start < self.end \
             or self.start < other.end < self.end \
             or other.start < self.start and self.end < other.end \
             or self == other
 
+    def intersects(self, other: "TimePeriod") -> bool:
+        return self.overlaps(other)
+
     def contains(self, other: Union[datetime, "TimePeriod"]) -> bool:
-        """Checks if this event contains the entirety of another event"""
+        """Checks if this timeperiod contains the entirety of another timeperiod or a datetime"""
         if isinstance(other, TimePeriod):
             return self.start <= other.start and other.end <= self.end
         elif isinstance(other, datetime):
             return self.start <= other <= self.end
         else:
-            raise ValueError("argument of invalid type '{}'".format(type(other)))
+            raise TypeError("argument of invalid type '{}'".format(type(other)))
 
     def __contains__(self, other: Union[datetime, "TimePeriod"]) -> bool:
         return self.contains(other)
@@ -38,6 +41,13 @@ class TimePeriod:
             return self.start == other.start and self.end == other.end
         else:
             return False
+
+    def __lt__(self, other: object) -> bool:
+        # implemented to easily allow sorting of a list of timeperiods
+        if isinstance(other, TimePeriod):
+            return self.start < other.start
+        else:
+            raise TypeError("operator not supported between instaces of '{}' and '{}'".format(type(self), type(other)))
 
     def intersection(self, other: "TimePeriod") -> Optional["TimePeriod"]:
         """Returns the timeperiod contained in both periods"""
