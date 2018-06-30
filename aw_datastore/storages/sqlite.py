@@ -1,5 +1,5 @@
 from typing import Optional, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import json
 import os
 import logging
@@ -40,8 +40,11 @@ CREATE_EVENTS_TABLE = """
     )
 """
 
-INDEX_EVENTS_TABLE = """
-    CREATE INDEX IF NOT EXISTS event_index ON events(bucket, starttime, endtime);
+INDEX_EVENTS_TABLE_STARTTIME = """
+    CREATE INDEX IF NOT EXISTS event_index ON events(bucket, starttime);
+"""
+INDEX_EVENTS_TABLE_ENDTIME = """
+    CREATE INDEX IF NOT EXISTS event_index ON events(bucket, endtime);
 """
 
 
@@ -62,7 +65,9 @@ class SqliteStorage(AbstractStorage):
         # Create tables
         self.conn.execute(CREATE_BUCKETS_TABLE)
         self.conn.execute(CREATE_EVENTS_TABLE)
-        self.conn.execute(INDEX_EVENTS_TABLE)
+        self.conn.execute(INDEX_EVENTS_TABLE_STARTTIME)
+        self.conn.execute(INDEX_EVENTS_TABLE_ENDTIME)
+        self.conn.execute("PRAGMA journal_mode=WAL;")
         self.commit()
 
         if new_db_file:
@@ -70,10 +75,31 @@ class SqliteStorage(AbstractStorage):
             from aw_datastore import check_for_migration
             check_for_migration(self, ds_name, LATEST_VERSION)
 
+        self.last_commit = datetime.now()
+        self.num_uncommited_statements = 0
+
     def commit(self):
-        # Useful for debugging and trying to lower the amount of
-        # unnecessary commits
+        """
+        Useful for debugging and trying to lower the amount of
+        unnecessary commits
+        """
         self.conn.commit()
+        self.last_commit = datetime.now()
+        self.num_uncommited_statements = 0
+
+    def conditional_commit(self, num_statements):
+        """
+        Only commit transactions if:
+         - We have a lot of statements in our transaction
+         - Was a while ago since last commit
+        This is because sqlite is very slow with small inserts, this
+        is a way to batch them together and lower CPU+disk usage
+        """
+        self.num_uncommited_statements += num_statements
+        if self.num_uncommited_statements > 50:
+            self.commit()
+        if (self.last_commit - datetime.now()) > timedelta(seconds=10):
+            self.commit()
 
     def buckets(self):
         buckets = {}
@@ -123,6 +149,7 @@ class SqliteStorage(AbstractStorage):
         c.execute("INSERT INTO events(bucket, starttime, endtime, datastr) VALUES (?, ?, ?, ?)",
             [bucket_id, starttime, endtime, datastr])
         event.id = c.lastrowid
+        self.conditional_commit(1)
         return event
 
     def insert_many(self, bucket_id, events: List[Event], fast=False) -> None:
@@ -139,8 +166,7 @@ class SqliteStorage(AbstractStorage):
         query = "INSERT INTO EVENTS(bucket, starttime, endtime, datastr) " + \
                 "VALUES (?, ?, ?, ?)"
         self.conn.executemany(query, event_rows)
-        if len(event_rows) > 50:
-            self.commit();
+        self.conditional_commit(len(event_rows))
 
     def replace_last(self, bucket_id, event):
         starttime = event.timestamp.timestamp()*1000000
@@ -150,6 +176,7 @@ class SqliteStorage(AbstractStorage):
                 "SET starttime = ?, endtime = ?, datastr = ? " + \
                 "WHERE endtime = (SELECT max(endtime) FROM events WHERE bucket = ?) AND bucket = ?"
         self.conn.execute(query, [starttime, endtime, datastr, bucket_id, bucket_id])
+        self.conditional_commit(1)
         return True
 
     def delete(self, bucket_id, event_id):
@@ -166,6 +193,7 @@ class SqliteStorage(AbstractStorage):
                 "SET bucket = ?, starttime = ?, endtime = ?, datastr = ? " + \
                 "WHERE id = ?"
         self.conn.execute(query, [bucket_id, starttime, endtime, datastr, event_id])
+        self.conditional_commit(1)
         return True
 
     def get_events(self, bucket_id: str, limit: int,
