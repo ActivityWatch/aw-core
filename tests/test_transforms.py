@@ -1,7 +1,19 @@
 from datetime import datetime, timedelta, timezone
 
 from aw_core.models import Event
-from aw_transform import filter_period_intersect, filter_keyvals_regex, filter_keyvals, sort_by_timestamp, sort_by_duration, merge_events_by_keys, split_url_events, simplify_string
+from aw_transform import (
+    filter_period_intersect,
+    filter_keyvals_regex,
+    filter_keyvals,
+    sort_by_timestamp,
+    sort_by_duration,
+    sum_durations,
+    merge_events_by_keys,
+    chunk_events_by_key,
+    split_url_events,
+    simplify_string,
+    period_union
+)
 
 
 def test_simplify_string():
@@ -101,6 +113,15 @@ def test_sort_by_duration():
     assert events_sorted == events[::-1]
 
 
+def test_sum_durations():
+    now = datetime.now(timezone.utc)
+    events = []
+    for i in range(10):
+        events.append(Event(timestamp=now + timedelta(seconds=i), duration=timedelta(seconds=1)))
+    result = sum_durations(events)
+    assert result == timedelta(seconds=10)
+
+
 def test_merge_events_by_keys_1():
     now = datetime.now(timezone.utc)
     events = []
@@ -144,6 +165,38 @@ def test_merge_events_by_keys_2():
     assert result[2].duration == timedelta(seconds=8)
 
 
+from pprint import pprint
+
+
+def test_chunk_events_by_key():
+    now = datetime.now(timezone.utc)
+    events = []
+    e1_data = {"label1": "1a", "label2": "2a"}
+    e2_data = {"label1": "1a", "label2": "2b"}
+    e3_data = {"label1": "1b", "label2": "2b"}
+    e1 = Event(data=e1_data, timestamp=now, duration=timedelta(seconds=1))
+    e2 = Event(data=e2_data, timestamp=now, duration=timedelta(seconds=1))
+    e3 = Event(data=e3_data, timestamp=now, duration=timedelta(seconds=1))
+    events = [e1, e2, e3]
+    result = chunk_events_by_key(events, "label1")
+    print(len(result))
+    pprint(result)
+    assert len(result) == 2
+    # Check root label
+    assert result[0].data["label1"] == "1a"
+    assert result[1].data["label1"] == "1b"
+    # Check timestamp
+    assert result[0].timestamp == e1.timestamp
+    assert result[1].timestamp == e3.timestamp
+    # Check duration
+    assert result[0].duration == e1.duration + e2.duration
+    assert result[1].duration == e3.duration
+    # Check subevents
+    assert result[0].data["subevents"][0] == e1
+    assert result[0].data["subevents"][1] == e2
+    assert result[1].data["subevents"][0] == e3
+
+
 def test_url_parse_event():
     now = datetime.now(timezone.utc)
     e = Event(data={"url": "http://asd.com/test/?a=1"}, timestamp=now, duration=timedelta(seconds=1))
@@ -175,3 +228,35 @@ def test_url_parse_event():
     assert result[0].data["params"] == ""
     assert result[0].data["options"] == ""
     assert result[0].data["identifier"] == ""
+
+
+def test_period_union():
+    now = datetime.now(timezone.utc)
+
+    e1 = Event(timestamp=now - timedelta(seconds=20), duration=timedelta(seconds=5))
+    e2 = Event(timestamp=now - timedelta(seconds=10), duration=timedelta(seconds=5))
+    e3 = Event(timestamp=now, duration=timedelta(seconds=1))
+    e4 = Event(timestamp=now + timedelta(seconds=20), duration=timedelta(seconds=1))
+
+    # union separate event lists with duplicates
+    events_union = period_union([e1, e2, e4], [e2, e3])
+    assert events_union == [e1, e2, e3, e4]
+
+    e1 = Event(timestamp=now - timedelta(seconds=20), duration=timedelta(seconds=5))
+    e2 = Event(timestamp=now - timedelta(seconds=10), duration=timedelta(seconds=5))
+    e3 = Event(timestamp=now - timedelta(seconds=10), duration=timedelta(seconds=10))
+    e4 = Event(timestamp=now - timedelta(seconds=5), duration=timedelta(seconds=5))
+    e5 = Event(timestamp=now, duration=timedelta(seconds=10))
+
+    # union event lists with intersecting duplicates
+    events_union = period_union([e3, e2, e5], [e1, e3, e4, e5])
+    assert events_union == [e1, e2, e3, e4, e5]
+
+    e1 = Event(timestamp=now - timedelta(seconds=30), duration=timedelta(seconds=15))
+    e2 = Event(timestamp=now, duration=timedelta(seconds=3))
+    e3 = Event(timestamp=now, duration=timedelta(seconds=5))
+    e4 = Event(timestamp=now, duration=timedelta(seconds=10))
+
+    # union event lists with same timestamp but different duration duplicates
+    events_union = period_union([e1, e2, e4], [e3, e2, e1])
+    assert events_union == [e1, e2, e3, e4]
