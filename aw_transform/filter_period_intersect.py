@@ -86,9 +86,9 @@ def period_union(events1: List[Event], events2: List[Event]) -> List[Event]:
     WARNING: This function strips all data from events as it cannot keep it consistent.
 
     Example:
-      events1   |   =======       ========= |
+      events1   |   -------       --------- |
       events2   | ------  ---  --    ----   |
-      result    | -----------  -- ========= |
+      result    | -----------  -- --------- |
     """
     events = sorted(events1 + events2)
     merged_events = []
