@@ -53,10 +53,19 @@ class Event(dict):
         self.duration = duration
         self.data = data
 
-    def __eq__(self, other):
-        return self.timestamp == other.timestamp\
-            and self.duration == other.duration\
-            and self.data == other.data
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Event):
+            return self.timestamp == other.timestamp \
+                and self.duration == other.duration \
+                and self.data == other.data
+        else:
+            raise TypeError("operator not supported between instances of '{}' and '{}'".format(type(self), type(other)))
+
+    def __lt__(self, other: object) -> bool:
+        if isinstance(other, Event):
+            return self.timestamp < other.timestamp
+        else:
+            raise TypeError("operator not supported between instances of '{}' and '{}'".format(type(self), type(other)))
 
     def to_json_dict(self) -> dict:
         """Useful when sending data over the wire.
@@ -70,17 +79,17 @@ class Event(dict):
         data = self.to_json_dict()
         return json.dumps(data)
 
-    def _hasprop(self, propname):
+    def _hasprop(self, propname: str) -> bool:
         """Badly named, but basically checks if the underlying
         dict has a prop, and if it is a non-empty list"""
         return propname in self and self[propname] is not None
 
     @property
-    def id(self) -> Any:
+    def id(self) -> Id:
         return self["id"] if self._hasprop("id") else None
 
     @id.setter
-    def id(self, id: Any):
+    def id(self, id: Id) -> None:
         self["id"] = id
 
     @property
@@ -88,7 +97,7 @@ class Event(dict):
         return self["data"] if self._hasprop("data") else {}
 
     @data.setter
-    def data(self, data: dict):
+    def data(self, data: dict) -> None:
         self["data"] = data
 
     @property
@@ -105,9 +114,9 @@ class Event(dict):
 
     @duration.setter
     def duration(self, duration: Duration) -> None:
-        if type(duration) == timedelta:
+        if isinstance(duration, timedelta):
             self["duration"] = duration
         elif isinstance(duration, numbers.Real):
             self["duration"] = timedelta(seconds=duration)  # type: ignore
         else:
-            logger.error("Couldn't parse duration of invalid type {}".format(type(duration)))
+            raise TypeError("Couldn't parse duration of invalid type {}".format(type(duration)))
