@@ -74,11 +74,12 @@ class TimePeriod:
 
     def gap(self, other: "TimePeriod") -> Optional["TimePeriod"]:
         """If periods are separated by a non-zero gap, return the gap as a new timeperiod, else None"""
-        if not (self.overlaps(other) or self.adjacent(other)):
-            gap_start = min(self.end, other.end)
-            gap_end = max(self.start, other.start)
-            return TimePeriod(gap_start, gap_end)
-        return None
+        if self.end < other.start:
+            return TimePeriod(self.end, other.start)
+        elif other.end < self.start:
+            return TimePeriod(other.end, self.start)
+        else:
+            return None
 
     def union(self, other: "TimePeriod") -> "TimePeriod":
         if not self.gap(other):
