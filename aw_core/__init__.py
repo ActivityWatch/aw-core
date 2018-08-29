@@ -1,3 +1,5 @@
+# ignore: F401
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,4 +17,6 @@ from . import config
 from . import log
 
 from . import models
+from .models import Event
+
 from . import schema
