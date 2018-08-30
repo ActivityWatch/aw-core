@@ -17,6 +17,7 @@ from aw_transform import (
     sort_by_timestamp,
     sort_by_duration,
     sum_durations,
+    sum_event_lists,
     split_url_events,
     simplify_string,
     flood
@@ -213,6 +214,12 @@ def q2_sort_by_duration(events: list) -> List[Event]:
 def q2_sum_durations(events: list) -> timedelta:
     _verify_variable_is_type(events, list)
     return sum_durations(events)
+
+@q2_function
+def q2_sum_event_lists(events1: list, events2: list) -> List[Event]:
+    _verify_variable_is_type(events1, list)
+    _verify_variable_is_type(events2, list)
+    return sum_event_lists(events1, events2)
 
 
 """
