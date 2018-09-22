@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 import json
 import os
@@ -78,29 +78,30 @@ class EventModel(BaseModel):
 class PeeweeStorage(AbstractStorage):
     sid = "peewee"
 
-    def __init__(self, testing):
+    def __init__(self, testing: bool = True, filepath: str = None) -> None:
         data_dir = get_data_dir("aw-server")
 
-        filename = 'peewee-sqlite' + ('-testing' if testing else '') + ".v{}".format(LATEST_VERSION) + '.db'
-        filepath = os.path.join(data_dir, filename)
+        if not filepath:
+            filename = 'peewee-sqlite' + ('-testing' if testing else '') + ".v{}".format(LATEST_VERSION) + '.db'
+            filepath = os.path.join(data_dir, filename)
         self.db = _db
         self.db.init(filepath)
         logger.info("Using database file: {}".format(filepath))
 
         self.db.connect()
 
-        self.bucket_keys = {}
+        self.bucket_keys = {}  # type: Dict[str, int]
         if not BucketModel.table_exists():
             BucketModel.create_table()
         if not EventModel.table_exists():
             EventModel.create_table()
         self.update_bucket_keys()
 
-    def update_bucket_keys(self):
+    def update_bucket_keys(self) -> None:
         buckets = BucketModel.select()
         self.bucket_keys = {bucket.id: bucket.key for bucket in buckets}
 
-    def buckets(self):
+    def buckets(self) -> Dict[str, Dict[str, Any]]:
         buckets = {bucket.id: bucket.json() for bucket in BucketModel.select()}
         return buckets
 
@@ -190,7 +191,7 @@ class PeeweeStorage(AbstractStorage):
         return [Event(**e) for e in list(map(EventModel.json, q.execute()))]
 
     def get_eventcount(self, bucket_id: str,
-                   starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
+                       starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
         q = EventModel.select() \
                       .where(EventModel.bucket == self.bucket_keys[bucket_id])
         if starttime:

@@ -5,6 +5,7 @@ from aw_transform import (
     filter_period_intersect,
     filter_keyvals_regex,
     filter_keyvals,
+    period_union,
     sort_by_timestamp,
     sort_by_duration,
     sum_durations,
@@ -12,7 +13,7 @@ from aw_transform import (
     chunk_events_by_key,
     split_url_events,
     simplify_string,
-    period_union
+    union,
 )
 
 
@@ -93,6 +94,28 @@ def test_filter_period_intersect():
     assert len(filtered_events) == 2
     assert filtered_events[0].duration == timedelta(minutes=15)
     assert filtered_events[1].duration == timedelta(minutes=15)
+
+
+def test_period_union():
+    now = datetime.now(timezone.utc)
+
+    # Events overlapping
+    events1 = [Event(timestamp=now, duration=timedelta(seconds=10))]
+    events2 = [Event(timestamp=now + timedelta(seconds=9), duration=timedelta(seconds=10))]
+    unioned_events = period_union(events1, events2)
+    assert len(unioned_events) == 1
+
+    # Events adjacent but not overlapping
+    events1 = [Event(timestamp=now, duration=timedelta(seconds=10))]
+    events2 = [Event(timestamp=now + timedelta(seconds=10), duration=timedelta(seconds=10))]
+    unioned_events = period_union(events1, events2)
+    assert len(unioned_events) == 1
+
+    # Events not overlapping or adjacent
+    events1 = [Event(timestamp=now, duration=timedelta(seconds=10))]
+    events2 = [Event(timestamp=now + timedelta(seconds=11), duration=timedelta(seconds=10))]
+    unioned_events = period_union(events1, events2)
+    assert len(unioned_events) == 2
 
 
 def test_sort_by_timestamp():
@@ -230,7 +253,7 @@ def test_url_parse_event():
     assert result[0].data["identifier"] == ""
 
 
-def test_period_union():
+def test_union():
     now = datetime.now(timezone.utc)
 
     e1 = Event(timestamp=now - timedelta(seconds=20), duration=timedelta(seconds=5))
@@ -239,7 +262,7 @@ def test_period_union():
     e4 = Event(timestamp=now + timedelta(seconds=20), duration=timedelta(seconds=1))
 
     # union separate event lists with duplicates
-    events_union = period_union([e1, e2, e4], [e2, e3])
+    events_union = union([e1, e2, e4], [e2, e3])
     assert events_union == [e1, e2, e3, e4]
 
     e1 = Event(timestamp=now - timedelta(seconds=20), duration=timedelta(seconds=5))
@@ -249,7 +272,7 @@ def test_period_union():
     e5 = Event(timestamp=now, duration=timedelta(seconds=10))
 
     # union event lists with intersecting duplicates
-    events_union = period_union([e3, e2, e5], [e1, e3, e4, e5])
+    events_union = union([e3, e2, e5], [e1, e3, e4, e5])
     assert events_union == [e1, e2, e3, e4, e5]
 
     e1 = Event(timestamp=now - timedelta(seconds=30), duration=timedelta(seconds=15))
@@ -258,5 +281,5 @@ def test_period_union():
     e4 = Event(timestamp=now, duration=timedelta(seconds=10))
 
     # union event lists with same timestamp but different duration duplicates
-    events_union = period_union([e1, e2, e4], [e3, e2, e1])
+    events_union = union([e1, e2, e4], [e3, e2, e1])
     assert events_union == [e1, e2, e3, e4]

@@ -10,10 +10,10 @@ from setuptools import setup
 base_dir = os.path.dirname(__file__)
 
 about = {}  # type: Any
-with open(os.path.join(base_dir, "aw_core", "__about__.py")) as f:
+with open(os.path.join(base_dir, "aw_core", "__about__.py"), "r", encoding="utf-8") as f:
     exec(f.read(), about)
 
-with open(os.path.join(base_dir, "README.md")) as f:
+with open(os.path.join(base_dir, "README.md"), "r", encoding="utf-8") as f:
     long_description = f.read()
 
 with open("requirements.txt") as f:
