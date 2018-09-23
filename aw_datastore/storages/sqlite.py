@@ -20,7 +20,8 @@ MAX_TIMESTAMP = 2**63-1
 
 CREATE_BUCKETS_TABLE = """
     CREATE TABLE IF NOT EXISTS buckets (
-        id TEXT PRIMARY KEY,
+        rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+        id TEXT UNIQUE NOT NULL,
         name TEXT,
         type TEXT NOT NULL,
         client TEXT NOT NULL,
@@ -32,19 +33,23 @@ CREATE_BUCKETS_TABLE = """
 CREATE_EVENTS_TABLE = """
     CREATE TABLE IF NOT EXISTS events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        bucket TEXT NOT NULL,
+        bucketrow INTEGER NOT NULL,
         starttime INTEGER NOT NULL,
-        endtime REAL NOT NULL,
+        endtime INTEGER NOT NULL,
         datastr TEXT NOT NULL,
-        FOREIGN KEY (bucket) REFERENCES buckets(id)
+        FOREIGN KEY (bucketrow) REFERENCES buckets(rowid)
     )
 """
 
+INDEX_BUCKETS_TABLE_ID = """
+    CREATE INDEX IF NOT EXISTS event_index ON events(id);
+"""
+
 INDEX_EVENTS_TABLE_STARTTIME = """
-    CREATE INDEX IF NOT EXISTS event_index ON events(bucket, starttime);
+    CREATE INDEX IF NOT EXISTS event_index ON events(bucketrow, starttime);
 """
 INDEX_EVENTS_TABLE_ENDTIME = """
-    CREATE INDEX IF NOT EXISTS event_index ON events(bucket, endtime);
+    CREATE INDEX IF NOT EXISTS event_index ON events(bucketrow, endtime);
 """
 
 
@@ -65,6 +70,7 @@ class SqliteStorage(AbstractStorage):
         # Create tables
         self.conn.execute(CREATE_BUCKETS_TABLE)
         self.conn.execute(CREATE_EVENTS_TABLE)
+        self.conn.execute(INDEX_BUCKETS_TABLE_ID)
         self.conn.execute(INDEX_EVENTS_TABLE_STARTTIME)
         self.conn.execute(INDEX_EVENTS_TABLE_ENDTIME)
         self.conn.execute("PRAGMA journal_mode=WAL;")
@@ -104,7 +110,7 @@ class SqliteStorage(AbstractStorage):
     def buckets(self):
         buckets = {}
         c = self.conn.cursor()
-        for row in c.execute("SELECT * FROM buckets"):
+        for row in c.execute("SELECT id, name, type, client, hostname, created FROM buckets"):
             buckets[row[0]] = {
                 "id": row[0],
                 "name": row[1],
@@ -117,19 +123,20 @@ class SqliteStorage(AbstractStorage):
 
     def create_bucket(self, bucket_id: str, type_id: str, client: str,
                       hostname: str, created: str, name: Optional[str] = None):
-        self.conn.execute("INSERT INTO buckets VALUES (?, ?, ?, ?, ?, ?)",
+        self.conn.execute("INSERT INTO buckets(id, name, type, client, hostname, created) " + \
+                          "VALUES (?, ?, ?, ?, ?, ?)",
             [bucket_id, name, type_id, client, hostname, created])
         self.commit();
         return self.get_metadata(bucket_id)
 
     def delete_bucket(self, bucket_id: str):
-        self.conn.execute("DELETE FROM events WHERE bucket = ?", [bucket_id])
+        self.conn.execute("DELETE FROM events WHERE bucketrow IN (SELECT rowid FROM buckets WHERE id = ?)", [bucket_id])
         self.conn.execute("DELETE FROM buckets WHERE id = ?", [bucket_id])
         self.commit()
 
     def get_metadata(self, bucket_id: str):
         c = self.conn.cursor()
-        res = c.execute("SELECT * FROM buckets WHERE id = ?", [bucket_id])
+        res = c.execute("SELECT id, name, type, client, hostname, created FROM buckets WHERE id = ?", [bucket_id])
         row = res.fetchone()
         bucket = {
             "id": row[0],
@@ -146,7 +153,8 @@ class SqliteStorage(AbstractStorage):
         starttime = event.timestamp.timestamp() * 1000000
         endtime = starttime + (event.duration.total_seconds() * 1000000)
         datastr = json.dumps(event.data)
-        c.execute("INSERT INTO events(bucket, starttime, endtime, datastr) VALUES (?, ?, ?, ?)",
+        c.execute("INSERT INTO events(bucketrow, starttime, endtime, datastr) " + \
+                  "VALUES ((SELECT rowid FROM buckets WHERE id = ?), ?, ?, ?)",
             [bucket_id, starttime, endtime, datastr])
         event.id = c.lastrowid
         self.conditional_commit(1)
@@ -163,8 +171,8 @@ class SqliteStorage(AbstractStorage):
             endtime = starttime + (event.duration.total_seconds() * 1000000)
             datastr = json.dumps(event.data)
             event_rows.append((bucket_id, starttime, endtime, datastr))
-        query = "INSERT INTO EVENTS(bucket, starttime, endtime, datastr) " + \
-                "VALUES (?, ?, ?, ?)"
+        query = "INSERT INTO events(bucketrow, starttime, endtime, datastr) " + \
+                "VALUES ((SELECT rowid FROM buckets WHERE id = ?), ?, ?, ?)"
         self.conn.executemany(query, event_rows)
         self.conditional_commit(len(event_rows))
 
@@ -174,14 +182,17 @@ class SqliteStorage(AbstractStorage):
         datastr = json.dumps(event.data)
         query = "UPDATE events " + \
                 "SET starttime = ?, endtime = ?, datastr = ? " + \
-                "WHERE endtime = (SELECT max(endtime) FROM events WHERE bucket = ?) AND bucket = ?"
-        self.conn.execute(query, [starttime, endtime, datastr, bucket_id, bucket_id])
+                "WHERE id = (SELECT id FROM events WHERE endtime = " + \
+                    "(SELECT max(endtime) FROM events WHERE bucketrow = " + \
+                    "(SELECT rowid FROM buckets WHERE id = ?) LIMIT 1))"
+        self.conn.execute(query, [starttime, endtime, datastr, bucket_id])
         self.conditional_commit(1)
         return True
 
     def delete(self, bucket_id, event_id):
-        query = "DELETE FROM events WHERE bucket = ? AND id = ?"
-        self.conn.execute(query, [bucket_id, event_id])
+        query = "DELETE FROM events " + \
+                "WHERE id = ? AND bucketrow = (SELECT b.rowid FROM buckets b WHERE b.id = ?)"
+        self.conn.execute(query, [event_id, bucket_id])
         # TODO: Handle if event doesn't exist
         return True
 
@@ -190,7 +201,8 @@ class SqliteStorage(AbstractStorage):
         endtime = starttime + (event.duration.total_seconds() * 1000000)
         datastr = json.dumps(event.data)
         query = "UPDATE events " + \
-                "SET bucket = ?, starttime = ?, endtime = ?, datastr = ? " + \
+                "SET bucketrow = (SELECT rowid FROM buckets WHERE id = ?), " + \
+                    "starttime = ?, endtime = ?, datastr = ? " + \
                 "WHERE id = ?"
         self.conn.execute(query, [bucket_id, starttime, endtime, datastr, event_id])
         self.conditional_commit(1)
@@ -208,7 +220,8 @@ class SqliteStorage(AbstractStorage):
         endtime_i = endtime.timestamp()*1000000 if endtime else MAX_TIMESTAMP
         query = "SELECT id, starttime, endtime, datastr " + \
                 "FROM events " + \
-                "WHERE bucket = ? AND starttime >= ? AND endtime <= ? " + \
+                "WHERE bucketrow = (SELECT rowid FROM buckets WHERE id = ?) " + \
+                    "AND starttime >= ? AND endtime <= ? " + \
                 "ORDER BY endtime DESC LIMIT ?"
         rows = c.execute(query, [bucket_id, starttime_i, endtime_i, limit])
         events = []
@@ -229,7 +242,8 @@ class SqliteStorage(AbstractStorage):
         endtime_i = endtime.timestamp()*1000000 if endtime else MAX_TIMESTAMP
         query = "SELECT count(*) " + \
                 "FROM events " + \
-                "WHERE bucket = ? AND endtime >= ? AND starttime <= ?"
+                "WHERE bucketrow = (SELECT rowid FROM buckets WHERE id = ?) " + \
+                    "AND endtime >= ? AND starttime <= ?"
         rows = c.execute(query, [bucket_id, starttime_i, endtime_i])
         row = rows.fetchone()
         eventcount = row[0]
