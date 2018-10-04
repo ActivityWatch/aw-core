@@ -42,14 +42,14 @@ CREATE_EVENTS_TABLE = """
 """
 
 INDEX_BUCKETS_TABLE_ID = """
-    CREATE INDEX IF NOT EXISTS event_index ON events(id);
+    CREATE INDEX IF NOT EXISTS event_index_id ON events(id);
 """
 
 INDEX_EVENTS_TABLE_STARTTIME = """
-    CREATE INDEX IF NOT EXISTS event_index ON events(bucketrow, starttime);
+    CREATE INDEX IF NOT EXISTS event_index_starttime ON events(bucketrow, starttime);
 """
 INDEX_EVENTS_TABLE_ENDTIME = """
-    CREATE INDEX IF NOT EXISTS event_index ON events(bucketrow, endtime);
+    CREATE INDEX IF NOT EXISTS event_index_endtime ON events(bucketrow, endtime);
 """
 
 
