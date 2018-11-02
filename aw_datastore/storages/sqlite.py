@@ -26,7 +26,8 @@ CREATE_BUCKETS_TABLE = """
         type TEXT NOT NULL,
         client TEXT NOT NULL,
         hostname TEXT NOT NULL,
-        created TEXT NOT NULL
+        created TEXT NOT NULL,
+        datastr TEXT NOT NULL
     )
 """
 
@@ -123,9 +124,9 @@ class SqliteStorage(AbstractStorage):
 
     def create_bucket(self, bucket_id: str, type_id: str, client: str,
                       hostname: str, created: str, name: Optional[str] = None):
-        self.conn.execute("INSERT INTO buckets(id, name, type, client, hostname, created) " + \
-                          "VALUES (?, ?, ?, ?, ?, ?)",
-            [bucket_id, name, type_id, client, hostname, created])
+        self.conn.execute("INSERT INTO buckets(id, name, type, client, hostname, created, datastr) " + \
+                          "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [bucket_id, name, type_id, client, hostname, created, str({})])
         self.commit();
         return self.get_metadata(bucket_id)
 
