@@ -325,8 +325,8 @@ def _parse_token(string: str, namespace: dict): # TODO: Add return type
 
 def create_namespace() -> dict:
     namespace = {
-        "TRUE": 1,
-        "FALSE": 0,
+        "True": True,
+        "False": False,
     }
     return namespace
 
