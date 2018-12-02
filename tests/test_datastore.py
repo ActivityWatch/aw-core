@@ -1,5 +1,6 @@
 import logging
 import random
+import iso8601
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -34,13 +35,14 @@ def test_get_buckets(datastore):
 def test_create_bucket(datastore):
     name = "A label/name for a test bucket"
     bid = "test-identifier"
-    bucket = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name=name)
+    bucket = datastore.create_bucket(bucket_id=bid, type="testtype", client="testclient", hostname="testhost", name=name, created=now)
     try:
         assert bid == bucket.metadata()["id"]
-        assert "test" == bucket.metadata()["type"]
-        assert "test" == bucket.metadata()["client"]
-        assert "test" == bucket.metadata()["hostname"]
-        assert name == bucket.metadata()["name"]
+        assert "testtype" == bucket.metadata()["type"]
+        assert "testclient" == bucket.metadata()["client"]
+        assert "testhost" == bucket.metadata()["hostname"]
+        assert now == iso8601.parse_date(bucket.metadata()["created"])
+        assert bid in datastore.buckets()
     finally:
         datastore.delete_bucket(bid)
     assert bid not in datastore.buckets()
