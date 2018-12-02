@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import json
 import os
 import logging
+import iso8601
 
 from peewee import Model, CharField, IntegerField, DecimalField, DateTimeField, ForeignKeyField, PrimaryKeyField
 from playhouse.sqlite_ext import SqliteExtDatabase
@@ -50,7 +51,7 @@ class BucketModel(BaseModel):
     hostname = CharField()
 
     def json(self):
-        return {"id": self.id, "created": self.created,
+        return {"id": self.id, "created": iso8601.parse_date(self.created).astimezone(timezone.utc).isoformat(),
                 "name": self.name, "type": self.type, "client": self.client,
                 "hostname": self.hostname}
 
