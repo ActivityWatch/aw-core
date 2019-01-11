@@ -1,11 +1,10 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from aw_core.models import Event
-
 from aw_transform import flood
 
 
-now = datetime.now()
+now = datetime.now().astimezone(timezone.utc)
 td1s = timedelta(seconds=1)
 
 
@@ -45,3 +44,25 @@ def test_flood_backward_merge():
     flooded = flood(events)
     assert len(flooded) == 1
     assert flooded[0].duration == timedelta(seconds=20)
+
+
+def test_flood_negative_gap_same_data():
+    events = [
+        Event(timestamp=now, duration=100, data={"a": 0}),
+        Event(timestamp=now, duration=5, data={"a": 0}),
+    ]
+    flooded = flood(events)
+    total_duration = sum((e.duration for e in flooded), timedelta(0))
+    assert len(flooded) == 1
+    assert total_duration == timedelta(seconds=100)
+
+
+def test_flood_negative_gap_differing_data():
+    events = [
+        Event(timestamp=now, duration=100, data={"b": 1}),
+        Event(timestamp=now, duration=5, data={"a": 0}),
+    ]
+    flooded = flood(events)
+    print(sum((e.duration for e in events), timedelta(0)))
+    print(flooded)
+    assert flooded == events
