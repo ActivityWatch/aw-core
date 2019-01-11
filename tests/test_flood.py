@@ -4,7 +4,7 @@ from aw_core.models import Event
 from aw_transform import flood
 
 
-now = datetime.now().astimezone(timezone.utc)
+now = datetime.now(tz=timezone.utc)
 td1s = timedelta(seconds=1)
 
 
