@@ -117,7 +117,7 @@ class QFunction(QToken):
         call_args = [datastore, namespace]
         for arg in self.args:
             call_args.append(arg.interpret(datastore, namespace))
-        logger.debug("Arguments for functioncall to {} is {}".format(self.name, call_args))
+        # logger.debug("Arguments for functioncall to {} is {}".format(self.name, call_args))
         try:
             result = query2_functions[self.name](*call_args)  # type: ignore
         except TypeError:
@@ -355,7 +355,7 @@ def parse(line, namespace):
 
 def interpret(var, val, namespace, datastore):
     namespace[var.name] = val.interpret(datastore, namespace)
-    logger.debug("Set {} to {}".format(var.name, namespace[var.name]))
+    # logger.debug("Set {} to {}".format(var.name, namespace[var.name]))
 
 
 def get_return(namespace):
@@ -374,7 +374,7 @@ def query(name: str, query: str, starttime: datetime, endtime: datetime, datasto
     for statement in query_stmts:
         statement = statement.strip()
         if statement:
-            logger.debug("Parsing: " + statement)
+            # logger.debug("Parsing: " + statement)
             var, val = parse(statement, namespace)
             interpret(var, val, namespace, datastore)
 
