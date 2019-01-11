@@ -59,10 +59,18 @@ def test_flood_negative_gap_same_data():
 
 def test_flood_negative_gap_differing_data():
     events = [
-        Event(timestamp=now, duration=100, data={"b": 1}),
         Event(timestamp=now, duration=5, data={"a": 0}),
+        Event(timestamp=now, duration=100, data={"b": 1}),
     ]
     flooded = flood(events)
-    print(sum((e.duration for e in events), timedelta(0)))
-    print(flooded)
     assert flooded == events
+
+
+def test_flood_negative_small_gap_differing_data():
+    events = [
+        Event(timestamp=now, duration=100, data={"b": 1}),
+        Event(timestamp=now + 99.99 * td1s, duration=100, data={"a": 0}),
+    ]
+    flooded = flood(events)
+    duration = sum((e.duration for e in flooded), timedelta(0))
+    assert duration == timedelta(seconds=100 + 99.99)
