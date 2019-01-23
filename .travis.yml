@@ -10,7 +10,7 @@ services:
  - mongodb
 
 before_install:
- - "pip install -r requirements-dev.txt"
+ - "pip install -U -r requirements-dev.txt"
  - "pip install pymongo"
 
 install:

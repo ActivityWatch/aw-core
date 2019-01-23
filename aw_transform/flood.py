@@ -15,22 +15,42 @@ def flood(events: List[Event], pulsetime: float=5) -> List[Event]:
 
     Copied here from: https://github.com/ActivityWatch/aw-analysis/blob/7da1f2cd8552f866f643501de633d74cdecab168/aw_analysis/flood.py
     """
+    # NOTE: This algorithm has a lot of smaller details that need to be
+    #       carefully considered by anyone wishing to edit it, see:
+    #        - https://github.com/ActivityWatch/aw-core/pull/73
+
     events = deepcopy(events)
     events = sorted(events, key=lambda e: e.timestamp)
 
-    warned_about_negative_gap = False
+    # If negative gaps are smaller than this, prune them to become zero
+    negative_gap_trim_thres = timedelta(seconds=0.1)
+
+    warned_about_negative_gap_safe = False
+    warned_about_negative_gap_unsafe = False
 
     for e1, e2 in zip(events[:-1], events[1:]):
         gap = e2.timestamp - (e1.timestamp + e1.duration)
 
-        # Sanity check
-        if gap < timedelta(0) and not warned_about_negative_gap:
-            logger.warning("Gap was of negative duration ({}s). This error will only show once per batch.".format(gap.total_seconds()))
+        if not gap:
+            continue
+
+        # Sanity check in case events overlap
+        if gap < timedelta(0) and e1.data == e2.data:
+            # Events with negative gap but same data can safely be merged
+            start = min(e1.timestamp, e2.timestamp)
+            end = max(e1.timestamp + e1.duration, e2.timestamp + e2.duration)
+            e1.timestamp, e1.duration = start, (end - start)
+            e2.timestamp, e2.duration = end, timedelta(0)
+            if not warned_about_negative_gap_safe:
+                logger.warning("Gap was of negative duration but could be safely merged ({}s). This message will only show once per batch.".format(gap.total_seconds()))
+                warned_about_negative_gap_safe = True
+        elif gap < -negative_gap_trim_thres and not warned_about_negative_gap_unsafe:
+            # Events with negative gap but differing data cannot be merged safely
+            logger.warning("Gap was of negative duration and could NOT be safely merged ({}s). This warning will only show once per batch.".format(gap.total_seconds()))
+            warned_about_negative_gap_unsafe = True
             # logger.warning("Event 1 (id {}): {} {}".format(e1.id, e1.timestamp, e1.duration))
             # logger.warning("Event 2 (id {}): {} {}".format(e2.id, e2.timestamp, e2.duration))
-            warned_about_negative_gap = True
-
-        if gap <= timedelta(seconds=pulsetime):
+        elif -negative_gap_trim_thres < gap <= timedelta(seconds=pulsetime):
             e2_end = e2.timestamp + e2.duration
 
             # Prioritize flooding from the longer event

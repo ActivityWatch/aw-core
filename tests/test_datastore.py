@@ -1,5 +1,6 @@
 import logging
 import random
+import iso8601
 from datetime import datetime, timedelta, timezone
 import iso8601
 
@@ -36,13 +37,13 @@ def test_create_bucket(datastore):
     name = "A label/name for a test bucket"
     bid = "test-identifier"
     try:
-        bucket = datastore.create_bucket(bucket_id=bid, type="testtype", client="testclient", hostname="testhost", name=name)
+        bucket = datastore.create_bucket(bucket_id=bid, type="testtype", client="testclient", hostname="testhost", name=name, created=now)
         assert bid == bucket.metadata()["id"]
         assert name == bucket.metadata()["name"]
         assert "testtype" == bucket.metadata()["type"]
         assert "testclient" == bucket.metadata()["client"]
         assert "testhost" == bucket.metadata()["hostname"]
-        assert iso8601.parse_date(bucket.metadata()["created"])
+        assert now == iso8601.parse_date(bucket.metadata()["created"])
         assert bid in datastore.buckets()
     finally:
         datastore.delete_bucket(bid)
