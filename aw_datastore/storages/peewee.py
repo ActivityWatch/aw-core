@@ -76,36 +76,11 @@ class EventModel(BaseModel):
         }
 
 
-def detect_db_files(data_dir: str) -> List[str]:
-    return [filename for filename in os.listdir(data_dir) if "peewee-sqlite" in filename]
-
-
-def detect_db_version(data_dir: str, max_version: Optional[int] = None) -> Optional[int]:
-    """Returns the most recent version number of any database file found (up to max_version)"""
-    import re
-    files = detect_db_files(data_dir)
-    r = re.compile("v[0-9]+")
-    re_matches = [r.search(filename) for filename in files]
-    versions = [int(match.group(0)[1:]) for match in re_matches if match]
-    if max_version:
-        versions = [v for v in versions if v <= max_version]
-    return max(versions) if versions else None
-
-
 class PeeweeStorage(AbstractStorage):
     sid = "peewee"
 
     def __init__(self, testing: bool = True, filepath: str = None) -> None:
         data_dir = get_data_dir("aw-server")
-
-        # TODO: Won't work with custom filepath
-        current_db_version = detect_db_version(data_dir, max_version=LATEST_VERSION)
-
-        if current_db_version is not None and current_db_version < LATEST_VERSION:
-            # DB file found but was of an older version
-            logger.info("Latest version database file found was of an older version")
-            logger.info("Creating database file for new version {}".format(LATEST_VERSION))
-            logger.warning("ActivityWatch does not currently support database migrations, new database file will be empty")
 
         if not filepath:
             filename = 'peewee-sqlite' + ('-testing' if testing else '') + ".v{}".format(LATEST_VERSION) + '.db'
@@ -114,7 +89,7 @@ class PeeweeStorage(AbstractStorage):
         self.db.init(filepath)
         logger.info("Using database file: {}".format(filepath))
 
-        # db.connect()
+        self.db.connect()
 
         self.bucket_keys = {}  # type: Dict[str, int]
         if not BucketModel.table_exists():
@@ -157,12 +132,11 @@ class PeeweeStorage(AbstractStorage):
                             "duration": event.duration.total_seconds(),
                             "datastr": json.dumps(event.data)}
                            for event in events]
-        with self.db.atomic():
-            # Chunking into lists of length 100 is needed here due to SQLITE_MAX_COMPOUND_SELECT
-            # and SQLITE_LIMIT_VARIABLE_NUMBER under Windows.
-            # See: https://github.com/coleifer/peewee/issues/948
-            for chunk in chunks(events_dictlist, 100):
-                EventModel.insert_many(chunk).execute()
+        # Chunking into lists of length 100 is needed here due to SQLITE_MAX_COMPOUND_SELECT
+        # and SQLITE_LIMIT_VARIABLE_NUMBER under Windows.
+        # See: https://github.com/coleifer/peewee/issues/948
+        for chunk in chunks(events_dictlist, 100):
+            EventModel.insert_many(chunk).execute()
 
     def _get_event(self, bucket_id, event_id) -> EventModel:
         return EventModel.select() \

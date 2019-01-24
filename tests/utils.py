@@ -18,7 +18,7 @@ class TempTestBucket:
         self.bucket_id = "test-{}".format(random.randint(0, 10**4))
 
     def __enter__(self):
-        self.ds.create_bucket(bucket_id=self.bucket_id, type="test", client="test", hostname="test")
+        self.ds.create_bucket(bucket_id=self.bucket_id, type="testtype", client="testclient", hostname="testhost", name="testname")
         return self.ds[self.bucket_id]
 
     def __exit__(self, *_):
