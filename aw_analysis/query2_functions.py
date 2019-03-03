@@ -126,13 +126,14 @@ def q2_query_bucket_eventcount(datastore: Datastore, namespace: TNamespace, buck
 
 
 @q2_function
-def q2_filter_keyvals(events: list, key: str, vals: list) -> List[Event]:
+def q2_filter_keyvals(events: list, key: str, vals: list, exclude: bool = False) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(key, str)
     _verify_variable_is_type(vals, list)
-    return filter_keyvals(events, key, vals, False)
+    return filter_keyvals(events, key, vals, exclude)
 
 
+# DEPRECATED, use filter_keyvals(..., exclude=True)
 @q2_function
 def q2_exclude_keyvals(events: list, key: str, vals: list) -> List[Event]:
     _verify_variable_is_type(events, list)

@@ -30,6 +30,7 @@ class TempTestBucket:
 
 _storage_methods = get_storage_methods()
 
+
 def param_datastore_objects():
     return [Datastore(storage_strategy=strategy, testing=True)
             for name, strategy in _storage_methods.items()]

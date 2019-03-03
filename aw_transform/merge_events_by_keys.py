@@ -13,22 +13,14 @@ def merge_events_by_keys(events, keys) -> List[Event]:
         return events
     merged_events = {}  # type: Dict[str, Event]
     for event in events:
-        summed_key = ""
-        for key in keys:
-            if key in event.data:
-                summed_key = summed_key + "." + event["data"][key]
+        summed_key = "/".join(event['data'][key] for key in keys)
         if summed_key not in merged_events:
             merged_events[summed_key] = Event(
                 timestamp=event.timestamp,
                 duration=event.duration,
-                data={}
+                data=event.data
             )
-            for key in keys:
-                if key in event.data:
-                    merged_events[summed_key].data[key] = event.data[key]
         else:
             merged_events[summed_key].duration += event.duration
-    result = []
-    for key in merged_events:
-        result.append(Event(**merged_events[key]))
+    result = [Event(**event) for event in merged_events.values()]
     return result

@@ -33,7 +33,7 @@ def temporary_bucket(ds):
     ds.delete_bucket(bucket_id)
 
 
-def benchmark(storage: Callable[..., AbstractStorage]):
+def test_benchmark(benchmark, storage: Callable[..., AbstractStorage]):
     ds = Datastore(storage, testing=True)
     num_events = 5 * 10**4
     events = create_test_events(num_events)

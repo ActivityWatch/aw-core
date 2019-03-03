@@ -13,6 +13,7 @@ from aw_transform import (
     chunk_events_by_key,
     split_url_events,
     simplify_string,
+    concat,
     union,
 )
 
