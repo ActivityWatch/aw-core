@@ -68,7 +68,9 @@ class MongoDBStorage(AbstractStorage):
         metadata = self.db[bucket_id]["metadata"].find_one({"_id": "metadata"})
         if metadata:
             del metadata["_id"]
-        return metadata
+            return metadata
+        else:
+            raise Exception('Bucket did not exist, could not get metadata')
 
     def get_events(self, bucket_id: str, limit: int,
                    starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
