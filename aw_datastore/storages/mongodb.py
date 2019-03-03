@@ -45,13 +45,14 @@ class MongoDBStorage(AbstractStorage):
         }
         self.db[bucket_id]["metadata"].insert_one(metadata)
 
-    def delete_bucket(self, bucket_id: str) -> bool:
+    def delete_bucket(self, bucket_id: str) -> None:
         print(self.db.collection_names())
         if bucket_id + ".metadata" in self.db.collection_names():
             self.db[bucket_id]["events"].drop()
             self.db[bucket_id]["metadata"].drop()
-            return True
-        return False
+        else:
+            # TODO: Create custom exception
+            raise Exception('Bucket did not exist, could not delete')
 
     def buckets(self) -> Dict[str, dict]:
         bucketnames = set()

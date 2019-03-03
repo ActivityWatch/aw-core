@@ -91,7 +91,7 @@ class PeeweeStorage(AbstractStorage):
 
         self.db.connect()
 
-        self.bucket_keys = {}
+        self.bucket_keys: Dict[str, int] = {}
         BucketModel.create_table(safe=True)
         EventModel.create_table(safe=True)
         self.update_bucket_keys()
@@ -110,13 +110,13 @@ class PeeweeStorage(AbstractStorage):
                            hostname=hostname, created=created, name=name)
         self.update_bucket_keys()
 
-    def delete_bucket(self, bucket_id: str) -> bool:
+    def delete_bucket(self, bucket_id: str) -> None:
         if bucket_id in self.bucket_keys:
             EventModel.delete().where(EventModel.bucket == self.bucket_keys[bucket_id]).execute()
             BucketModel.delete().where(BucketModel.key == self.bucket_keys[bucket_id]).execute()
             self.update_bucket_keys()
-            return True
-        return False
+        else:
+            raise Exception('Bucket did not exist, could not delete')
 
     def get_metadata(self, bucket_id: str):
         if bucket_id in self.bucket_keys:
