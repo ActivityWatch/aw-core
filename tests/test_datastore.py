@@ -56,7 +56,8 @@ def test_delete_bucket(datastore):
     datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name="test")
     datastore.delete_bucket(bid)
     assert bid not in datastore.buckets()
-    datastore.delete_bucket(bid)
+    with pytest.raises(Exception):
+        datastore.delete_bucket(bid)
 
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
@@ -340,10 +341,9 @@ def test_get_metadata(bucket_cm):
         assert 'id' in metadata
         assert 'name' in metadata
         assert 'type' in metadata
-        bucket.ds.delete_bucket(metadata["id"])
-        # FIXME: This should raise a reasonable exception
-        # with pytest.raises(Exception):
-        #     bucket.metadata()
+    # FIXME: This should raise a reasonable exception
+    # with pytest.raises(Exception):
+    #     bucket.metadata()
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())

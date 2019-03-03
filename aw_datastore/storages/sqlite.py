@@ -132,8 +132,10 @@ class SqliteStorage(AbstractStorage):
 
     def delete_bucket(self, bucket_id: str):
         self.conn.execute("DELETE FROM events WHERE bucketrow IN (SELECT rowid FROM buckets WHERE id = ?)", [bucket_id])
-        self.conn.execute("DELETE FROM buckets WHERE id = ?", [bucket_id])
+        cursor = self.conn.execute("DELETE FROM buckets WHERE id = ?", [bucket_id])
         self.commit()
+        if cursor.rowcount != 1:
+            raise Exception('Bucket did not exist, could not delete')
 
     def get_metadata(self, bucket_id: str):
         c = self.conn.cursor()
@@ -194,9 +196,8 @@ class SqliteStorage(AbstractStorage):
     def delete(self, bucket_id, event_id):
         query = "DELETE FROM events " + \
                 "WHERE id = ? AND bucketrow = (SELECT b.rowid FROM buckets b WHERE b.id = ?)"
-        self.conn.execute(query, [event_id, bucket_id])
-        # TODO: Handle if event doesn't exist
-        return True
+        cursor = self.conn.execute(query, [event_id, bucket_id])
+        return cursor.rowcount == 1
 
     def replace(self, bucket_id, event_id, event) -> bool:
         starttime = event.timestamp.timestamp() * 1000000
