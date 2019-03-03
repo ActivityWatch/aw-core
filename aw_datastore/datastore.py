@@ -84,10 +84,12 @@ class Bucket:
         """
         # NOTE: Should we keep the timestamp checking?
         # Get last event for timestamp check after insert
+        """
         last_event_list = self.get(1)
         last_event = None
         if last_event_list:
             last_event = last_event_list[0]
+        """
 
         now = datetime.now(tz=timezone.utc)
 
@@ -99,7 +101,7 @@ class Bucket:
             if events.timestamp + events.duration > now:
                 self.logger.warning("Event inserted into bucket {} reaches into the future. Current UTC time: {}. Event data: {}".format(self.bucket_id, str(now), str(events)))
             inserted = self.ds.storage_strategy.insert_one(self.bucket_id, events)
-            assert inserted
+            #assert inserted
         elif isinstance(events, list):
             if events:
                 oldest_event = sorted(events, key=lambda k: k['timestamp'])[0]
@@ -113,11 +115,13 @@ class Bucket:
             raise TypeError
 
         # Warn if timestamp is older than last event
+        """
         if last_event and oldest_event:
             if oldest_event.timestamp < last_event.timestamp:  # pragma: no cover
                 self.logger.warning("Inserting event that has a older timestamp than previous event!" +
                                     "\nPrevious:" + str(last_event) +
                                     "\nInserted:" + str(oldest_event))
+        """
 
         return inserted
 

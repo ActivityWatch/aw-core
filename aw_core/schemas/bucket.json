@@ -1,0 +1,45 @@
+{
+    "$id": "https://activitywatch.net/schemas/bucket.v0.json",
+	"$schema": "http://json-schema.org/draft-04/schema#",
+	"title": "Bucket",
+	"description": "The Bucket model that is used in ActivityWatch",
+	"type": "object",
+	"required": ["id", "type", "client", "hostname"],
+	"properties": {
+		"id": {
+            "description": "The unique id for the bucket",
+            "type": "string"
+		},
+		"name": {
+            "description": "The readable and renameable name for the bucket",
+            "type": "string"
+		},
+		"type": {
+            "description": "The event type",
+            "type": "string"
+		},
+		"client": {
+            "description": "The name of the client that is reporting to the bucket",
+            "type": "string"
+		},
+		"hostname": {
+            "description": "The hostname of the machine on which the client is running",
+            "type": "string"
+		},
+		"created": {
+            "description": "The creation datetime of the bucket",
+            "type": "string",
+            "format": "date-time"
+		},
+        "data": {
+            "description": "",
+            "type": "object"
+        },
+        "events": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/Event"
+            }
+        }
+    }
+}

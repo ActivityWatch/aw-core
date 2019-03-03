@@ -1,0 +1,16 @@
+{
+    "$id": "https://activitywatch.net/schemas/export.v0.json",
+	"$schema": "http://json-schema.org/draft-04/schema#",
+	"title": "Export",
+	"description": "The Export model that is used by ActivityWatch",
+	"type": "object",
+	"required": [],
+	"properties": {
+        "buckets": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/Bucket"
+            }
+        }
+    }
+}

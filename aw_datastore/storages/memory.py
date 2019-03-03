@@ -65,7 +65,9 @@ class MemoryStorage(AbstractStorage):
                     e.append(event)
             events = e
         # Limit
-        if limit < 0:
+        if limit == 0:
+            return []
+        elif limit < 0:
             limit = sys.maxsize
         events = events[:limit]
         # Return

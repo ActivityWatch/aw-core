@@ -1,17 +1,19 @@
 from typing import Dict, Callable, Any
 import platform as _platform
 
+from .migration import check_for_migration
+
 from . import storages
 from .datastore import Datastore
-
 
 # The Callable[[Any], ...] here should be Callable[..., ...] but Python 3.5.2 doesn't
 # like ellipsises. See here: https://github.com/python/typing/issues/259
 def get_storage_methods() -> Dict[str, Callable[[Any], storages.AbstractStorage]]:
-    from .storages import MemoryStorage, MongoDBStorage, PeeweeStorage
+    from .storages import MemoryStorage, MongoDBStorage, PeeweeStorage, SqliteStorage
     methods = {
         PeeweeStorage.sid: PeeweeStorage,
         MemoryStorage.sid: MemoryStorage,
+        SqliteStorage.sid: SqliteStorage,
     }  # type: Dict[str, Callable[[Any], storages.AbstractStorage]]
 
     # MongoDB is not supported on Windows or macOS

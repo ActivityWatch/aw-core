@@ -2,6 +2,7 @@ import iso8601
 from typing import Callable, Dict, Any, List
 from inspect import signature
 from functools import wraps
+from datetime import timedelta
 
 from aw_core.models import Event
 from aw_datastore import Datastore
@@ -10,9 +11,13 @@ from aw_transform import (
     filter_period_intersect,
     filter_keyvals,
     filter_keyvals_regex,
+    period_union,
     merge_events_by_keys,
+    chunk_events_by_key,
     sort_by_timestamp,
     sort_by_duration,
+    sum_durations,
+    concat,
     split_url_events,
     simplify_string,
     flood
@@ -151,6 +156,13 @@ def q2_filter_period_intersect(events: list, filterevents: list) -> List[Event]:
 
 
 @q2_function
+def q2_period_union(events1: list, events2: list) -> List[Event]:
+    _verify_variable_is_type(events1, list)
+    _verify_variable_is_type(events2, list)
+    return period_union(events1, events2)
+
+
+@q2_function
 def q2_limit_events(events: list, count: int) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(count, int)
@@ -169,6 +181,13 @@ def q2_merge_events_by_keys(events: list, keys: list) -> List[Event]:
     return merge_events_by_keys(events, keys)
 
 
+@q2_function
+def q2_chunk_events_by_key(events: list, key: str) -> List[Event]:
+    _verify_variable_is_type(events, list)
+    _verify_variable_is_type(key, str)
+    return chunk_events_by_key(events, key)
+
+
 """
     Sort functions
 """
@@ -184,6 +203,24 @@ def q2_sort_by_timestamp(events: list) -> List[Event]:
 def q2_sort_by_duration(events: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     return sort_by_duration(events)
+
+
+"""
+    Summarizing functions
+"""
+
+
+@q2_function
+def q2_sum_durations(events: list) -> timedelta:
+    _verify_variable_is_type(events, list)
+    return sum_durations(events)
+
+
+@q2_function
+def q2_concat(events1: list, events2: list) -> List[Event]:
+    _verify_variable_is_type(events1, list)
+    _verify_variable_is_type(events2, list)
+    return concat(events1, events2)
 
 
 """
