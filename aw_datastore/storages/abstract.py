@@ -27,7 +27,7 @@ class AbstractStorage(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def delete_bucket(self, bucket_id: str) -> bool:
+    def delete_bucket(self, bucket_id: str) -> None:
         raise NotImplementedError
 
     @abstractmethod

@@ -5,7 +5,7 @@ import os
 import logging
 import iso8601
 
-from peewee import Model, CharField, IntegerField, DecimalField, DateTimeField, ForeignKeyField, PrimaryKeyField
+from peewee import Model, CharField, IntegerField, DecimalField, DateTimeField, ForeignKeyField, AutoField
 from playhouse.sqlite_ext import SqliteExtDatabase
 
 from aw_core.models import Event
@@ -57,8 +57,8 @@ class BucketModel(BaseModel):
 
 
 class EventModel(BaseModel):
-    id = PrimaryKeyField()
-    bucket = ForeignKeyField(BucketModel, related_name='events', index=True)
+    id = AutoField()
+    bucket = ForeignKeyField(BucketModel, backref='events', index=True)
     timestamp = DateTimeField(index=True, default=datetime.now)
     duration = DecimalField()
     datastr = CharField()
