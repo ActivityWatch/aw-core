@@ -341,9 +341,8 @@ def test_get_metadata(bucket_cm):
         assert 'id' in metadata
         assert 'name' in metadata
         assert 'type' in metadata
-    # FIXME: This should raise a reasonable exception
-    # with pytest.raises(Exception):
-    #     bucket.metadata()
+    with pytest.raises(Exception):
+        bucket.metadata()
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())

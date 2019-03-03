@@ -121,7 +121,8 @@ class PeeweeStorage(AbstractStorage):
     def get_metadata(self, bucket_id: str):
         if bucket_id in self.bucket_keys:
             return BucketModel.get(BucketModel.key == self.bucket_keys[bucket_id]).json()
-        return None
+        else:
+            raise Exception('Bucket did not exist, could not get metadata')
 
     def insert_one(self, bucket_id: str, event: Event) -> Event:
         e = EventModel.from_event(self.bucket_keys[bucket_id], event)

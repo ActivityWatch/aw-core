@@ -141,15 +141,17 @@ class SqliteStorage(AbstractStorage):
         c = self.conn.cursor()
         res = c.execute("SELECT id, name, type, client, hostname, created FROM buckets WHERE id = ?", [bucket_id])
         row = res.fetchone()
-        bucket = {
-            "id": row[0],
-            "name": row[1],
-            "type": row[2],
-            "client": row[3],
-            "hostname": row[4],
-            "created": row[5],
-        }
-        return bucket
+        if row is not None:
+            return {
+                "id": row[0],
+                "name": row[1],
+                "type": row[2],
+                "client": row[3],
+                "hostname": row[4],
+                "created": row[5],
+            }
+        else:
+            raise Exception('Bucket did not exist, could not get metadata')
 
     def insert_one(self, bucket_id: str, event: Event) -> Event:
         c = self.conn.cursor()

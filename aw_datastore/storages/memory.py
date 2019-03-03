@@ -82,7 +82,8 @@ class MemoryStorage(AbstractStorage):
     def get_metadata(self, bucket_id: str):
         if bucket_id in self._metadata:
             return self._metadata[bucket_id]
-        return None
+        else:
+            raise Exception('Bucket did not exist, could not get metadata')
 
     def insert_one(self, bucket: str, event: Event) -> Event:
         self.db[bucket].append(Event(**event))
