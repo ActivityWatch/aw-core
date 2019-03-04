@@ -36,11 +36,11 @@ class AbstractStorage(metaclass=ABCMeta):
 
     @abstractmethod
     def get_events(self, bucket_id: str, limit: int,
-                   starttime: Optional[datetime]=None, endtime: Optional[datetime]=None) -> List[Event]:
+                   starttime: Optional[datetime] = None, endtime: Optional[datetime] = None) -> List[Event]:
         raise NotImplementedError
 
     def get_eventcount(self, bucket_id: str,
-                   starttime: Optional[datetime]=None, endtime: Optional[datetime]=None) -> int:
+                       starttime: Optional[datetime] = None, endtime: Optional[datetime] = None) -> int:
         raise NotImplementedError
 
     @abstractmethod

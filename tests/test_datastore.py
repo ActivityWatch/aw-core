@@ -51,6 +51,16 @@ def test_create_bucket(datastore):
 
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
+def test_delete_bucket(datastore):
+    bid = "test"
+    datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name="test")
+    datastore.delete_bucket(bid)
+    assert bid not in datastore.buckets()
+    with pytest.raises(Exception):
+        datastore.delete_bucket(bid)
+
+
+@pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_nonexistant_bucket(datastore):
     """
     Tests that a KeyError is raised if you request a non-existant bucket
@@ -114,7 +124,12 @@ def test_delete(bucket_cm):
         print(fetched_events[0])
         assert num_events == len(fetched_events)
 
+        # Test deleting event
         assert bucket.delete(fetched_events[0]["id"])
+
+        # Test deleting non-existant event
+        # FIXME: Doesn't work due to lazy evaluation in SqliteDatastore
+        # assert not bucket.delete(fetched_events[0]["id"])
 
         fetched_events = bucket.get(limit=-1)
         assert num_events - 1 == len(fetched_events)
@@ -126,11 +141,11 @@ def test_insert_badtype(bucket_cm):
     Tests that you cannot insert non-event types into a bucket
     """
     with bucket_cm as bucket:
-        l = len(bucket.get())
+        bucket_len = len(bucket.get())
         badevent = 1
         with pytest.raises(TypeError):
             bucket.insert(badevent)
-        assert l == len(bucket.get())
+        assert bucket_len == len(bucket.get())
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
@@ -326,6 +341,9 @@ def test_get_metadata(bucket_cm):
         assert 'id' in metadata
         assert 'name' in metadata
         assert 'type' in metadata
+    with pytest.raises(Exception):
+        bucket.metadata()
+
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_get_eventcount(bucket_cm):
@@ -334,8 +352,13 @@ def test_get_eventcount(bucket_cm):
     """
     with bucket_cm as bucket:
         print(bucket.ds.storage_strategy)
-        assert 0 == bucket.get_eventcount()
-        for i in range(5):
+        assert bucket.get_eventcount() == 0
+        for _ in range(5):
             bucket.insert(Event(timestamp=now))
-        assert 5 == bucket.get_eventcount()
+        assert bucket.get_eventcount() == 5
         # TODO: Test with timestamps and start/endtime filtering
+
+        bucket.insert(Event(timestamp=now + timedelta(seconds=5)))
+        assert bucket.get_eventcount(starttime=now - timedelta(seconds=1), endtime=now) == 5
+        assert bucket.get_eventcount(endtime=now + timedelta(seconds=1)) == 5
+        assert bucket.get_eventcount(starttime=now + timedelta(seconds=1)) == 1

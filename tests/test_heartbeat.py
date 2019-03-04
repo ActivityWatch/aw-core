@@ -39,6 +39,9 @@ def test_heartbeat_reduce():
     now = datetime.now()
     td_1s = timedelta(seconds=1)
 
+    # Check that empty list works
+    assert not heartbeat_reduce([], pulsetime=1)
+
     events = [Event(timestamp=now, data={"label": "test"}), Event(timestamp=now + td_1s, data={"label": "test"})]
     reduced_events = heartbeat_reduce(events, pulsetime=2)
     assert len(reduced_events) == 1

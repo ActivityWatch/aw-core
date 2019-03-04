@@ -65,9 +65,9 @@ def test_filter_period_intersect():
 
     # Filter 1h event with another 1h event at a 30min offset
     to_filter = [Event(timestamp=now, duration=td1h)]
-    filter_with = [Event(timestamp=now + timedelta(minutes=30), duration=td1h)]
+    filter_with = [Event(timestamp=now + td30min, duration=td1h)]
     filtered_events = filter_period_intersect(to_filter, filter_with)
-    assert filtered_events[0].duration == timedelta(minutes=30)
+    assert filtered_events[0].duration == td30min
 
     # Filter 2x 30min events with a 15min gap with another 45min event in between intersecting both
     to_filter = [
@@ -152,8 +152,15 @@ def test_merge_events_by_keys_1():
     e2_data = {"label": "b"}
     e1 = Event(data=e1_data, timestamp=now, duration=timedelta(seconds=1))
     e2 = Event(data=e2_data, timestamp=now, duration=timedelta(seconds=1))
-    events = events + [e1]*10
-    events = events + [e2]*5
+    events = events + [e1] * 10
+    events = events + [e2] * 5
+
+    # Check that an empty key list has no effect
+    assert merge_events_by_keys(events, []) == events
+
+    # Check that trying to merge on unavailable key has no effect
+    assert len(merge_events_by_keys(events, ["unknown"])) == 1
+
     result = merge_events_by_keys(events, ["label"])
     result = sort_by_duration(result)
     print(result)
@@ -172,9 +179,9 @@ def test_merge_events_by_keys_2():
     e1 = Event(data=e1_data, timestamp=now, duration=timedelta(seconds=1))
     e2 = Event(data=e2_data, timestamp=now, duration=timedelta(seconds=1))
     e3 = Event(data=e3_data, timestamp=now, duration=timedelta(seconds=1))
-    events = events + [e1]*10
-    events = events + [e2]*9
-    events = events + [e3]*8
+    events = events + [e1] * 10
+    events = events + [e2] * 9
+    events = events + [e3] * 8
     result = merge_events_by_keys(events, ["k1", "k2"])
     result = sort_by_duration(result)
     print(result)

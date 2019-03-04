@@ -87,7 +87,7 @@ class Bucket:
         """
         last_event_list = self.get(1)
         last_event = None
-        if len(last_event_list) > 0:
+        if last_event_list:
             last_event = last_event_list[0]
         """
 
@@ -103,9 +103,9 @@ class Bucket:
             inserted = self.ds.storage_strategy.insert_one(self.bucket_id, events)
             #assert inserted
         elif isinstance(events, list):
-            if len(events) > 0:
+            if events:
                 oldest_event = sorted(events, key=lambda k: k['timestamp'])[0]
-            else:
+            else:  # pragma: no cover
                 oldest_event = None
             for event in events:
                 if event.timestamp + event.duration > now:
@@ -117,7 +117,7 @@ class Bucket:
         # Warn if timestamp is older than last event
         """
         if last_event and oldest_event:
-            if oldest_event.timestamp < last_event.timestamp:
+            if oldest_event.timestamp < last_event.timestamp:  # pragma: no cover
                 self.logger.warning("Inserting event that has a older timestamp than previous event!" +
                                     "\nPrevious:" + str(last_event) +
                                     "\nInserted:" + str(oldest_event))

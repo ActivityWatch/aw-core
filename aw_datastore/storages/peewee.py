@@ -5,7 +5,7 @@ import os
 import logging
 import iso8601
 
-from peewee import Model, CharField, IntegerField, DecimalField, DateTimeField, ForeignKeyField, PrimaryKeyField
+from peewee import Model, CharField, IntegerField, DecimalField, DateTimeField, ForeignKeyField, AutoField
 from playhouse.sqlite_ext import SqliteExtDatabase
 
 from aw_core.models import Event
@@ -57,8 +57,8 @@ class BucketModel(BaseModel):
 
 
 class EventModel(BaseModel):
-    id = PrimaryKeyField()
-    bucket = ForeignKeyField(BucketModel, related_name='events', index=True)
+    id = AutoField()
+    bucket = ForeignKeyField(BucketModel, backref='events', index=True)
     timestamp = DateTimeField(index=True, default=datetime.now)
     duration = DecimalField()
     datastr = CharField()
@@ -92,10 +92,8 @@ class PeeweeStorage(AbstractStorage):
         self.db.connect()
 
         self.bucket_keys = {}  # type: Dict[str, int]
-        if not BucketModel.table_exists():
-            BucketModel.create_table()
-        if not EventModel.table_exists():
-            EventModel.create_table()
+        BucketModel.create_table(safe=True)
+        EventModel.create_table(safe=True)
         self.update_bucket_keys()
 
     def update_bucket_keys(self) -> None:
@@ -112,13 +110,19 @@ class PeeweeStorage(AbstractStorage):
                            hostname=hostname, created=created, name=name)
         self.update_bucket_keys()
 
-    def delete_bucket(self, bucket_id: str):
-        EventModel.delete().where(EventModel.bucket == self.bucket_keys[bucket_id]).execute()
-        BucketModel.delete().where(BucketModel.key == self.bucket_keys[bucket_id]).execute()
-        self.update_bucket_keys()
+    def delete_bucket(self, bucket_id: str) -> None:
+        if bucket_id in self.bucket_keys:
+            EventModel.delete().where(EventModel.bucket == self.bucket_keys[bucket_id]).execute()
+            BucketModel.delete().where(BucketModel.key == self.bucket_keys[bucket_id]).execute()
+            self.update_bucket_keys()
+        else:
+            raise Exception('Bucket did not exist, could not delete')
 
     def get_metadata(self, bucket_id: str):
-        return BucketModel.get(BucketModel.key == self.bucket_keys[bucket_id]).json()
+        if bucket_id in self.bucket_keys:
+            return BucketModel.get(BucketModel.key == self.bucket_keys[bucket_id]).json()
+        else:
+            raise Exception('Bucket did not exist, could not get metadata')
 
     def insert_one(self, bucket_id: str, event: Event) -> Event:
         e = EventModel.from_event(self.bucket_keys[bucket_id], event)
