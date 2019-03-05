@@ -1,4 +1,4 @@
-jsonschema
+jsonschema==2.6.0
 peewee==3.*
 strict-rfc3339
 appdirs>=1.4.0
