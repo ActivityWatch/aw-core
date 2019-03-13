@@ -22,11 +22,20 @@ def test_query2_test_token_parsing():
     (t, token), trash = _parse_token("'test'", ns)
     assert token == "'test'"
     assert t == QString
+    (t, token), trash = _parse_token("'te\\'st'", ns)
+    assert token == "'te\\'st'"
+    assert t == QString
+    (t, token), trash = _parse_token('"te\\"st"', ns)
+    assert token == '"te\\"st"'
+    assert t == QString
     (t, token), trash = _parse_token("test0xDEADBEEF", ns)
     assert token == "test0xDEADBEEF"
     assert t == QVariable
     (t, token), trash = _parse_token("test1337(')')", ns)
     assert token == "test1337(')')"
+    assert t == QFunction
+    (t, token), trash = _parse_token("test1337('test\\'test',\"test\\\"test\")", ns)
+    assert token == "test1337('test\\'test',\"test\\\"test\")"
     assert t == QFunction
     (t, token), trash = _parse_token("[1, 'a', {}]", ns)
     assert token == "[1, 'a', {}]"
@@ -50,9 +59,9 @@ def test_query2_test_token_parsing():
 def test_dict():
     ds = None
     ns = {}
-    d_str = "{'a': {'a': {'a': 1}}, 'b': {'b': ':'}}"
+    d_str = "{'a': {'a': {'a': 1}}, 'b': {'b\\'\"': ':'}}"
     d = QDict.parse(d_str, ns)
-    expected_res = {'a': {'a': {'a': 1}}, 'b': {'b': ':'}}
+    expected_res = {'a': {'a': {'a': 1}}, 'b': {'b\'"': ':'}}
     assert expected_res == d.interpret(ds, ns)
 
     # Key in dict is not a string
@@ -91,6 +100,11 @@ def test_list():
     l_str = "[1,2,[[3],4],5]"
     l = QList.parse(l_str, ns)
     expected_res = [1,2,[[3],4],5]
+    assert expected_res == l.interpret(ds, ns)
+
+    l_str = "['\\'',\"\\\"\"]"
+    l = QList.parse(l_str, ns)
+    expected_res = ["'",'"']
     assert expected_res == l.interpret(ds, ns)
 
     l_str = "[]"
@@ -243,15 +257,15 @@ def test_query2_query_functions(datastore):
     In many cases the functions doesn't change the result at all, so it's not a test
     for testing the validity of the data the functions transform
     """
-    bid = "test_bucket"
+    bid = "test_'bucket"
     qname = "test"
     starttime = iso8601.parse_date("1970")
     endtime = starttime + timedelta(hours=1)
 
     example_query = """
     bid = "{bid}";
-    events = query_bucket(bid);
-    events2 = query_bucket(bid);
+    events = query_bucket("{bid}");
+    events2 = query_bucket('{bid_escaped}');
     events2 = filter_keyvals(events2, "label", ["test1"]);
     events2 = exclude_keyvals(events2, "label", ["test2"]);
     events = filter_period_intersect(events, events2);
@@ -266,7 +280,7 @@ def test_query2_query_functions(datastore):
     eventcount = query_bucket_eventcount(bid);
     asd = nop();
     RETURN = {{"events": events, "eventcount": eventcount}};
-    """.format(bid=bid)
+    """.format(bid=bid, bid_escaped=bid.replace("'", "\\'"))
     try:
         bucket = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name="asd")
         e1 = Event(data={"label": "test1"},
