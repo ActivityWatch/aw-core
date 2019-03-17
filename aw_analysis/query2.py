@@ -86,6 +86,8 @@ class QString(QToken):
 
     @staticmethod
     def parse(string: str, namespace: dict={}) -> QToken:
+        quotes_type = string[0]
+        string = string.replace("\\"+quotes_type, quotes_type)
         string = string[1:-1]
         return QString(string)
 
@@ -96,10 +98,12 @@ class QString(QToken):
         if quotes_type != '"' and quotes_type != "'":
             return token, string
         token += quotes_type
+        prev_char = None
         for char in string[1:]:
             token += char
-            if char == quotes_type:
+            if char == quotes_type and prev_char != "\\": # escape quote_type with backslash
                 break
+            prev_char = char
         if token[-1] != quotes_type or len(token) < 2:
             # Unclosed string?
             raise QueryParseException("Failed to parse string")
@@ -167,13 +171,14 @@ class QFunction(QToken):
         to_consume = 1
         single_quote = False
         double_quote = False
+        prev_char = None
         for char in string[i:]:
             i = i + 1
-            if char == "'":
+            if char == "'" and prev_char != "\\" and not double_quote:
                 single_quote = not single_quote
-            elif char == '"':
+            elif char == '"' and prev_char != "\\" and not single_quote:
                 double_quote = not double_quote
-            elif double_quote or single_quote:
+            elif single_quote or double_quote:
                 pass
             elif i != 0 and char.isdigit():
                 pass
@@ -183,6 +188,7 @@ class QFunction(QToken):
                 to_consume -= 1
             if to_consume == 0:
                 break
+            prev_char = char
         if to_consume != 0:
             return None, string
         return string[:i], string[i + 1:]
@@ -234,13 +240,14 @@ class QDict(QToken):
         to_consume = 1
         single_quote = False
         double_quote = False
+        prev_char = None
         for char in string[i:]:
             i += 1
-            if char == "'":
+            if char == "'" and prev_char != "\\" and not double_quote:
                 single_quote = not single_quote
-            elif char == '"':
+            elif char == '"' and prev_char != "\\" and not single_quote:
                 double_quote = not double_quote
-            elif double_quote or single_quote:
+            elif single_quote or double_quote:
                 pass
             elif char == '}':
                 to_consume = to_consume - 1
@@ -248,6 +255,7 @@ class QDict(QToken):
                 to_consume = to_consume + 1
             if to_consume == 0:
                 break
+            prev_char = char
         return string[:i], string[i + 1:]
 
 
@@ -287,11 +295,12 @@ class QList(QToken):
         to_consume = 1
         single_quote = False
         double_quote = False
+        prev_char = None
         for char in string[i:]:
             i += 1
-            if char == "'":
+            if char == "'" and prev_char != "\\" and not double_quote:
                 single_quote = not single_quote
-            elif char == '"':
+            elif char == '"' and prev_char != "\\" and not single_quote:
                 double_quote = not double_quote
             elif double_quote or single_quote:
                 pass
@@ -301,6 +310,7 @@ class QList(QToken):
                 to_consume = to_consume + 1
             if to_consume == 0:
                 break
+            prev_char = char
         return string[:i], string[i + 1:]
 
 
@@ -374,7 +384,7 @@ def query(name: str, query: str, starttime: datetime, endtime: datetime, datasto
     for statement in query_stmts:
         statement = statement.strip()
         if statement:
-            # logger.debug("Parsing: " + statement)
+            logger.debug("Parsing: " + statement)
             var, val = parse(statement, namespace)
             interpret(var, val, namespace, datastore)
 
