@@ -110,7 +110,7 @@ class SqliteStorage(AbstractStorage):
         """
         if self.enable_lazy_commit:
             self.num_uncommited_statements += num_statements
-            if self.num_uncommited_statements > 10:
+            if self.num_uncommited_statements > 50:
                 self.commit()
             if (self.last_commit - datetime.now()) > timedelta(seconds=10):
                 self.commit()
