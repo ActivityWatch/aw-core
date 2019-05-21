@@ -57,13 +57,19 @@ INDEX_EVENTS_TABLE_ENDTIME = """
 class SqliteStorage(AbstractStorage):
     sid = "sqlite"
 
-    def __init__(self, testing):
+    def __init__(self, testing, filepath: str = None, enable_lazy_commit=True) -> None:
         self.testing = testing
-        data_dir = get_data_dir("aw-server")
+        self.enable_lazy_commit = enable_lazy_commit
+
+        # Ignore the migration check if custom filepath is set
+        ignore_migration_check = filepath is not None
 
         ds_name = self.sid + ('-testing' if testing else '')
-        filename = ds_name + ".v{}".format(LATEST_VERSION) + '.db'
-        filepath = os.path.join(data_dir, filename)
+        if not filepath:
+            data_dir = get_data_dir("aw-server")
+            filename = ds_name + ".v{}".format(LATEST_VERSION) + '.db'
+            filepath = os.path.join(data_dir, filename)
+
         new_db_file = not os.path.exists(filepath)
         self.conn = sqlite3.connect(filepath)
         logger.info("Using database file: {}".format(filepath))
@@ -77,10 +83,10 @@ class SqliteStorage(AbstractStorage):
         self.conn.execute("PRAGMA journal_mode=WAL;")
         self.commit()
 
-        if new_db_file:
+        if new_db_file and not ignore_migration_check:
             logger.info("Created new SQlite db file")
             from aw_datastore import check_for_migration
-            check_for_migration(self, ds_name, LATEST_VERSION)
+            check_for_migration(self)
 
         self.last_commit = datetime.now()
         self.num_uncommited_statements = 0
@@ -102,10 +108,13 @@ class SqliteStorage(AbstractStorage):
         This is because sqlite is very slow with small inserts, this
         is a way to batch them together and lower CPU+disk usage
         """
-        self.num_uncommited_statements += num_statements
-        if self.num_uncommited_statements > 50:
-            self.commit()
-        if (self.last_commit - datetime.now()) > timedelta(seconds=10):
+        if self.enable_lazy_commit:
+            self.num_uncommited_statements += num_statements
+            if self.num_uncommited_statements > 50:
+                self.commit()
+            if (self.last_commit - datetime.now()) > timedelta(seconds=10):
+                self.commit()
+        else:
             self.commit()
 
     def buckets(self):

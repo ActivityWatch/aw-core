@@ -8,6 +8,7 @@ from .storages import AbstractStorage
 
 logger = logging.getLogger(__name__)
 
+
 def detect_db_files(data_dir: str, datastore_name: str = None, version=None) -> List[str]:
     db_files = [filename for filename in os.listdir(data_dir)]
     if datastore_name:
@@ -16,16 +17,18 @@ def detect_db_files(data_dir: str, datastore_name: str = None, version=None) -> 
         db_files = [filename for filename in db_files if filename.split(".")[1] == "v{}".format(version)]
     return db_files
 
-def check_for_migration(datastore: AbstractStorage, datastore_name: str, version: int):
+
+def check_for_migration(datastore: AbstractStorage):
     data_dir = get_data_dir("aw-server")
 
     if datastore.sid == "sqlite":
         peewee_type = "peewee-sqlite"
-        peewee_name = peewee_type + "-testing" if datastore.testing else ""
+        peewee_name = peewee_type + ("-testing" if datastore.testing else "")
         # Migrate from peewee v2
         peewee_db_v2 = detect_db_files(data_dir, peewee_name, 2)
         if len(peewee_db_v2) > 0:
             peewee_v2_to_sqlite_v1(datastore)
+
 
 def peewee_v2_to_sqlite_v1(datastore):
     logger.info("Migrating database from peewee v2 to sqlite v1")
