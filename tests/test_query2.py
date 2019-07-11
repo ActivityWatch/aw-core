@@ -219,6 +219,38 @@ RETURN = my_multiline_string;
     assert result == "a\nb"
 
 
+def test_query2_function_invalid_types():
+    """Tests the q2_typecheck decorator"""
+    qname = "asd"
+    starttime = iso8601.parse_date("1970-01-01")
+    endtime = iso8601.parse_date("1970-01-02")
+
+    # int instead of str
+    example_query = '''
+        events = [];
+        RETURN = filter_keyvals(events, 666, ["invalid_val"]);
+    '''
+    with pytest.raises(QueryFunctionException):
+        query(qname, example_query, starttime, endtime, None)
+
+    # str instead of list
+    example_query = '''
+        events = [];
+        RETURN = filter_keyvals(events, "2", "invalid_val");
+    '''
+    with pytest.raises(QueryFunctionException):
+        query(qname, example_query, starttime, endtime, None)
+
+    # FIXME: For unknown reasons, query2 drops the second argument when the first argument is a bare []
+    """
+    example_query = '''
+        RETURN = filter_keyvals([], "2", "invalid_val");
+    '''
+    with pytest.raises(QueryFunctionException) as e:
+        result = query(qname, example_query, starttime, endtime, None)
+    """
+
+
 def test_query2_function_invalid_argument_count():
     qname = "asd"
     starttime = iso8601.parse_date("1970-01-01")
