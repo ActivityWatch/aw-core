@@ -20,7 +20,11 @@ __all__ = [
     'sort_by_duration',
     'heartbeat_reduce',
     'heartbeat_merge',
+    'merge_events_by_keys',
+    'chunk_events_by_key',
     'limit_events',
     'filter_keyvals',
-    'filter_keyvals_regex'
+    'filter_keyvals_regex',
+    'split_url_events',
+    'simplify_string',
 ]

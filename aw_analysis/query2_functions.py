@@ -63,7 +63,7 @@ def q2_function(transform_func=None):
         sig = signature(f)
         # If function lacks docstring, use docstring from underlying function in aw_transform
         if transform_func and transform_func.__doc__ and not f.__doc__:
-            f.__doc__ = f".. note:: Documentation automatically copied from underlying function `aw_transform.{transform_func.__name__}`\n\n" + transform_func.__doc__
+            f.__doc__ = ".. note:: Documentation automatically copied from underlying function `aw_transform.{func_name}`\n\n{func_doc}".format(func_name=transform_func.__name__, func_doc=transform_func.__doc__)
 
         @wraps(f)
         def g(datastore: Datastore, namespace: TNamespace, *args, **kwargs):
