@@ -20,7 +20,8 @@ from aw_transform import (
     concat,
     split_url_events,
     simplify_string,
-    flood
+    flood,
+    limit_events
 )
 
 from .query2_error import QueryFunctionException
@@ -50,29 +51,36 @@ TQueryFunction = Callable[..., Any]
 query2_functions = {}  # type: Dict[str, TQueryFunction]
 
 
-def q2_function(f):
+def q2_function(transform_func=None):
     """
     Decorator used to register query functions.
 
     Automatically adds mock arguments for Datastore and TNamespace
     if not in function signature.
     """
-    sig = signature(f)
 
-    @wraps(f)
-    def g(datastore: Datastore, namespace: TNamespace, *args, **kwargs):
-        args = (datastore, namespace, *args)
-        if TNamespace not in (sig.parameters[p].annotation for p in sig.parameters):
-            args = (args[0], *args[2:])
-        if Datastore not in (sig.parameters[p].annotation for p in sig.parameters):
-            args = (args[1:])
-        return f(*args, **kwargs)
+    def h(f):
+        sig = signature(f)
+        # If function lacks docstring, use docstring from underlying function in aw_transform
+        if transform_func and transform_func.__doc__ and not f.__doc__:
+            f.__doc__ = f".. note:: Documentation automatically copied from underlying function `aw_transform.{transform_func.__name__}`\n\n" + transform_func.__doc__
 
-    fname = f.__name__
-    if fname[:3] == "q2_":
-        fname = fname[3:]
-    query2_functions[fname] = g
-    return g
+        @wraps(f)
+        def g(datastore: Datastore, namespace: TNamespace, *args, **kwargs):
+            args = (datastore, namespace, *args)
+            if TNamespace not in (sig.parameters[p].annotation for p in sig.parameters):
+                args = (args[0], *args[2:])
+            if Datastore not in (sig.parameters[p].annotation for p in sig.parameters):
+                args = (args[1:])
+            return f(*args, **kwargs)
+
+        fname = f.__name__
+        if fname[:3] == "q2_":
+            fname = fname[3:]
+        query2_functions[fname] = g
+        return g
+
+    return h
 
 
 """
@@ -80,7 +88,7 @@ def q2_function(f):
 """
 
 
-@q2_function
+@q2_function()
 def q2_find_bucket(datastore: Datastore, filter_str: str, hostname: str = None):
     """Find bucket by using a filter_str (to avoid hardcoding bucket names)"""
     for bucket in datastore.buckets():
@@ -99,7 +107,7 @@ def q2_find_bucket(datastore: Datastore, filter_str: str, hostname: str = None):
 """
 
 
-@q2_function
+@q2_function()
 def q2_query_bucket(datastore: Datastore, namespace: TNamespace, bucketname: str) -> List[Event]:
     _verify_variable_is_type(bucketname, str)
     _verify_bucket_exists(datastore, bucketname)
@@ -111,7 +119,7 @@ def q2_query_bucket(datastore: Datastore, namespace: TNamespace, bucketname: str
     return datastore[bucketname].get(starttime=starttime, endtime=endtime)
 
 
-@q2_function
+@q2_function()
 def q2_query_bucket_eventcount(datastore: Datastore, namespace: TNamespace, bucketname: str) -> int:
     _verify_variable_is_type(bucketname, str)
     _verify_bucket_exists(datastore, bucketname)
@@ -125,7 +133,7 @@ def q2_query_bucket_eventcount(datastore: Datastore, namespace: TNamespace, buck
 """
 
 
-@q2_function
+@q2_function(filter_keyvals)
 def q2_filter_keyvals(events: list, key: str, vals: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(key, str)
@@ -133,7 +141,7 @@ def q2_filter_keyvals(events: list, key: str, vals: list) -> List[Event]:
     return filter_keyvals(events, key, vals, False)
 
 
-@q2_function
+@q2_function(filter_keyvals)
 def q2_exclude_keyvals(events: list, key: str, vals: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(key, str)
@@ -141,28 +149,28 @@ def q2_exclude_keyvals(events: list, key: str, vals: list) -> List[Event]:
     return filter_keyvals(events, key, vals, True)
 
 
-@q2_function
+@q2_function(filter_keyvals_regex)
 def q2_filter_keyvals_regex(events: list, key: str, regex: str) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(key, str)
     return filter_keyvals_regex(events, key, regex)
 
 
-@q2_function
+@q2_function(filter_period_intersect)
 def q2_filter_period_intersect(events: list, filterevents: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(filterevents, list)
     return filter_period_intersect(events, filterevents)
 
 
-@q2_function
+@q2_function(period_union)
 def q2_period_union(events1: list, events2: list) -> List[Event]:
     _verify_variable_is_type(events1, list)
     _verify_variable_is_type(events2, list)
     return period_union(events1, events2)
 
 
-@q2_function
+@q2_function(limit_events)
 def q2_limit_events(events: list, count: int) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(count, int)
@@ -174,14 +182,14 @@ def q2_limit_events(events: list, count: int) -> List[Event]:
 """
 
 
-@q2_function
+@q2_function(merge_events_by_keys)
 def q2_merge_events_by_keys(events: list, keys: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(keys, list)
     return merge_events_by_keys(events, keys)
 
 
-@q2_function
+@q2_function(chunk_events_by_key)
 def q2_chunk_events_by_key(events: list, key: str) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(key, str)
@@ -193,13 +201,13 @@ def q2_chunk_events_by_key(events: list, key: str) -> List[Event]:
 """
 
 
-@q2_function
+@q2_function(sort_by_timestamp)
 def q2_sort_by_timestamp(events: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     return sort_by_timestamp(events)
 
 
-@q2_function
+@q2_function(sort_by_duration)
 def q2_sort_by_duration(events: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     return sort_by_duration(events)
@@ -210,13 +218,13 @@ def q2_sort_by_duration(events: list) -> List[Event]:
 """
 
 
-@q2_function
+@q2_function(sum_durations)
 def q2_sum_durations(events: list) -> timedelta:
     _verify_variable_is_type(events, list)
     return sum_durations(events)
 
 
-@q2_function
+@q2_function(concat)
 def q2_concat(events1: list, events2: list) -> List[Event]:
     _verify_variable_is_type(events1, list)
     _verify_variable_is_type(events2, list)
@@ -228,7 +236,7 @@ def q2_concat(events1: list, events2: list) -> List[Event]:
 """
 
 
-@q2_function
+@q2_function(flood)
 def q2_flood(events: list) -> List[Event]:
     return flood(events)
 
@@ -238,13 +246,13 @@ def q2_flood(events: list) -> List[Event]:
 """
 
 
-@q2_function
+@q2_function(split_url_events)
 def q2_split_url_events(events: list) -> List[Event]:
     _verify_variable_is_type(events, list)
     return split_url_events(events)
 
 
-@q2_function
+@q2_function(simplify_string)
 def q2_simplify_window_titles(events: list, key: str) -> List[Event]:
     _verify_variable_is_type(events, list)
     _verify_variable_is_type(key, str)
@@ -256,7 +264,7 @@ def q2_simplify_window_titles(events: list, key: str) -> List[Event]:
 """
 
 
-@q2_function
+@q2_function()
 def q2_nop():
     """No operation function for unittesting"""
     return 1

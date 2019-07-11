@@ -2,7 +2,7 @@ import logging
 from typing import List, Iterable, Tuple
 from copy import deepcopy
 
-from aw_core.models import Event
+from aw_core import Event
 from aw_core import TimePeriod
 
 logger = logging.getLogger(__name__)
@@ -65,9 +65,11 @@ def filter_period_intersect(events: List[Event], filterevents: List[Event]) -> L
       windowevents_notafk = filter_period_intersect(windowevents, notafkevents)
 
     Example:
-      events1   |   =======        ======== |
-      events2   | ------  ---  ---   ----   |
-      result    |   ====  =          ====   |
+      .. code-block:: none
+
+        events1   |   =======        ======== |
+        events2   | ------  ---  ---   ----   |
+        result    |   ====  =          ====   |
 
     A JavaScript version used to exist in aw-webui but was removed in `this PR <https://github.com/ActivityWatch/aw-webui/pull/48>`_.
     """
@@ -83,12 +85,14 @@ def period_union(events1: List[Event], events2: List[Event]) -> List[Event]:
     Takes a list of two events and returns a new list of events covering the union
     of the timeperiods contained in the eventlists with no overlapping events.
 
-    WARNING: This function strips all data from events as it cannot keep it consistent.
+    .. warning:: This function strips all data from events as it cannot keep it consistent.
 
     Example:
-      events1   |   -------       --------- |
-      events2   | ------  ---  --    ----   |
-      result    | -----------  -- --------- |
+      .. code-block:: none
+
+        events1   |   -------       --------- |
+        events2   | ------  ---  --    ----   |
+        result    | -----------  -- --------- |
     """
     events = sorted(events1 + events2)
     merged_events = []
@@ -115,8 +119,12 @@ def union(events1: List[Event], events2: List[Event]) -> List[Event]:
     """
     Concatenates and sorts union of 2 event lists and removes duplicates.
 
-    Example that merges events from a backup-bucket with events from a "living" bucket:
-      events = union(events_backup, events_living)
+    Example:
+      Merges events from a backup-bucket with events from a "living" bucket.
+
+      .. code-block:: python
+
+        events = union(events_backup, events_living)
     """
 
     events1 = sorted(events1, key=lambda e: (e.timestamp, e.duration))
