@@ -1,7 +1,11 @@
-jsonschema==2.6.0
-peewee==3.*
-strict-rfc3339
-appdirs>=1.4.0
-iso8601
-python-json-logger>=0.1.5
-takethetime>=0.3.0
+-i https://pypi.org/simple
+appdirs==1.4.3
+attrs==19.1.0
+iso8601==0.1.12
+jsonschema==3.0.1
+peewee==3.9.6
+pyrsistent==0.15.3
+python-json-logger==0.1.11
+six==1.12.0
+strict-rfc3339==0.7
+takethetime==0.3.1

@@ -24,6 +24,7 @@ def setup_logging(name: str, testing=False, verbose=False,
                   log_stderr=True, log_file=False, log_file_json=False):  # pragma: no cover
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG if verbose else logging.INFO)
+    root_logger.handlers = []
 
     if log_stderr:
         root_logger.addHandler(_create_stderr_handler())
