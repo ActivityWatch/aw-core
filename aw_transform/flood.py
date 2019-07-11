@@ -10,11 +10,12 @@ logger = logging.getLogger(__name__)
 
 def flood(events: List[Event], pulsetime: float=5) -> List[Event]:
     """
-    See details on flooding here:
-     - https://github.com/ActivityWatch/activitywatch/issues/124
+    Takes a list of events and "floods" any empty space between events by extending one of the surrounding events to cover the empty space.
 
-    Copied here from: https://github.com/ActivityWatch/aw-analysis/blob/7da1f2cd8552f866f643501de633d74cdecab168/aw_analysis/flood.py
+    For more details on flooding, see this issue:
+     - https://github.com/ActivityWatch/activitywatch/issues/124
     """
+    # Originally written in aw-research: https://github.com/ActivityWatch/aw-analysis/blob/7da1f2cd8552f866f643501de633d74cdecab168/aw_analysis/flood.py
     # NOTE: This algorithm has a lot of smaller details that need to be
     #       carefully considered by anyone wishing to edit it, see:
     #        - https://github.com/ActivityWatch/aw-core/pull/73

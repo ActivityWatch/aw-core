@@ -5,8 +5,8 @@ from datetime import datetime
 from aw_core.models import Event
 from aw_datastore import Datastore
 
-from .query2_error import QueryException, QueryParseException, QueryInterpretException
-from .query2_functions import query2_functions
+from .exceptions import QueryException, QueryParseException, QueryInterpretException
+from .functions import functions
 
 logger = logging.getLogger(__name__)
 
@@ -116,14 +116,14 @@ class QFunction(QToken):
         self.args = args
 
     def interpret(self, datastore: Datastore, namespace: dict):
-        if self.name not in query2_functions:
+        if self.name not in functions:
             raise QueryInterpretException("Tried to call function '{}' which doesn't exist".format(self.name))
         call_args = [datastore, namespace]
         for arg in self.args:
             call_args.append(arg.interpret(datastore, namespace))
         # logger.debug("Arguments for functioncall to {} is {}".format(self.name, call_args))
         try:
-            result = query2_functions[self.name](*call_args)  # type: ignore
+            result = functions[self.name](*call_args)  # type: ignore
         except TypeError:
             raise QueryInterpretException("Tried to call function {} with invalid amount of arguments".format(self.name))
         return result

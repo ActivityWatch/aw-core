@@ -2,10 +2,10 @@ import re
 from copy import deepcopy
 from typing import List
 
-from aw_core.models import Event
+from aw_core import Event
 
 
-def simplify_string(events, key="title") -> List[Event]:
+def simplify_string(events: List[Event], key: str = "title") -> List[Event]:
     events = deepcopy(events)
 
     re_leadingdot = re.compile(r"^(●|\*)\s*")
