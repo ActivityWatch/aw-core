@@ -6,9 +6,9 @@ import pytest
 from .utils import param_datastore_objects
 
 from aw_core.models import Event
-from aw_analysis.query2 import query, _parse_token
-from aw_analysis.query2 import QInteger, QVariable, QString, QFunction, QList, QDict
-from aw_analysis.query2_error import QueryFunctionException, QueryParseException, QueryInterpretException
+from aw_query import query
+from aw_query.query2 import QInteger, QVariable, QString, QFunction, QList, QDict, _parse_token
+from aw_query.exceptions import QueryFunctionException, QueryParseException, QueryInterpretException
 
 
 def test_query2_test_token_parsing():

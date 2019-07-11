@@ -24,7 +24,7 @@ from aw_transform import (
     limit_events
 )
 
-from .query2_error import QueryFunctionException
+from .exceptions import QueryFunctionException
 
 
 def _verify_bucket_exists(datastore, bucketname):
@@ -48,7 +48,7 @@ TQueryFunction = Callable[..., Any]
 """
     Declarations
 """
-query2_functions = {}  # type: Dict[str, TQueryFunction]
+functions = {}  # type: Dict[str, TQueryFunction]
 
 
 def q2_function(transform_func=None):
@@ -78,7 +78,7 @@ def q2_function(transform_func=None):
         fname = f.__name__
         if fname[:3] == "q2_":
             fname = fname[3:]
-        query2_functions[fname] = g
+        functions[fname] = g
         return g
 
     return h
