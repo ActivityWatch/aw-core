@@ -17,6 +17,3 @@ appdirs = ">=1.4.0"
 iso8601 = "*"
 python-json-logger = ">=0.1.5"
 TakeTheTime = ">=0.3.0"
-
-[requires]
-python_version = "3.7"
