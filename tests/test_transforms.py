@@ -1,3 +1,5 @@
+import re
+from pprint import pprint
 from datetime import datetime, timedelta, timezone
 
 from aw_core.models import Event
@@ -14,6 +16,7 @@ from aw_transform import (
     split_url_events,
     simplify_string,
     union,
+    classify,
 )
 
 
@@ -195,9 +198,6 @@ def test_merge_events_by_keys_2():
     assert result[2].duration == timedelta(seconds=8)
 
 
-from pprint import pprint
-
-
 def test_chunk_events_by_key():
     now = datetime.now(timezone.utc)
     events = []
@@ -290,3 +290,24 @@ def test_union():
     # union event lists with same timestamp but different duration duplicates
     events_union = union([e1, e2, e4], [e3, e2, e1])
     assert events_union == [e1, e2, e3, e4]
+
+
+def test_classify():
+    now = datetime.now(timezone.utc)
+
+    classes = [
+        ("Test -> Subtest", re.compile("value$")),
+        ("Test", re.compile("^just")),
+    ]
+    events = [
+        Event(timestamp=now, duration=0, data={"key": "just a test value"}),
+        Event(timestamp=now, duration=0, data={}),
+    ]
+    events = classify(events, classes)
+
+    e0 = events[0]
+    assert len(e0.data["$tags"]) == 2
+    assert e0.data["$category"] == "Test -> Subtest"
+    e1 = events[1]
+    assert len(e1.data["$tags"]) == 0
+    assert e1.data["$category"] == "Uncategorized"

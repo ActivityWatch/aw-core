@@ -7,10 +7,12 @@ from .sort_by import sort_by_timestamp, sort_by_duration, sum_durations, concat,
 from .split_url_events import split_url_events
 from .simplify import simplify_string
 from .flood import flood
+from .classify import classify
 
 __all__ = [
     'flood',
     'concat',
+    'classify',
     'period_union',
     'filter_period_intersect',
     'union',

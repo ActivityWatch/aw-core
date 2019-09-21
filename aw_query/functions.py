@@ -1,3 +1,4 @@
+import re
 import iso8601
 from typing import Callable, Dict, Any, List
 from inspect import signature
@@ -12,6 +13,7 @@ from aw_transform import (
     filter_keyvals,
     filter_keyvals_regex,
     period_union,
+    classify,
     merge_events_by_keys,
     chunk_events_by_key,
     sort_by_timestamp,
@@ -279,3 +281,15 @@ def q2_simplify_window_titles(events: list, key: str) -> List[Event]:
 def q2_nop():
     """No operation function for unittesting"""
     return 1
+
+
+"""
+    Classify
+"""
+
+
+@q2_function(classify)
+@q2_typecheck
+def q2_classify(events: list, classes: list):
+    classes = [(_cls, re.compile(re_expr)) for _cls, re_expr in classes]
+    return classify(events, classes)
