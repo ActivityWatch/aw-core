@@ -9,7 +9,7 @@ def classify(events: List[Event], classes: List[Tuple[str, Pattern]]):
 
 
 def _classify_one(e: Event, classes: List[Tuple[str, Pattern]]) -> Event:
-    tags: Set[str] = set()
+    tags = set()  # type: Set[str]
     for _cls, re in classes:
         for val in e.data.values():
             if isinstance(val, str) and re.search(val):
@@ -25,4 +25,5 @@ def _pick_category(tags: Iterable[str]):
 
 
 def _pick_deepest_cat(t1: str, t2: str):
-    return t1 if t1.count("->") >= t2.count("->") else t2
+    # Always bias against t1, since it could be "Uncategorized"
+    return t2 if t2.count("->") >= t1.count("->") else t1
