@@ -20,10 +20,14 @@ def _classify_one(e: Event, classes: List[Tuple[str, Pattern]]) -> Event:
     return e
 
 
-def _pick_category(tags: Iterable[str]):
+def _pick_category(tags: Iterable[str]) -> str:
     return reduce(_pick_deepest_cat, tags, "Uncategorized")
 
 
-def _pick_deepest_cat(t1: str, t2: str):
+def _pick_deepest_cat(t1: str, t2: str) -> str:
+    # t1 will be the accumulator when used in reduce
     # Always bias against t1, since it could be "Uncategorized"
-    return t2 if t2.count("->") >= t1.count("->") else t1
+    if t2.startswith("#"):
+        return t1
+    else:
+        return t2 if t2.count("->") >= t1.count("->") else t1
