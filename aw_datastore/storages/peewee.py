@@ -91,7 +91,7 @@ class PeeweeStorage(AbstractStorage):
 
         self.db.connect()
 
-        self.bucket_keys = {}  # type: Dict[str, int]
+        self.bucket_keys: Dict[str, int] = {}
         BucketModel.create_table(safe=True)
         EventModel.create_table(safe=True)
         self.update_bucket_keys()

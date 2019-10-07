@@ -11,9 +11,9 @@ def merge_events_by_keys(events, keys) -> List[Event]:
     # Call recursively until all keys are consumed
     if len(keys) < 1:
         return events
-    merged_events = {}  # type: Dict[Tuple, Event]
+    merged_events: Dict[Tuple, Event] = {}
     for event in events:
-        composite_key = ()  # type: Tuple
+        composite_key: Tuple = ()
         for key in keys:
             if key in event.data:
                 val = event["data"][key]

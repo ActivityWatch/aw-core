@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 def chunk_events_by_key(events: List[Event], key: str, pulsetime: float=5.0) -> List[Event]:
-    chunked_events = [] # type: List[Event]
+    chunked_events: List[Event] = []
     for event in events:
         if key not in event.data:
             break

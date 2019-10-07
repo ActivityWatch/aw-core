@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class Datastore:
     def __init__(self, storage_strategy: Callable[..., AbstractStorage], testing=False) -> None:
         self.logger = logger.getChild("Datastore")
-        self.bucket_instances = dict()  # type: Dict[str, Bucket]
+        self.bucket_instances: Dict[str, Bucket] = dict()
 
         self.storage_strategy = storage_strategy(testing=testing)
 
@@ -93,11 +93,11 @@ class Bucket:
 
         now = datetime.now(tz=timezone.utc)
 
-        inserted = None  # type: Optional[Event]
+        inserted: Optional[Event] = None
 
         # Call insert
         if isinstance(events, Event):
-            oldest_event = events  # type: Optional[Event]
+            oldest_event: Optional[Event] = events
             if events.timestamp + events.duration > now:
                 self.logger.warning("Event inserted into bucket {} reaches into the future. Current UTC time: {}. Event data: {}".format(self.bucket_id, str(now), str(events)))
             inserted = self.ds.storage_strategy.insert_one(self.bucket_id, events)

@@ -16,8 +16,8 @@ class MemoryStorage(AbstractStorage):
     def __init__(self, testing: bool) -> None:
         self.logger = logger.getChild(self.sid)
         # self.logger.warning("Using in-memory storage, any events stored will not be persistent and will be lost when server is shut down. Use the --storage parameter to set a different storage method.")
-        self.db = {}  # type: Dict[str, List[Event]]
-        self._metadata = dict()  # type: Dict[str, dict]
+        self.db: Dict[str, List[Event]] = {}
+        self._metadata: Dict[str, dict] = dict()
 
     def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None) -> None:
         if not name:

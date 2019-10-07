@@ -52,7 +52,7 @@ TQueryFunction = Callable[..., Any]
 """
     Declarations
 """
-functions = {}  # type: Dict[str, TQueryFunction]
+functions: Dict[str, TQueryFunction] = {}
 
 
 def q2_function(transform_func=None):

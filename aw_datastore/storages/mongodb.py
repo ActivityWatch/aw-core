@@ -74,7 +74,7 @@ class MongoDBStorage(AbstractStorage):
 
     def get_events(self, bucket_id: str, limit: int,
                    starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
-        query_filter = {}  # type: Dict[str, dict]
+        query_filter: Dict[str, dict] = {}
         if starttime or endtime:
             query_filter["timestamp"] = {}
             if starttime:
@@ -99,7 +99,7 @@ class MongoDBStorage(AbstractStorage):
 
     def get_eventcount(self, bucket_id: str,
                        starttime: datetime = None, endtime: datetime = None) -> int:
-        query_filter = {}  # type: Dict[str, dict]
+        query_filter: Dict[str, dict] = {}
         if starttime or endtime:
             query_filter["timestamp"] = {}
             if starttime:
@@ -123,7 +123,7 @@ class MongoDBStorage(AbstractStorage):
 
     def insert_many(self, bucket: str, events: List[Event]):
         # .copy is needed because otherwise mongodb inserts a _id field into the event
-        dict_events = [self._transform_event(event.copy()) for event in events]  # type: List[dict]
+        dict_events: List[dict] = [self._transform_event(event.copy()) for event in events]
         self.db[bucket]["events"].insert_many(dict_events)
 
     def delete(self, bucket_id: str, event_id) -> bool:

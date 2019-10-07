@@ -10,11 +10,11 @@ from .datastore import Datastore
 # like ellipsises. See here: https://github.com/python/typing/issues/259
 def get_storage_methods() -> Dict[str, Callable[[Any], storages.AbstractStorage]]:
     from .storages import MemoryStorage, MongoDBStorage, PeeweeStorage, SqliteStorage
-    methods = {
+    methods: Dict[str, Callable[[Any], storages.AbstractStorage]] = {
         PeeweeStorage.sid: PeeweeStorage,
         MemoryStorage.sid: MemoryStorage,
         SqliteStorage.sid: SqliteStorage,
-    }  # type: Dict[str, Callable[[Any], storages.AbstractStorage]]
+    }
 
     # MongoDB is not supported on Windows or macOS
     if _platform.system() == "Linux":  # pragma: no branch

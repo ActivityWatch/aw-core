@@ -1,5 +1,5 @@
 import logging
-from typing import Union, List, Dict, Sequence, Callable, Type, Any
+from typing import Union, List, Dict, Sequence, Callable, Type, Any, Tuple
 from datetime import datetime
 
 from aw_core.models import Event
@@ -20,7 +20,7 @@ class QToken:
         raise NotImplementedError
 
     @staticmethod
-    def check(string: str):
+    def check(string: str) -> Tuple[str, str]:
         raise NotImplementedError
 
 
@@ -207,7 +207,7 @@ class QDict(QToken):
     @staticmethod
     def parse(string: str, namespace: dict) -> QToken:
         entries_str = string[1:-1]
-        d = {} # type: Dict[str, QToken]
+        d: Dict[str, QToken] = {}
         while len(entries_str) > 0:
             entries_str = entries_str.strip()
             if len(d) > 0 and entries_str[0] == ",":
@@ -272,7 +272,7 @@ class QList(QToken):
     @staticmethod
     def parse(string: str, namespace: dict) -> QToken:
         entries_str = string[1:-1]
-        l = [] # type: List[QToken]
+        l: List[QToken] = []
         while len(entries_str) > 0:
             entries_str = entries_str.strip()
             if len(l) > 0 and entries_str[0] == ",":
@@ -314,8 +314,10 @@ class QList(QToken):
         return string[:i], string[i + 1:]
 
 
-qtypes = [QString, QInteger, QFunction, QDict, QList, QVariable]  # type: Sequence[Type[QToken]]
-def _parse_token(string: str, namespace: dict): # TODO: Add return type
+qtypes: Sequence[Type[QToken]] = [QString, QInteger, QFunction, QDict, QList, QVariable]
+
+
+def _parse_token(string: str, namespace: dict) -> Tuple[Tuple[Any, str], str]:
     # TODO: The whole parsing thing is shoddily written, needs a rewrite from ground-up
     if not isinstance(string, str):
         raise QueryParseException("Reached unreachable, cannot parse something that isn't a string")
