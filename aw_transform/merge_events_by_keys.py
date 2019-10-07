@@ -16,7 +16,11 @@ def merge_events_by_keys(events, keys) -> List[Event]:
         composite_key = ()  # type: Tuple
         for key in keys:
             if key in event.data:
-                composite_key = composite_key + (event["data"][key],)
+                val = event["data"][key]
+                # Needed for when the value is a list, such as for categories
+                if isinstance(val, list):
+                    val = tuple(val)
+                composite_key = composite_key + (val,)
         if composite_key not in merged_events:
             merged_events[composite_key] = Event(
                 timestamp=event.timestamp,

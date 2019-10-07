@@ -308,7 +308,7 @@ def test_query2_query_functions(datastore):
     events = split_url_events(events);
     events = sort_by_timestamp(events);
     events = sort_by_duration(events);
-    events = classify(events, [["test -> subtest", "^test"], ["test", "^test"]]);
+    events = categorize(events, [[["test", "subtest"], {{"regex": "^test"}}], [["test"], {{"regex": "^test"}}]]);
     duration = sum_durations(events);
     eventcount = query_bucket_eventcount(bid);
     asd = nop();

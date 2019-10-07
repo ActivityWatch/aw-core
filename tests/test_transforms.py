@@ -16,7 +16,9 @@ from aw_transform import (
     split_url_events,
     simplify_string,
     union,
-    classify,
+    categorize,
+    tag,
+    Rule,
 )
 
 
@@ -292,22 +294,35 @@ def test_union():
     assert events_union == [e1, e2, e3, e4]
 
 
-def test_classify():
+def test_categorize():
     now = datetime.now(timezone.utc)
 
     classes = [
-        ("Test -> Subtest", re.compile("value$")),
-        ("Test", re.compile("^just")),
+        (["Test", "Subtest"], Rule({"regex": "value$"})),
+        (["Test"], Rule({"regex": "^just"})),
     ]
     events = [
         Event(timestamp=now, duration=0, data={"key": "just a test value"}),
         Event(timestamp=now, duration=0, data={}),
     ]
-    events = classify(events, classes)
+    events = categorize(events, classes)
 
-    e0 = events[0]
-    assert len(e0.data["$tags"]) == 2
-    assert e0.data["$category"] == "Test -> Subtest"
-    e1 = events[1]
-    assert len(e1.data["$tags"]) == 0
-    assert e1.data["$category"] == "Uncategorized"
+    assert events[0].data["$category"] == ["Test", "Subtest"]
+    assert events[1].data["$category"] == ["Uncategorized"]
+
+
+def test_tags():
+    now = datetime.now(timezone.utc)
+
+    classes = [
+        ("Test", Rule({"regex": "value$"})),
+        ("Test", Rule({"regex": "^just"})),
+    ]
+    events = [
+        Event(timestamp=now, duration=0, data={"key": "just a test value"}),
+        Event(timestamp=now, duration=0, data={}),
+    ]
+    events = tag(events, classes)
+
+    assert len(events[0].data["$tags"]) == 2
+    assert len(events[1].data["$tags"]) == 0

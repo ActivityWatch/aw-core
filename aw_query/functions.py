@@ -13,7 +13,9 @@ from aw_transform import (
     filter_keyvals,
     filter_keyvals_regex,
     period_union,
-    classify,
+    categorize,
+    tag,
+    Rule,
     merge_events_by_keys,
     chunk_events_by_key,
     sort_by_timestamp,
@@ -23,7 +25,7 @@ from aw_transform import (
     split_url_events,
     simplify_string,
     flood,
-    limit_events
+    limit_events,
 )
 
 from .exceptions import QueryFunctionException
@@ -288,8 +290,15 @@ def q2_nop():
 """
 
 
-@q2_function(classify)
+@q2_function(categorize)
 @q2_typecheck
-def q2_classify(events: list, classes: list):
-    classes = [(_cls, re.compile(re_expr)) for _cls, re_expr in classes]
-    return classify(events, classes)
+def q2_categorize(events: list, classes: list):
+    classes = [(_cls, Rule(rule_dict)) for _cls, rule_dict in classes]
+    return categorize(events, classes)
+
+
+@q2_function(tag)
+@q2_typecheck
+def q2_tag(events: list, classes: list):
+    classes = [(_cls, Rule(rule_dict)) for _cls, rule_dict in classes]
+    return tag(events, classes)
