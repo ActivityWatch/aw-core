@@ -14,7 +14,7 @@ class Rule:
 
     def __init__(self, rules: Dict[str, str]):
         if "regex" in rules:
-            self.regex = re.compile(rules["regex"])
+            self.regex = re.compile(rules["regex"]) if rules["regex"] else None
 
     def match(self, e: Event):
         for val in e.data.values():
