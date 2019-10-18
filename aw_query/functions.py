@@ -1,3 +1,4 @@
+import re
 import iso8601
 from typing import Callable, Dict, Any, List
 from inspect import signature
@@ -12,6 +13,9 @@ from aw_transform import (
     filter_keyvals,
     filter_keyvals_regex,
     period_union,
+    categorize,
+    tag,
+    Rule,
     merge_events_by_keys,
     chunk_events_by_key,
     sort_by_timestamp,
@@ -21,7 +25,7 @@ from aw_transform import (
     split_url_events,
     simplify_string,
     flood,
-    limit_events
+    limit_events,
 )
 
 from .exceptions import QueryFunctionException
@@ -48,7 +52,7 @@ TQueryFunction = Callable[..., Any]
 """
     Declarations
 """
-functions = {}  # type: Dict[str, TQueryFunction]
+functions: Dict[str, TQueryFunction] = {}
 
 
 def q2_function(transform_func=None):
@@ -279,3 +283,22 @@ def q2_simplify_window_titles(events: list, key: str) -> List[Event]:
 def q2_nop():
     """No operation function for unittesting"""
     return 1
+
+
+"""
+    Classify
+"""
+
+
+@q2_function(categorize)
+@q2_typecheck
+def q2_categorize(events: list, classes: list):
+    classes = [(_cls, Rule(rule_dict)) for _cls, rule_dict in classes]
+    return categorize(events, classes)
+
+
+@q2_function(tag)
+@q2_typecheck
+def q2_tag(events: list, classes: list):
+    classes = [(_cls, Rule(rule_dict)) for _cls, rule_dict in classes]
+    return tag(events, classes)

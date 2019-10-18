@@ -1,3 +1,5 @@
+import re
+from pprint import pprint
 from datetime import datetime, timedelta, timezone
 
 from aw_core.models import Event
@@ -14,6 +16,9 @@ from aw_transform import (
     split_url_events,
     simplify_string,
     union,
+    categorize,
+    tag,
+    Rule,
 )
 
 
@@ -195,9 +200,6 @@ def test_merge_events_by_keys_2():
     assert result[2].duration == timedelta(seconds=8)
 
 
-from pprint import pprint
-
-
 def test_chunk_events_by_key():
     now = datetime.now(timezone.utc)
     events = []
@@ -232,32 +234,32 @@ def test_url_parse_event():
     e = Event(data={"url": "http://asd.com/test/?a=1"}, timestamp=now, duration=timedelta(seconds=1))
     result = split_url_events([e])
     print(result)
-    assert result[0].data["protocol"] == "http"
-    assert result[0].data["domain"] == "asd.com"
-    assert result[0].data["path"] == "/test/"
-    assert result[0].data["params"] == ""
-    assert result[0].data["options"] == "a=1"
-    assert result[0].data["identifier"] == ""
+    assert result[0].data["$protocol"] == "http"
+    assert result[0].data["$domain"] == "asd.com"
+    assert result[0].data["$path"] == "/test/"
+    assert result[0].data["$params"] == ""
+    assert result[0].data["$options"] == "a=1"
+    assert result[0].data["$identifier"] == ""
 
     e2 = Event(data={"url": "https://www.asd.asd.com/test/test2/meh;meh2?asd=2&asdf=3#id"}, timestamp=now, duration=timedelta(seconds=1))
     result = split_url_events([e2])
     print(result)
-    assert result[0].data["protocol"] == "https"
-    assert result[0].data["domain"] == "asd.asd.com"
-    assert result[0].data["path"] == "/test/test2/meh"
-    assert result[0].data["params"] == "meh2"
-    assert result[0].data["options"] == "asd=2&asdf=3"
-    assert result[0].data["identifier"] == "id"
+    assert result[0].data["$protocol"] == "https"
+    assert result[0].data["$domain"] == "asd.asd.com"
+    assert result[0].data["$path"] == "/test/test2/meh"
+    assert result[0].data["$params"] == "meh2"
+    assert result[0].data["$options"] == "asd=2&asdf=3"
+    assert result[0].data["$identifier"] == "id"
 
     e3 = Event(data={"url": "file:///home/johan/myfile.txt"}, timestamp=now, duration=timedelta(seconds=1))
     result = split_url_events([e3])
     print(result)
-    assert result[0].data["protocol"] == "file"
-    assert result[0].data["domain"] == ""
-    assert result[0].data["path"] == "/home/johan/myfile.txt"
-    assert result[0].data["params"] == ""
-    assert result[0].data["options"] == ""
-    assert result[0].data["identifier"] == ""
+    assert result[0].data["$protocol"] == "file"
+    assert result[0].data["$domain"] == ""
+    assert result[0].data["$path"] == "/home/johan/myfile.txt"
+    assert result[0].data["$params"] == ""
+    assert result[0].data["$options"] == ""
+    assert result[0].data["$identifier"] == ""
 
 
 def test_union():
@@ -290,3 +292,37 @@ def test_union():
     # union event lists with same timestamp but different duration duplicates
     events_union = union([e1, e2, e4], [e3, e2, e1])
     assert events_union == [e1, e2, e3, e4]
+
+
+def test_categorize():
+    now = datetime.now(timezone.utc)
+
+    classes = [
+        (["Test", "Subtest"], Rule({"regex": "value$"})),
+        (["Test"], Rule({"regex": "^just"})),
+    ]
+    events = [
+        Event(timestamp=now, duration=0, data={"key": "just a test value"}),
+        Event(timestamp=now, duration=0, data={}),
+    ]
+    events = categorize(events, classes)
+
+    assert events[0].data["$category"] == ["Test", "Subtest"]
+    assert events[1].data["$category"] == ["Uncategorized"]
+
+
+def test_tags():
+    now = datetime.now(timezone.utc)
+
+    classes = [
+        ("Test", Rule({"regex": "value$"})),
+        ("Test", Rule({"regex": "^just"})),
+    ]
+    events = [
+        Event(timestamp=now, duration=0, data={"key": "just a test value"}),
+        Event(timestamp=now, duration=0, data={}),
+    ]
+    events = tag(events, classes)
+
+    assert len(events[0].data["$tags"]) == 2
+    assert len(events[1].data["$tags"]) == 0

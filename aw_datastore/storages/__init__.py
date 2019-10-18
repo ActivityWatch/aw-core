@@ -1,6 +1,6 @@
 import logging as _logging
 
-logger = _logging.getLogger(__name__)  # type: _logging.Logger
+logger: _logging.Logger = _logging.getLogger(__name__)
 
 from .abstract import AbstractStorage
 

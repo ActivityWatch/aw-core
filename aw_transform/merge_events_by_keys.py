@@ -11,12 +11,16 @@ def merge_events_by_keys(events, keys) -> List[Event]:
     # Call recursively until all keys are consumed
     if len(keys) < 1:
         return events
-    merged_events = {}  # type: Dict[Tuple, Event]
+    merged_events: Dict[Tuple, Event] = {}
     for event in events:
-        composite_key = ()  # type: Tuple
+        composite_key: Tuple = ()
         for key in keys:
             if key in event.data:
-                composite_key = composite_key + (event["data"][key],)
+                val = event["data"][key]
+                # Needed for when the value is a list, such as for categories
+                if isinstance(val, list):
+                    val = tuple(val)
+                composite_key = composite_key + (val,)
         if composite_key not in merged_events:
             merged_events[composite_key] = Event(
                 timestamp=event.timestamp,
