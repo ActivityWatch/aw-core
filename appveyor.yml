@@ -14,7 +14,7 @@ environment:
     # a later point release.
     # See: http://www.appveyor.com/docs/installed-software#python
 
-    - PYTHON: "C:\\Python35"
+    - PYTHON: "C:\\Python36"
       PYTHON_VERSION: "3.6.x" # currently 3.6.6
       PYTHON_ARCH: "32"
 
