@@ -1,4 +1,4 @@
-from typing import Pattern, List, Iterable, Tuple, Dict, Optional
+from typing import Pattern, List, Iterable, Tuple, Dict, Optional, Any
 from functools import reduce
 import re
 
@@ -11,16 +11,20 @@ Category = List[str]
 
 class Rule:
     regex: Optional[Pattern]
+    select_keys: Optional[List[str]]
+    ignore_case: bool
 
-    def __init__(self, rules: Dict[str, str]):
+    def __init__(self, rules: Dict[str, Any]):
+        self.select_keys = rules.get("select-keys", None)
+        self.ignore_case = rules.get("ignore-case", False)
         if "regex" in rules:
-            self.regex = re.compile(rules["regex"]) if rules["regex"] else None
+            self.regex = re.compile(rules["regex"], re.IGNORECASE if self.ignore_case else 0) if rules["regex"] else None
 
-    def match(self, e: Event):
-        for val in e.data.values():
-            if isinstance(val, str):
-                if self.regex and self.regex.search(val):
-                    return True
+    def match(self, e: Event) -> bool:
+        if self.regex:
+            for val in (e.data.values() if not self.select_keys else [e.data.get(key, None) for key in self.select_keys]):
+                if isinstance(val, str):
+                    return bool(self.regex.search(val))
         return False
 
 
