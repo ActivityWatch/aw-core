@@ -29,8 +29,8 @@ class Rule:
             values = list(e.data.values())
         if self.regex:
             for val in values:
-                if isinstance(val, str):
-                    return bool(self.regex.search(val))
+                if isinstance(val, str) and self.regex.search(val):
+                    return True
         return False
 
 
