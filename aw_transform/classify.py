@@ -17,12 +17,18 @@ class Rule:
     def __init__(self, rules: Dict[str, Any]):
         self.select_keys = rules.get("select-keys", None)
         self.ignore_case = rules.get("ignore-case", False)
-        if "regex" in rules:
-            self.regex = re.compile(rules["regex"], re.IGNORECASE if self.ignore_case else 0) if rules["regex"] else None
+
+        # NOTE: Also checks that the regex isn't an empty string (which would erroneously match everything)
+        regex_str = rules.get("regex", None)
+        self.regex = re.compile(regex_str, (re.IGNORECASE if self.ignore_case else 0) | re.UNICODE) if regex_str else None
 
     def match(self, e: Event) -> bool:
+        if self.select_keys:
+            values = [e.data.get(key, None) for key in self.select_keys]
+        else:
+            values = list(e.data.values())
         if self.regex:
-            for val in (e.data.values() if not self.select_keys else [e.data.get(key, None) for key in self.select_keys]):
+            for val in values:
                 if isinstance(val, str):
                     return bool(self.regex.search(val))
         return False

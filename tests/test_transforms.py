@@ -298,17 +298,22 @@ def test_categorize():
     now = datetime.now(timezone.utc)
 
     classes = [
-        (["Test", "Subtest"], Rule({"regex": "value$"})),
         (["Test"], Rule({"regex": "^just"})),
+        (["Test", "Subtest"], Rule({"regex": "subtest$"})),
+        (["Test", "Ignorecase"], Rule({"regex": "ignorecase", "ignore-case": True})),
     ]
     events = [
-        Event(timestamp=now, duration=0, data={"key": "just a test value"}),
+        Event(timestamp=now, duration=0, data={"key": "just a test"}),
+        Event(timestamp=now, duration=0, data={"key": "just a subtest"}),
+        Event(timestamp=now, duration=0, data={"key": "just a IGNORECASE test"}),
         Event(timestamp=now, duration=0, data={}),
     ]
     events = categorize(events, classes)
 
-    assert events[0].data["$category"] == ["Test", "Subtest"]
-    assert events[1].data["$category"] == ["Uncategorized"]
+    assert events[0].data["$category"] == ["Test"]
+    assert events[1].data["$category"] == ["Test", "Subtest"]
+    assert events[2].data["$category"] == ["Test", "Ignorecase"]
+    assert events[3].data["$category"] == ["Uncategorized"]
 
 
 def test_tags():
