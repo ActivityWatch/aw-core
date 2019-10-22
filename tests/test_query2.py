@@ -308,7 +308,7 @@ def test_query2_query_functions(datastore):
     events = split_url_events(events);
     events = sort_by_timestamp(events);
     events = sort_by_duration(events);
-    events = categorize(events, [[["test", "subtest"], {{"regex": "^test"}}], [["test"], {{"regex": "^test"}}]]);
+    events = categorize(events, [[["test", "subtest"], {{"regex": "test1"}}]]);
     duration = sum_durations(events);
     eventcount = query_bucket_eventcount(bid);
     asd = nop();
@@ -316,15 +316,14 @@ def test_query2_query_functions(datastore):
     """.format(bid=bid, bid_escaped=bid.replace("'", "\\'"))
     try:
         bucket = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name="asd")
-        e1 = Event(data={"label": "test1"},
-                   timestamp=starttime,
-                   duration=timedelta(seconds=1))
-        bucket.insert(e1)
+        bucket.insert(Event(data={"label": "test1"},
+                            timestamp=starttime,
+                            duration=timedelta(seconds=1)))
         result = query(qname, example_query, starttime, endtime, datastore)
         assert result["eventcount"] == 1
-        print(result)
         assert len(result["events"]) == 1
         assert result["events"][0].data["label"] == "test1"
+        assert result["events"][0].data["$category"] == ["test", "subtest"]
     finally:
         datastore.delete_bucket(bid)
 
@@ -366,8 +365,8 @@ def test_query2_basic_query(datastore):
         # Query
         result = query(qname, example_query, starttime, endtime, datastore)
         # Assert
-        assert(len(result) == 1)
-        assert(result[0]["data"]["label"] == "test1")
+        assert len(result) == 1
+        assert result[0]["data"]["label"] == "test1"
     finally:
         datastore.delete_bucket(bid1)
         datastore.delete_bucket(bid2)
@@ -409,14 +408,14 @@ def test_query2_test_merged_keys(datastore):
         result = query(qname, example_query, starttime, endtime, datastore)
         # Assert
         print(result)
-        assert(len(result["events"]) == 2)
-        assert(result["eventcount"] == 3)
-        assert(result["events"][0]["data"]["label1"] == "test1")
-        assert(result["events"][0]["data"]["label2"] == "test1")
-        assert(result["events"][0]["duration"] == timedelta(seconds=2))
-        assert(result["events"][1]["data"]["label1"] == "test1")
-        assert(result["events"][1]["data"]["label2"] == "test2")
-        assert(result["events"][1]["duration"] == timedelta(seconds=1))
+        assert len(result["events"]) == 2
+        assert result["eventcount"] == 3
+        assert result["events"][0]["data"]["label1"] == "test1"
+        assert result["events"][0]["data"]["label2"] == "test1"
+        assert result["events"][0]["duration"] == timedelta(seconds=2)
+        assert result["events"][1]["data"]["label1"] == "test1"
+        assert result["events"][1]["data"]["label2"] == "test2"
+        assert result["events"][1]["duration"] == timedelta(seconds=1)
     finally:
         datastore.delete_bucket(bid)
 
@@ -430,7 +429,6 @@ def test_query2_fancy_query(datastore):
     """
     name = "A label/name for a test bucket"
     bid1 = "bucket-the-one"
-    bid2 = "bucket-not-the-one"
     qname = "test_query_basic_fancy"
     starttime = iso8601.parse_date("1970")
     endtime = starttime + timedelta(hours=1)
@@ -444,7 +442,6 @@ def test_query2_fancy_query(datastore):
     try:
         # Setup buckets
         bucket_main = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
-        bucket_other = datastore.create_bucket(bucket_id=bid2, type="test", client="test", hostname="test", name=name)
         # Prepare buckets
         e1 = Event(data={"title": "(2) YouTube"},
                    timestamp=starttime,
@@ -456,4 +453,44 @@ def test_query2_fancy_query(datastore):
         assert(result[0]["data"]["title"] == "YouTube")
     finally:
         datastore.delete_bucket(bid1)
-        datastore.delete_bucket(bid2)
+
+
+@pytest.mark.parametrize("datastore", param_datastore_objects())
+def test_query2_query_categorize(datastore):
+    bid = "test_bucket"
+    qname = "test"
+    starttime = iso8601.parse_date("1970")
+    endtime = starttime + timedelta(hours=1)
+
+    example_query = """
+    events = query_bucket("{bid}");
+    events = sort_by_timestamp(events);
+    events = categorize(events, [[["test"], {{"regex": "test"}}], [["test", "subtest"], {{"regex": "test2"}}]]);
+    events_by_cat = merge_events_by_keys(events, ["$category"]);
+    RETURN = {{"events": events, "events_by_cat": events_by_cat}};
+    """.format(bid=bid, bid_escaped=bid.replace("'", "\\'"))
+    try:
+        bucket = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name="asd")
+        events = [
+            Event(data={"label": "test1"},
+                  timestamp=starttime,
+                  duration=timedelta(seconds=1)),
+            Event(data={"label": "test2"},
+                  timestamp=starttime + timedelta(seconds=1),
+                  duration=timedelta(seconds=1)),
+            Event(data={"label": "test2"},
+                  timestamp=starttime + timedelta(seconds=2),
+                  duration=timedelta(seconds=1)),
+        ]
+        bucket.insert(events)
+        result = query(qname, example_query, starttime, endtime, datastore)
+        print(result)
+        assert len(result["events"]) == 3
+        assert result["events"][0].data["label"] == "test1"
+        assert result["events"][0].data["$category"] == ["test"]
+        assert result["events"][1].data["$category"] == ["test", "subtest"]
+        assert result["events_by_cat"][0].data["$category"] == ["test"]
+        assert result["events_by_cat"][1].data["$category"] == ["test", "subtest"]
+        assert result["events_by_cat"][1].duration == timedelta(seconds=2)
+    finally:
+        datastore.delete_bucket(bid)
