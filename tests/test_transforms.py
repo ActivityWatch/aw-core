@@ -300,7 +300,7 @@ def test_categorize():
     classes = [
         (["Test"], Rule({"regex": "^just"})),
         (["Test", "Subtest"], Rule({"regex": "subtest$"})),
-        (["Test", "Ignorecase"], Rule({"regex": "ignorecase", "ignore-case": True})),
+        (["Test", "Ignorecase"], Rule({"regex": "ignorecase", "ignore_case": True})),
     ]
     events = [
         Event(timestamp=now, duration=0, data={"key": "just a test"}),

@@ -15,8 +15,8 @@ class Rule:
     ignore_case: bool
 
     def __init__(self, rules: Dict[str, Any]):
-        self.select_keys = rules.get("select-keys", None)
-        self.ignore_case = rules.get("ignore-case", False)
+        self.select_keys = rules.get("select_keys", None)
+        self.ignore_case = rules.get("ignore_case", False)
 
         # NOTE: Also checks that the regex isn't an empty string (which would erroneously match everything)
         regex_str = rules.get("regex", None)
