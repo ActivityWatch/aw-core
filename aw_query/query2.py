@@ -339,6 +339,8 @@ def create_namespace() -> dict:
     namespace = {
         "True": True,
         "False": False,
+        "true": True,
+        "false": False,
     }
     return namespace
 
