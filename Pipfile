@@ -10,7 +10,7 @@ mypy = "*"
 pylint = "*"
 
 [packages]
-jsonschema = "==2.*"
+jsonschema = "==3.*"
 peewee = "==3.*"
 strict-rfc3339 = "*"
 appdirs = ">=1.4.0"
