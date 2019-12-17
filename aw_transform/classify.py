@@ -7,6 +7,7 @@ from aw_core import Event
 
 Tag = str
 Category = List[str]
+ProductivityScore = int
 
 
 class Rule:
@@ -42,6 +43,21 @@ def _categorize_one(e: Event, classes: List[Tuple[Category, Rule]]) -> Event:
     e.data["$category"] = _pick_category([_cls for _cls, rule in classes if rule.match(e)])
     return e
 
+def assign_productivity(events: List[Event], classes: List[Tuple[Category, ProductivityScore]]):
+    return [_assign_productivity_one(e, classes) for e in events]
+
+
+def _assign_productivity_one(e: Event, classes: List[Tuple[Category, ProductivityScore]]) -> Event:
+    assigned = False
+    for (category, productivity) in classes:
+        if e.data["$category"] == category:
+            e.data["$productivity"] = str(productivity)
+            assigned = True
+            break
+    if(not assigned):
+        e.data["$productivity"] = str(-1)
+    # return = [_cls for _cls, productivity_score in classes if ]
+    return e
 
 def tag(events: List[Event], classes: List[Tuple[Tag, Rule]]):
     return [_tag_one(e, classes) for e in events]

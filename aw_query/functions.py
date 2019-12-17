@@ -14,6 +14,7 @@ from aw_transform import (
     filter_keyvals_regex,
     period_union,
     categorize,
+    assign_productivity,
     tag,
     Rule,
     merge_events_by_keys,
@@ -302,3 +303,9 @@ def q2_categorize(events: list, classes: list):
 def q2_tag(events: list, classes: list):
     classes = [(_cls, Rule(rule_dict)) for _cls, rule_dict in classes]
     return tag(events, classes)
+
+@q2_function(assign_productivity)
+@q2_typecheck
+def q2_assign_productivity(events:list, classes: list):
+    classes = [(_cls, productivity_score) for _cls, productivity_score in classes]
+    return assign_productivity(events, classes)
