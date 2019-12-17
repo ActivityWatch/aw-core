@@ -51,11 +51,11 @@ def _assign_productivity_one(e: Event, classes: List[Tuple[Category, Productivit
     assigned = False
     for (category, productivity) in classes:
         if e.data["$category"] == category:
-            e.data["$productivity"] = str(productivity)
+            e.data["$productivity"] = productivity
             assigned = True
             break
-    if(not assigned):
-        e.data["$productivity"] = str(-1)
+    if not assigned:
+        e.data["$productivity"] = -1
     # return = [_cls for _cls, productivity_score in classes if ]
     return e
 
