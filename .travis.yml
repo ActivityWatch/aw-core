@@ -10,10 +10,10 @@ services:
  - mongodb
 
 before_install:
- - "pip install -U -r requirements-dev.txt"
- - "pip install pymongo"
+ - "pip install poetry"
 
 install:
+ - "poetry install"
  - "make build"
 
 script:

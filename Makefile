@@ -1,6 +1,6 @@
 .PHONY: build test benchmark typecheck typecheck-strict clean
 
-pip_install_args := . -r requirements.txt
+pip_install_args := .
 
 ifdef DEV
 pip_install_args := --editable $(pip_install_args)
@@ -8,10 +8,6 @@ endif
 
 build:
 	pip3 install $(pip_install_args)
-
-lock:
-	pipenv lock -r > requirements.txt
-	pipenv lock -r -d > requirements-dev.txt
 
 test:
 	python3 -m pytest tests -v --cov=aw_core --cov=aw_datastore --cov=aw_transform --cov=aw_query
