@@ -50,7 +50,7 @@ class Event(dict):
         else:
             # The conversion needs to be explicit here for mypy to pick it up (lacks support for properties)
             self.timestamp = _timestamp_parse(timestamp)
-        self.duration = duration
+        self.duration = duration  # type: ignore
         self.data = data
 
     def __eq__(self, other: object) -> bool:
