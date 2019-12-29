@@ -1,13 +1,13 @@
 .PHONY: build test benchmark typecheck typecheck-strict clean
 
-pip_install_args := .
-
 ifdef DEV
-pip_install_args := --editable $(pip_install_args)
+installcmd := poetry install
+else
+installcmd := pip install .
 endif
 
 build:
-	pip3 install $(pip_install_args)
+	$(installcmd)
 
 test:
 	python3 -m pytest tests -v --cov=aw_core --cov=aw_datastore --cov=aw_transform --cov=aw_query
