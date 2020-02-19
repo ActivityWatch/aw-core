@@ -22,9 +22,11 @@ def load_config(appname, default_config):
         with open(config_file_path, 'r') as f:
             config.read_file(f)
 
+    if config["server-testing"]["storage"] == "peewee":
+        logger.info("Config file database migrated to sqlite")
+        config["server-testing"]["storage"] = "sqlite"
     # Overwrite current config file (necessary in case new default would be added)
     save_config(appname, config)
-
     return config
 
 
