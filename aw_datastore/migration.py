@@ -1,6 +1,5 @@
 from typing import Optional, List
 import os
-import re
 import logging
 
 from aw_core.dirs import get_data_dir
@@ -18,6 +17,11 @@ def detect_db_files(data_dir: str, datastore_name: str = None, version=None) -> 
     return db_files
 
 
+def config_to_sqlite():
+    pass
+    # Here be config changing logic
+
+
 def check_for_migration(datastore: AbstractStorage):
     data_dir = get_data_dir("aw-server")
 
@@ -28,6 +32,10 @@ def check_for_migration(datastore: AbstractStorage):
         peewee_db_v2 = detect_db_files(data_dir, peewee_name, 2)
         if len(peewee_db_v2) > 0:
             peewee_v2_to_sqlite_v1(datastore)
+
+    if datastore.sid == "peewee":
+        config_to_sqlite()
+        logger.info("On next aw-server startup database will be migrated to sqlite.")
 
 
 def peewee_v2_to_sqlite_v1(datastore):
