@@ -1,13 +1,7 @@
 .PHONY: build test benchmark typecheck typecheck-strict clean
 
-ifdef DEV
-installcmd := poetry install
-else
-installcmd := pip3 install .
-endif
-
 build:
-	$(installcmd)
+	poetry install
 
 test:
 	python3 -m pytest tests -v --cov=aw_core --cov=aw_datastore --cov=aw_transform --cov=aw_query
