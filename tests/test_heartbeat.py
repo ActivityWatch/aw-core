@@ -47,6 +47,25 @@ def test_heartbeat_reduce():
     assert len(reduced_events) == 1
 
 
+def test_heartbeat_same_timestamp():
+    now = datetime.now()
+    td_1s = timedelta(seconds=1)
+    td_0s = timedelta(seconds=0)
+
+    e1 = Event(timestamp=now, duration=td_1s, data={"label": "test"})
+    e2 = Event(timestamp=now, duration=td_0s, data={"label": "test"})
+
+    # Should merge
+    res = heartbeat_reduce(list([e1, e2]), pulsetime=5)
+    assert len(res) == 1
+    assert res[0].duration == td_1s
+
+    # Order shouldn't matter, should merge
+    res = heartbeat_reduce([e2, e1], pulsetime=5)
+    assert len(res) == 1
+    assert res[0].duration == td_1s
+
+
 def test_heartbeat_reduce_fail():
     """Events should not reduce"""
     now = datetime.now()
