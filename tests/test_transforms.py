@@ -33,8 +33,13 @@ def test_simplify_string():
     events = [Event(data={"app": "Cemu.exe", "title": "Cemu - FPS: 133.7 - BotW"})]
     assert simplify_string(events, "title")[0].data["title"] == "Cemu - FPS: ... - BotW"
 
-    events = [Event(data={"app": "VSCode.exe", "title": "● report.md - Visual Studio Code"})]
-    assert simplify_string(events, "title")[0].data["title"] == "report.md - Visual Studio Code"
+    events = [
+        Event(data={"app": "VSCode.exe", "title": "● report.md - Visual Studio Code"})
+    ]
+    assert (
+        simplify_string(events, "title")[0].data["title"]
+        == "report.md - Visual Studio Code"
+    )
 
     events = [Event(data={"app": "Gedit", "title": "*test.md - gedit"})]
     assert simplify_string(events, "title")[0].data["title"] == "test.md - gedit"
@@ -77,7 +82,7 @@ def test_filter_period_intersect():
     # Filter 2x 30min events with a 15min gap with another 45min event in between intersecting both
     to_filter = [
         Event(timestamp=now, duration=td30min),
-        Event(timestamp=now + timedelta(minutes=45), duration=td30min)
+        Event(timestamp=now + timedelta(minutes=45), duration=td30min),
     ]
     filter_with = [
         Event(timestamp=now + timedelta(minutes=15), duration=timedelta(minutes=45))
@@ -93,7 +98,7 @@ def test_filter_period_intersect():
     ]
     filter_with = [
         Event(timestamp=now, duration=td30min),
-        Event(timestamp=now + timedelta(minutes=45), duration=td30min)
+        Event(timestamp=now + timedelta(minutes=45), duration=td30min),
     ]
     filtered_events = filter_period_intersect(to_filter, filter_with)
     assert len(filtered_events) == 2
@@ -106,19 +111,25 @@ def test_period_union():
 
     # Events overlapping
     events1 = [Event(timestamp=now, duration=timedelta(seconds=10))]
-    events2 = [Event(timestamp=now + timedelta(seconds=9), duration=timedelta(seconds=10))]
+    events2 = [
+        Event(timestamp=now + timedelta(seconds=9), duration=timedelta(seconds=10))
+    ]
     unioned_events = period_union(events1, events2)
     assert len(unioned_events) == 1
 
     # Events adjacent but not overlapping
     events1 = [Event(timestamp=now, duration=timedelta(seconds=10))]
-    events2 = [Event(timestamp=now + timedelta(seconds=10), duration=timedelta(seconds=10))]
+    events2 = [
+        Event(timestamp=now + timedelta(seconds=10), duration=timedelta(seconds=10))
+    ]
     unioned_events = period_union(events1, events2)
     assert len(unioned_events) == 1
 
     # Events not overlapping or adjacent
     events1 = [Event(timestamp=now, duration=timedelta(seconds=10))]
-    events2 = [Event(timestamp=now + timedelta(seconds=11), duration=timedelta(seconds=10))]
+    events2 = [
+        Event(timestamp=now + timedelta(seconds=11), duration=timedelta(seconds=10))
+    ]
     unioned_events = period_union(events1, events2)
     assert len(unioned_events) == 2
 
@@ -126,8 +137,12 @@ def test_period_union():
 def test_sort_by_timestamp():
     now = datetime.now(timezone.utc)
     events = []
-    events.append(Event(timestamp=now + timedelta(seconds=2), duration=timedelta(seconds=1)))
-    events.append(Event(timestamp=now + timedelta(seconds=1), duration=timedelta(seconds=2)))
+    events.append(
+        Event(timestamp=now + timedelta(seconds=2), duration=timedelta(seconds=1))
+    )
+    events.append(
+        Event(timestamp=now + timedelta(seconds=1), duration=timedelta(seconds=2))
+    )
     events_sorted = sort_by_timestamp(events)
     assert events_sorted == events[::-1]
 
@@ -135,8 +150,12 @@ def test_sort_by_timestamp():
 def test_sort_by_duration():
     now = datetime.now(timezone.utc)
     events = []
-    events.append(Event(timestamp=now + timedelta(seconds=2), duration=timedelta(seconds=1)))
-    events.append(Event(timestamp=now + timedelta(seconds=1), duration=timedelta(seconds=2)))
+    events.append(
+        Event(timestamp=now + timedelta(seconds=2), duration=timedelta(seconds=1))
+    )
+    events.append(
+        Event(timestamp=now + timedelta(seconds=1), duration=timedelta(seconds=2))
+    )
     events_sorted = sort_by_duration(events)
     assert events_sorted == events[::-1]
 
@@ -145,7 +164,9 @@ def test_sum_durations():
     now = datetime.now(timezone.utc)
     events = []
     for i in range(10):
-        events.append(Event(timestamp=now + timedelta(seconds=i), duration=timedelta(seconds=1)))
+        events.append(
+            Event(timestamp=now + timedelta(seconds=i), duration=timedelta(seconds=1))
+        )
     result = sum_durations(events)
     assert result == timedelta(seconds=10)
 
@@ -231,7 +252,11 @@ def test_chunk_events_by_key():
 
 def test_url_parse_event():
     now = datetime.now(timezone.utc)
-    e = Event(data={"url": "http://asd.com/test/?a=1"}, timestamp=now, duration=timedelta(seconds=1))
+    e = Event(
+        data={"url": "http://asd.com/test/?a=1"},
+        timestamp=now,
+        duration=timedelta(seconds=1),
+    )
     result = split_url_events([e])
     print(result)
     assert result[0].data["$protocol"] == "http"
@@ -241,7 +266,11 @@ def test_url_parse_event():
     assert result[0].data["$options"] == "a=1"
     assert result[0].data["$identifier"] == ""
 
-    e2 = Event(data={"url": "https://www.asd.asd.com/test/test2/meh;meh2?asd=2&asdf=3#id"}, timestamp=now, duration=timedelta(seconds=1))
+    e2 = Event(
+        data={"url": "https://www.asd.asd.com/test/test2/meh;meh2?asd=2&asdf=3#id"},
+        timestamp=now,
+        duration=timedelta(seconds=1),
+    )
     result = split_url_events([e2])
     print(result)
     assert result[0].data["$protocol"] == "https"
@@ -251,7 +280,11 @@ def test_url_parse_event():
     assert result[0].data["$options"] == "asd=2&asdf=3"
     assert result[0].data["$identifier"] == "id"
 
-    e3 = Event(data={"url": "file:///home/johan/myfile.txt"}, timestamp=now, duration=timedelta(seconds=1))
+    e3 = Event(
+        data={"url": "file:///home/johan/myfile.txt"},
+        timestamp=now,
+        duration=timedelta(seconds=1),
+    )
     result = split_url_events([e3])
     print(result)
     assert result[0].data["$protocol"] == "file"

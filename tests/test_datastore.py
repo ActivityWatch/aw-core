@@ -37,7 +37,14 @@ def test_create_bucket(datastore):
     name = "A label/name for a test bucket"
     bid = "test-identifier"
     try:
-        bucket = datastore.create_bucket(bucket_id=bid, type="testtype", client="testclient", hostname="testhost", name=name, created=now)
+        bucket = datastore.create_bucket(
+            bucket_id=bid,
+            type="testtype",
+            client="testclient",
+            hostname="testhost",
+            name=name,
+            created=now,
+        )
         assert bid == bucket.metadata()["id"]
         assert name == bucket.metadata()["name"]
         assert "testtype" == bucket.metadata()["type"]
@@ -53,7 +60,9 @@ def test_create_bucket(datastore):
 @pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_delete_bucket(datastore):
     bid = "test"
-    datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name="test")
+    datastore.create_bucket(
+        bucket_id=bid, type="test", client="test", hostname="test", name="test"
+    )
     datastore.delete_bucket(bid)
     assert bid not in datastore.buckets()
     with pytest.raises(Exception):
@@ -102,7 +111,9 @@ def test_insert_many(bucket_cm):
     """
     num_events = 5000
     with bucket_cm as bucket:
-        events = (num_events * [Event(timestamp=now, duration=timedelta(seconds=1), data={"key": "val"})])
+        events = num_events * [
+            Event(timestamp=now, duration=timedelta(seconds=1), data={"key": "val"})
+        ]
         bucket.insert(events)
         fetched_events = bucket.get(limit=-1)
         assert num_events == len(fetched_events)
@@ -117,7 +128,9 @@ def test_delete(bucket_cm):
     """
     num_events = 10
     with bucket_cm as bucket:
-        events = (num_events * [Event(timestamp=now, duration=timedelta(seconds=1), data={"key": "val"})])
+        events = num_events * [
+            Event(timestamp=now, duration=timedelta(seconds=1), data={"key": "val"})
+        ]
         bucket.insert(events)
 
         fetched_events = bucket.get(limit=-1)
@@ -180,10 +193,14 @@ def test_get_event_with_timezone(bucket_cm):
 
     with bucket_cm as bucket:
         bucket.insert(Event(timestamp=dt_with_tz))
-        fetched_events = bucket.get(starttime=dt_with_tz - hour, endtime=dt_with_tz + hour)
+        fetched_events = bucket.get(
+            starttime=dt_with_tz - hour, endtime=dt_with_tz + hour
+        )
         assert len(fetched_events) == 1
 
-        fetched_events = bucket.get(starttime=dt_utc - td_offset - hour, endtime=dt_utc - td_offset + hour)
+        fetched_events = bucket.get(
+            starttime=dt_utc - td_offset - hour, endtime=dt_utc - td_offset + hour
+        )
         assert len(fetched_events) == 1
 
 
@@ -212,7 +229,9 @@ def test_get_datefilter(bucket_cm):
         # Both
         for i in range(eventcount):
             for j in range(i + 1, eventcount):
-                fetched_events = bucket.get(starttime=events[i].timestamp, endtime=events[j].timestamp)
+                fetched_events = bucket.get(
+                    starttime=events[i].timestamp, endtime=events[j].timestamp
+                )
                 assert j - i + 1 == len(fetched_events)
 
 
@@ -234,14 +253,18 @@ def test_replace(bucket_cm):
         e1 = bucket.insert(Event(data={"label": "test1"}, timestamp=now))
         assert e1
         assert e1.id is not None
-        e2 = bucket.insert(Event(data={"label": "test2"}, timestamp=now + timedelta(seconds=1)))
+        e2 = bucket.insert(
+            Event(data={"label": "test2"}, timestamp=now + timedelta(seconds=1))
+        )
         assert e2
         assert e2.id is not None
 
         e1.data["label"] = "test1-replaced"
         bucket.replace(e1.id, e1)
 
-        bucket.insert(Event(data={"label": "test3"}, timestamp=now + timedelta(seconds=2)))
+        bucket.insert(
+            Event(data={"label": "test3"}, timestamp=now + timedelta(seconds=2))
+        )
 
         e2.data["label"] = "test2-replaced"
         bucket.replace(e2.id, e2)
@@ -261,11 +284,18 @@ def test_replace_last(bucket_cm):
     with bucket_cm as bucket:
         # Create two events
         bucket.insert(Event(data={"label": "test1"}, timestamp=now))
-        bucket.insert(Event(data={"label": "test2"}, timestamp=now + timedelta(seconds=1)))
+        bucket.insert(
+            Event(data={"label": "test2"}, timestamp=now + timedelta(seconds=1))
+        )
         # Create second event to replace with the second one
-        bucket.replace_last(Event(data={"label": "test2-replaced"},
-                                  timestamp=now + timedelta(seconds=1)))
-        bucket.insert(Event(data={"label": "test3"}, timestamp=now + timedelta(seconds=2)))
+        bucket.replace_last(
+            Event(
+                data={"label": "test2-replaced"}, timestamp=now + timedelta(seconds=1)
+            )
+        )
+        bucket.insert(
+            Event(data={"label": "test3"}, timestamp=now + timedelta(seconds=2))
+        )
         # Assert data
         result = bucket.get(-1)
         assert 3 == len(result)
@@ -283,8 +313,11 @@ def test_replace_last_complex(bucket_cm):
         bucket.insert(event1)
         eventcount = len(bucket.get(-1))
         # Create second event to replace with the first one
-        event2 = Event(data={"label": "test2"}, duration=timedelta(0),
-                       timestamp=now + timedelta(seconds=1))
+        event2 = Event(
+            data={"label": "test2"},
+            duration=timedelta(0),
+            timestamp=now + timedelta(seconds=1),
+        )
         bucket.replace_last(event2)
         # Assert length and content
         result = bucket.get(-1)
@@ -300,7 +333,10 @@ def test_get_last(bucket_cm):
     now = datetime.now()
     second = timedelta(seconds=1)
     with bucket_cm as bucket:
-        events = [Event(data={"label": "test"}, timestamp=ts, duration=timedelta(0)) for ts in [now + second, now + second * 2, now + second * 3]]
+        events = [
+            Event(data={"label": "test"}, timestamp=ts, duration=timedelta(0))
+            for ts in [now + second, now + second * 2, now + second * 3]
+        ]
 
         for event in events:
             bucket.insert(event)
@@ -335,12 +371,12 @@ def test_get_metadata(bucket_cm):
         print(bucket.ds.storage_strategy)
         metadata = bucket.metadata()
         print(metadata)
-        assert 'created' in metadata
-        assert 'client' in metadata
-        assert 'hostname' in metadata
-        assert 'id' in metadata
-        assert 'name' in metadata
-        assert 'type' in metadata
+        assert "created" in metadata
+        assert "client" in metadata
+        assert "hostname" in metadata
+        assert "id" in metadata
+        assert "name" in metadata
+        assert "type" in metadata
     with pytest.raises(Exception):
         bucket.metadata()
 
@@ -359,6 +395,9 @@ def test_get_eventcount(bucket_cm):
         # TODO: Test with timestamps and start/endtime filtering
 
         bucket.insert(Event(timestamp=now + timedelta(seconds=5)))
-        assert bucket.get_eventcount(starttime=now - timedelta(seconds=1), endtime=now) == 5
+        assert (
+            bucket.get_eventcount(starttime=now - timedelta(seconds=1), endtime=now)
+            == 5
+        )
         assert bucket.get_eventcount(endtime=now + timedelta(seconds=1)) == 5
         assert bucket.get_eventcount(starttime=now + timedelta(seconds=1)) == 1

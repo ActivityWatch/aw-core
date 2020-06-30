@@ -20,8 +20,14 @@ def get_log_file_path() -> Optional[str]:  # pragma: no cover
     return log_file_path
 
 
-def setup_logging(name: str, testing=False, verbose=False,
-                  log_stderr=True, log_file=False, log_file_json=False):  # pragma: no cover
+def setup_logging(
+    name: str,
+    testing=False,
+    verbose=False,
+    log_stderr=True,
+    log_file=False,
+    log_file_json=False,
+):  # pragma: no cover
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG if verbose else logging.INFO)
     root_logger.handlers = []
@@ -29,14 +35,21 @@ def setup_logging(name: str, testing=False, verbose=False,
     if log_stderr:
         root_logger.addHandler(_create_stderr_handler())
     if log_file:
-        root_logger.addHandler(_create_file_handler(name, testing=testing, log_json=log_file_json))
+        root_logger.addHandler(
+            _create_file_handler(name, testing=testing, log_json=log_file_json)
+        )
 
 
 def _get_latest_log_files(name, testing=False) -> List[str]:  # pragma: no cover
     """Returns a list with the paths of all available logfiles for `name` sorted by latest first."""
     log_dir = dirs.get_log_dir(name)
     files = filter(lambda filename: name in filename, os.listdir(log_dir))
-    files = filter(lambda filename: "testing" in filename if testing else "testing" not in filename, files)
+    files = filter(
+        lambda filename: "testing" in filename
+        if testing
+        else "testing" not in filename,
+        files,
+    )
     return [os.path.join(log_dir, filename) for filename in sorted(files, reverse=True)]
 
 
@@ -54,7 +67,9 @@ def _create_stderr_handler() -> logging.Handler:  # pragma: no cover
     return stderr_handler
 
 
-def _create_file_handler(name, testing=False, log_json=False) -> logging.Handler:  # pragma: no cover
+def _create_file_handler(
+    name, testing=False, log_json=False
+) -> logging.Handler:  # pragma: no cover
     log_dir = dirs.get_log_dir(name)
 
     # Set logfile path and name
@@ -67,7 +82,7 @@ def _create_file_handler(name, testing=False, log_json=False) -> logging.Handler
     log_name = name + "_" + ("testing_" if testing else "") + now_str + file_ext
     log_file_path = os.path.join(log_dir, log_name)
 
-    fh = logging.FileHandler(log_file_path, mode='w')
+    fh = logging.FileHandler(log_file_path, mode="w")
     if log_json:
         fh.setFormatter(_create_json_formatter())
     else:
@@ -77,23 +92,26 @@ def _create_file_handler(name, testing=False, log_json=False) -> logging.Handler
 
 
 def _create_human_formatter() -> logging.Formatter:  # pragma: no cover
-    return logging.Formatter('%(asctime)s [%(levelname)-5s]: %(message)s  (%(name)s:%(lineno)s)', '%Y-%m-%d %H:%M:%S')
+    return logging.Formatter(
+        "%(asctime)s [%(levelname)-5s]: %(message)s  (%(name)s:%(lineno)s)",
+        "%Y-%m-%d %H:%M:%S",
+    )
 
 
 def _create_json_formatter() -> logging.Formatter:  # pragma: no cover
     supported_keys = [
-        'asctime',
+        "asctime",
         # 'created',
-        'filename',
-        'funcName',
-        'levelname',
+        "filename",
+        "funcName",
+        "levelname",
         # 'levelno',
-        'lineno',
-        'module',
+        "lineno",
+        "module",
         # 'msecs',
-        'message',
-        'name',
-        'pathname',
+        "message",
+        "name",
+        "pathname",
         # 'process',
         # 'processName',
         # 'relativeCreated',
@@ -103,8 +121,8 @@ def _create_json_formatter() -> logging.Formatter:  # pragma: no cover
 
     def log_format(x):
         """Used to give JsonFormatter proper parameter format"""
-        return ['%({0:s})'.format(i) for i in x]
+        return ["%({0:s})".format(i) for i in x]
 
-    custom_format = ' '.join(log_format(supported_keys))
+    custom_format = " ".join(log_format(supported_keys))
 
     return jsonlogger.JsonFormatter(custom_format)

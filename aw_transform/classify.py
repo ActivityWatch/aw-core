@@ -20,7 +20,13 @@ class Rule:
 
         # NOTE: Also checks that the regex isn't an empty string (which would erroneously match everything)
         regex_str = rules.get("regex", None)
-        self.regex = re.compile(regex_str, (re.IGNORECASE if self.ignore_case else 0) | re.UNICODE) if regex_str else None
+        self.regex = (
+            re.compile(
+                regex_str, (re.IGNORECASE if self.ignore_case else 0) | re.UNICODE
+            )
+            if regex_str
+            else None
+        )
 
     def match(self, e: Event) -> bool:
         if self.select_keys:
@@ -39,7 +45,9 @@ def categorize(events: List[Event], classes: List[Tuple[Category, Rule]]):
 
 
 def _categorize_one(e: Event, classes: List[Tuple[Category, Rule]]) -> Event:
-    e.data["$category"] = _pick_category([_cls for _cls, rule in classes if rule.match(e)])
+    e.data["$category"] = _pick_category(
+        [_cls for _cls, rule in classes if rule.match(e)]
+    )
     return e
 
 

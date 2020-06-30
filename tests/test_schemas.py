@@ -30,11 +30,9 @@ class EventSchemaTest(unittest.TestCase):
         self.validate(event.to_json_dict())
 
     def test_data(self):
-        self.validate({
-            "timestamp": valid_timestamp,
-            "data": {"label": "test",
-                     "number": 1.1}
-        })
+        self.validate(
+            {"timestamp": valid_timestamp, "data": {"label": "test", "number": 1.1}}
+        )
 
     def test_timestamp(self):
         self.validate({"timestamp": valid_timestamp})
@@ -50,21 +48,12 @@ class EventSchemaTest(unittest.TestCase):
             self.validate({"timestamp": 2})
 
     def test_duration(self):
-        self.validate({
-            "timestamp": valid_timestamp,
-            "duration": 1000
-        })
-        self.validate({
-            "timestamp": valid_timestamp,
-            "duration": 3.13
-        })
+        self.validate({"timestamp": valid_timestamp, "duration": 1000})
+        self.validate({"timestamp": valid_timestamp, "duration": 3.13})
 
     def test_duration_invalid_string(self):
         with self.assertRaises(ValidationError):
-            self.validate({
-                "timestamp": valid_timestamp,
-                "duration": "not a number"
-            })
+            self.validate({"timestamp": valid_timestamp, "duration": "not a number"})
 
 
 if __name__ == "__main__":

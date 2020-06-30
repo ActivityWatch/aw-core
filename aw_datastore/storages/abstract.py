@@ -10,6 +10,7 @@ class AbstractStorage(metaclass=ABCMeta):
     """
     Interface for storage methods.
     """
+
     sid = "Storage id not set, fix me"
 
     @abstractmethod
@@ -22,8 +23,15 @@ class AbstractStorage(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def create_bucket(self, bucket_id: str, type_id: str, client: str,
-                      hostname: str, created: str, name: Optional[str] = None) -> None:
+    def create_bucket(
+        self,
+        bucket_id: str,
+        type_id: str,
+        client: str,
+        hostname: str,
+        created: str,
+        name: Optional[str] = None,
+    ) -> None:
         raise NotImplementedError
 
     @abstractmethod
@@ -35,12 +43,21 @@ class AbstractStorage(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def get_events(self, bucket_id: str, limit: int,
-                   starttime: Optional[datetime] = None, endtime: Optional[datetime] = None) -> List[Event]:
+    def get_events(
+        self,
+        bucket_id: str,
+        limit: int,
+        starttime: Optional[datetime] = None,
+        endtime: Optional[datetime] = None,
+    ) -> List[Event]:
         raise NotImplementedError
 
-    def get_eventcount(self, bucket_id: str,
-                       starttime: Optional[datetime] = None, endtime: Optional[datetime] = None) -> int:
+    def get_eventcount(
+        self,
+        bucket_id: str,
+        starttime: Optional[datetime] = None,
+        endtime: Optional[datetime] = None,
+    ) -> int:
         raise NotImplementedError
 
     @abstractmethod

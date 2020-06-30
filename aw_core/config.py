@@ -19,7 +19,7 @@ def load_config(appname, default_config):
 
     # Override defaults from existing config file
     if os.path.isfile(config_file_path):
-        with open(config_file_path, 'r') as f:
+        with open(config_file_path, "r") as f:
             config.read_file(f)
 
     # Overwrite current config file (necessary in case new default would be added)
@@ -31,5 +31,5 @@ def load_config(appname, default_config):
 def save_config(appname, config):
     config_dir = dirs.get_config_dir(appname)
     config_file_path = os.path.join(config_dir, "{}.ini".format(appname))
-    with open(config_file_path, 'w') as f:
+    with open(config_file_path, "w") as f:
         config.write(f)

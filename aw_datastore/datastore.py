@@ -10,14 +10,18 @@ logger = logging.getLogger(__name__)
 
 
 class Datastore:
-    def __init__(self, storage_strategy: Callable[..., AbstractStorage], testing=False) -> None:
+    def __init__(
+        self, storage_strategy: Callable[..., AbstractStorage], testing=False
+    ) -> None:
         self.logger = logger.getChild("Datastore")
         self.bucket_instances: Dict[str, Bucket] = dict()
 
         self.storage_strategy = storage_strategy(testing=testing)
 
     def __repr__(self):
-        return "<Datastore object using {}>".format(self.storage_strategy.__class__.__name__)
+        return "<Datastore object using {}>".format(
+            self.storage_strategy.__class__.__name__
+        )
 
     def __getitem__(self, bucket_id: str) -> "Bucket":
         # If this bucket doesn't have a initialized object, create it
@@ -27,15 +31,28 @@ class Datastore:
                 bucket = Bucket(self, bucket_id)
                 self.bucket_instances[bucket_id] = bucket
             else:
-                self.logger.error("Cannot create a Bucket object for {} because it doesn't exist in the database".format(bucket_id))
+                self.logger.error(
+                    "Cannot create a Bucket object for {} because it doesn't exist in the database".format(
+                        bucket_id
+                    )
+                )
                 raise KeyError
 
         return self.bucket_instances[bucket_id]
 
-    def create_bucket(self, bucket_id: str, type: str, client: str, hostname: str,
-                      created: datetime = datetime.now(timezone.utc), name: Optional[str] = None) -> "Bucket":
+    def create_bucket(
+        self,
+        bucket_id: str,
+        type: str,
+        client: str,
+        hostname: str,
+        created: datetime = datetime.now(timezone.utc),
+        name: Optional[str] = None,
+    ) -> "Bucket":
         self.logger.info("Creating bucket '{}'".format(bucket_id))
-        self.storage_strategy.create_bucket(bucket_id, type, client, hostname, created.isoformat(), name=name)
+        self.storage_strategy.create_bucket(
+            bucket_id, type, client, hostname, created.isoformat(), name=name
+        )
         return self[bucket_id]
 
     def delete_bucket(self, bucket_id: str):
@@ -57,24 +74,37 @@ class Bucket:
     def metadata(self) -> dict:
         return self.ds.storage_strategy.get_metadata(self.bucket_id)
 
-    def get(self, limit: int = -1,
-            starttime: datetime=None, endtime: datetime=None) -> List[Event]:
+    def get(
+        self, limit: int = -1, starttime: datetime = None, endtime: datetime = None
+    ) -> List[Event]:
         """Returns events sorted in descending order by timestamp"""
         # Resolution is rounded down since not all datastores like microsecond precision
         if starttime:
-            starttime = starttime.replace(microsecond=1000 * int(starttime.microsecond / 1000))
+            starttime = starttime.replace(
+                microsecond=1000 * int(starttime.microsecond / 1000)
+            )
         if endtime:
             # Rounding up here in order to ensure events aren't missed
             # second_offset and microseconds modulo required since replace() only takes microseconds up to 999999 (doesn't handle overflow)
             milliseconds = 1 + int(endtime.microsecond / 1000)
             second_offset = int(milliseconds / 1000)  # usually 0, rarely 1
-            microseconds = (1000 * milliseconds) % 1000000  # will likely just be 1000 * milliseconds, if it overflows it would become zero
-            endtime = endtime.replace(microsecond=microseconds) + timedelta(seconds=second_offset)
+            microseconds = (
+                1000 * milliseconds
+            ) % 1000000  # will likely just be 1000 * milliseconds, if it overflows it would become zero
+            endtime = endtime.replace(microsecond=microseconds) + timedelta(
+                seconds=second_offset
+            )
 
-        return self.ds.storage_strategy.get_events(self.bucket_id, limit, starttime, endtime)
+        return self.ds.storage_strategy.get_events(
+            self.bucket_id, limit, starttime, endtime
+        )
 
-    def get_eventcount(self, starttime: datetime=None, endtime: datetime=None) -> int:
-        return self.ds.storage_strategy.get_eventcount(self.bucket_id, starttime, endtime)
+    def get_eventcount(
+        self, starttime: datetime = None, endtime: datetime = None
+    ) -> int:
+        return self.ds.storage_strategy.get_eventcount(
+            self.bucket_id, starttime, endtime
+        )
 
     def insert(self, events: Union[Event, List[Event]]) -> Optional[Event]:
         """
@@ -99,17 +129,25 @@ class Bucket:
         if isinstance(events, Event):
             oldest_event: Optional[Event] = events
             if events.timestamp + events.duration > now:
-                self.logger.warning("Event inserted into bucket {} reaches into the future. Current UTC time: {}. Event data: {}".format(self.bucket_id, str(now), str(events)))
+                self.logger.warning(
+                    "Event inserted into bucket {} reaches into the future. Current UTC time: {}. Event data: {}".format(
+                        self.bucket_id, str(now), str(events)
+                    )
+                )
             inserted = self.ds.storage_strategy.insert_one(self.bucket_id, events)
-            #assert inserted
+            # assert inserted
         elif isinstance(events, list):
             if events:
-                oldest_event = sorted(events, key=lambda k: k['timestamp'])[0]
+                oldest_event = sorted(events, key=lambda k: k["timestamp"])[0]
             else:  # pragma: no cover
                 oldest_event = None
             for event in events:
                 if event.timestamp + event.duration > now:
-                    self.logger.warning("Event inserted into bucket {} reaches into the future. Current UTC time: {}. Event data: {}".format(self.bucket_id, str(now), str(event)))
+                    self.logger.warning(
+                        "Event inserted into bucket {} reaches into the future. Current UTC time: {}. Event data: {}".format(
+                            self.bucket_id, str(now), str(event)
+                        )
+                    )
             self.ds.storage_strategy.insert_many(self.bucket_id, events)
         else:
             raise TypeError
