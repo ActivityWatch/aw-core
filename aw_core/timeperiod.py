@@ -18,9 +18,11 @@ class TimePeriod:
 
     def overlaps(self, other: "TimePeriod") -> bool:
         """Checks if this timeperiod is overlapping partially or entirely with another timeperiod"""
-        return self.start <= other.start < self.end \
-            or self.start < other.end <= self.end \
+        return (
+            self.start <= other.start < self.end
+            or self.start < other.end <= self.end
             or self in other
+        )
 
     def intersects(self, other: "TimePeriod") -> bool:
         """Alias for overlaps"""
@@ -49,7 +51,11 @@ class TimePeriod:
         if isinstance(other, TimePeriod):
             return self.start < other.start
         else:
-            raise TypeError("operator not supported between instaces of '{}' and '{}'".format(type(self), type(other)))
+            raise TypeError(
+                "operator not supported between instaces of '{}' and '{}'".format(
+                    type(self), type(other)
+                )
+            )
 
     def intersection(self, other: "TimePeriod") -> Optional["TimePeriod"]:
         """Returns the timeperiod contained in both periods"""

@@ -5,7 +5,7 @@ import pytest
 
 from aw_core.models import Event
 
-valid_timestamp="1937-01-01T12:00:27.87+00:20"
+valid_timestamp = "1937-01-01T12:00:27.87+00:20"
 
 now = datetime.now(timezone.utc)
 td1s = timedelta(seconds=1)
@@ -13,11 +13,17 @@ td1s = timedelta(seconds=1)
 
 def test_create() -> None:
     Event(timestamp=now, duration=timedelta(hours=13, minutes=37), data={"key": "val"})
-    Event(timestamp=valid_timestamp, duration=timedelta(hours=13, minutes=37), data={"key": "val"})
+    Event(
+        timestamp=valid_timestamp,
+        duration=timedelta(hours=13, minutes=37),
+        data={"key": "val"},
+    )
 
 
 def test_json_serialization() -> None:
-    e = Event(timestamp=now, duration=timedelta(hours=13, minutes=37), data={"key": "val"})
+    e = Event(
+        timestamp=now, duration=timedelta(hours=13, minutes=37), data={"key": "val"}
+    )
     assert e == Event(**json.loads(e.to_json_str()))
 
 

@@ -40,7 +40,12 @@ def _verify_bucket_exists(datastore, bucketname):
 
 def _verify_variable_is_type(variable, t):
     if not isinstance(variable, t):
-        raise QueryFunctionException("Variable '{}' passed to function call is of invalid type. Expected {} but was {}".format(variable, t, type(variable)))
+        raise QueryFunctionException(
+            "Variable '{}' passed to function call is of invalid type. Expected {} but was {}".format(
+                variable, t, type(variable)
+            )
+        )
+
 
 # TODO: proper type checking (typecheck-decorator in pypi?)
 
@@ -67,7 +72,9 @@ def q2_function(transform_func=None):
         sig = signature(f)
         # If function lacks docstring, use docstring from underlying function in aw_transform
         if transform_func and transform_func.__doc__ and not f.__doc__:
-            f.__doc__ = ".. note:: Documentation automatically copied from underlying function `aw_transform.{func_name}`\n\n{func_doc}".format(func_name=transform_func.__name__, func_doc=transform_func.__doc__)
+            f.__doc__ = ".. note:: Documentation automatically copied from underlying function `aw_transform.{func_name}`\n\n{func_doc}".format(
+                func_name=transform_func.__name__, func_doc=transform_func.__doc__
+            )
 
         @wraps(f)
         def g(datastore: Datastore, namespace: TNamespace, *args, **kwargs):
@@ -76,7 +83,7 @@ def q2_function(transform_func=None):
             if TNamespace not in (sig.parameters[p].annotation for p in sig.parameters):
                 args = (args[0], *args[2:])
             if Datastore not in (sig.parameters[p].annotation for p in sig.parameters):
-                args = (args[1:])
+                args = args[1:]
             return f(*args, **kwargs)
 
         fname = f.__name__
@@ -100,10 +107,14 @@ def q2_typecheck(f):
 
             # print(f"Checking that param ({param}) was {param.annotation}, value: {args[i]}")
             # FIXME: Won't check keyword arguments
-            if param.annotation in [list, str, int, float] and param.default == param.empty:
+            if (
+                param.annotation in [list, str, int, float]
+                and param.default == param.empty
+            ):
                 _verify_variable_is_type(args[i], param.annotation)
 
         return f(*args, **kwargs)
+
     return g
 
 
@@ -124,7 +135,11 @@ def q2_find_bucket(datastore: Datastore, filter_str: str, hostname: str = None):
                     return bucket
             else:
                 return bucket
-    raise QueryFunctionException("Unable to find bucket matching '{}' (hostname filter set to '{}')".format(filter_str, hostname))
+    raise QueryFunctionException(
+        "Unable to find bucket matching '{}' (hostname filter set to '{}')".format(
+            filter_str, hostname
+        )
+    )
 
 
 """
@@ -134,19 +149,25 @@ def q2_find_bucket(datastore: Datastore, filter_str: str, hostname: str = None):
 
 @q2_function()
 @q2_typecheck
-def q2_query_bucket(datastore: Datastore, namespace: TNamespace, bucketname: str) -> List[Event]:
+def q2_query_bucket(
+    datastore: Datastore, namespace: TNamespace, bucketname: str
+) -> List[Event]:
     _verify_bucket_exists(datastore, bucketname)
     try:
         starttime = iso8601.parse_date(namespace["STARTTIME"])
         endtime = iso8601.parse_date(namespace["ENDTIME"])
     except iso8601.ParseError:
-        raise QueryFunctionException("Unable to parse starttime/endtime for query_bucket")
+        raise QueryFunctionException(
+            "Unable to parse starttime/endtime for query_bucket"
+        )
     return datastore[bucketname].get(starttime=starttime, endtime=endtime)
 
 
 @q2_function()
 @q2_typecheck
-def q2_query_bucket_eventcount(datastore: Datastore, namespace: TNamespace, bucketname: str) -> int:
+def q2_query_bucket_eventcount(
+    datastore: Datastore, namespace: TNamespace, bucketname: str
+) -> int:
     _verify_bucket_exists(datastore, bucketname)
     starttime = iso8601.parse_date(namespace["STARTTIME"])
     endtime = iso8601.parse_date(namespace["ENDTIME"])

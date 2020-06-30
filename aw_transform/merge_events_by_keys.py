@@ -23,9 +23,7 @@ def merge_events_by_keys(events, keys) -> List[Event]:
                 composite_key = composite_key + (val,)
         if composite_key not in merged_events:
             merged_events[composite_key] = Event(
-                timestamp=event.timestamp,
-                duration=event.duration,
-                data={}
+                timestamp=event.timestamp, duration=event.duration, data={}
             )
             for key in keys:
                 if key in event.data:

@@ -9,12 +9,22 @@ from .storages import AbstractStorage
 logger = logging.getLogger(__name__)
 
 
-def detect_db_files(data_dir: str, datastore_name: str = None, version=None) -> List[str]:
+def detect_db_files(
+    data_dir: str, datastore_name: str = None, version=None
+) -> List[str]:
     db_files = [filename for filename in os.listdir(data_dir)]
     if datastore_name:
-        db_files = [filename for filename in db_files if filename.split(".")[0] == datastore_name]
+        db_files = [
+            filename
+            for filename in db_files
+            if filename.split(".")[0] == datastore_name
+        ]
     if version:
-        db_files = [filename for filename in db_files if filename.split(".")[1] == "v{}".format(version)]
+        db_files = [
+            filename
+            for filename in db_files
+            if filename.split(".")[1] == "v{}".format(version)
+        ]
     return db_files
 
 
@@ -33,6 +43,7 @@ def check_for_migration(datastore: AbstractStorage):
 def peewee_v2_to_sqlite_v1(datastore):
     logger.info("Migrating database from peewee v2 to sqlite v1")
     from .storages import PeeweeStorage
+
     pw_db = PeeweeStorage(datastore.testing)
     # Fetch buckets and events
     buckets = pw_db.buckets()
@@ -46,7 +57,7 @@ def peewee_v2_to_sqlite_v1(datastore):
             bucket["client"],
             bucket["hostname"],
             bucket["created"],
-            bucket["name"]
+            bucket["name"],
         )
         bucket_events = pw_db.get_events(bucket_id, -1)
         datastore.insert_many(bucket_id, bucket_events)

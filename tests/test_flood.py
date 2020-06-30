@@ -14,7 +14,9 @@ def test_flood_forward():
         Event(timestamp=now + 15 * td1s, duration=5, data={"b": 1}),
     ]
     flooded = flood(events)
-    assert (flooded[0].timestamp + flooded[0].duration) - flooded[1].timestamp == timedelta(0)
+    assert (flooded[0].timestamp + flooded[0].duration) - flooded[
+        1
+    ].timestamp == timedelta(0)
 
 
 def test_flood_forward_merge():
@@ -33,7 +35,9 @@ def test_flood_backward():
         Event(timestamp=now + 10 * td1s, duration=10, data={"b": 1}),
     ]
     flooded = flood(events)
-    assert (flooded[0].timestamp + flooded[0].duration) - flooded[1].timestamp == timedelta(0)
+    assert (flooded[0].timestamp + flooded[0].duration) - flooded[
+        1
+    ].timestamp == timedelta(0)
 
 
 def test_flood_backward_merge():

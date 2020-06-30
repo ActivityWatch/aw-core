@@ -21,7 +21,9 @@ def _replace_event_period(event: Event, period: TimePeriod) -> Event:
     return e
 
 
-def _intersecting_eventpairs(events1: List[Event], events2: List[Event]) -> Iterable[Tuple[Event, Event, TimePeriod]]:
+def _intersecting_eventpairs(
+    events1: List[Event], events2: List[Event]
+) -> Iterable[Tuple[Event, Event, TimePeriod]]:
     """A generator that yields each overlapping pair of events from two eventlists along with a TimePeriod of the intersection"""
     e1_i = 0
     e2_i = 0
@@ -53,7 +55,9 @@ def _intersecting_eventpairs(events1: List[Event], events2: List[Event]) -> Iter
                 e2_i += 1
 
 
-def filter_period_intersect(events: List[Event], filterevents: List[Event]) -> List[Event]:
+def filter_period_intersect(
+    events: List[Event], filterevents: List[Event]
+) -> List[Event]:
     """
     Filters away all events or time periods of events in which a
     filterevent does not have an intersecting time period.
@@ -77,7 +81,10 @@ def filter_period_intersect(events: List[Event], filterevents: List[Event]) -> L
     events = sorted(events)
     filterevents = sorted(filterevents)
 
-    return [_replace_event_period(e1, ip) for (e1, _, ip) in _intersecting_eventpairs(events, filterevents)]
+    return [
+        _replace_event_period(e1, ip)
+        for (e1, _, ip) in _intersecting_eventpairs(events, filterevents)
+    ]
 
 
 def period_union(events1: List[Event], events2: List[Event]) -> List[Event]:

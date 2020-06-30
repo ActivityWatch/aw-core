@@ -18,6 +18,7 @@ def _ensure_returned_path_exists(f: GetDirFunc) -> GetDirFunc:
         path = f(subpath)
         ensure_path_exists(path)
         return path
+
     return wrapper
 
 
