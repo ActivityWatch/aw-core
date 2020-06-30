@@ -1,0 +1,11 @@
+name: Lint
+
+on: [push, pull_request]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+      - uses: psf/black@fcf97961061982656a1384ecc1628e217a52a88c   # this should be changed to @stable when https://github.com/psf/black/issues/1520 is fixed
