@@ -39,6 +39,14 @@ def setup_logging(
             _create_file_handler(name, testing=testing, log_json=log_file_json)
         )
 
+    def excepthook(type_, value, traceback):
+        root_logger.exception("Unhandled exception", exc_info=(type_, value, traceback))
+        # call the default excepthook if log_stderr isn't true (otherwise it'll just get duplicated)
+        if not log_stderr:
+            sys.__excepthook__(type_, value, traceback)
+
+    sys.excepthook = excepthook
+
 
 def _get_latest_log_files(name, testing=False) -> List[str]:  # pragma: no cover
     """Returns a list with the paths of all available logfiles for `name` sorted by latest first."""
