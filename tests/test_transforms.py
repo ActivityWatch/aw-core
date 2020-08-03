@@ -1,4 +1,3 @@
-import re
 from pprint import pprint
 from datetime import datetime, timedelta, timezone
 
@@ -20,6 +19,7 @@ from aw_transform import (
     tag,
     Rule,
 )
+from aw_transform.filter_period_intersect import _intersecting_eventpairs
 
 
 def test_simplify_string():
@@ -66,6 +66,46 @@ def test_filter_keyval_regex():
     ]
     events_re = filter_keyvals_regex(events, "label", "aa|cc")
     assert len(events_re) == 2
+
+
+def test_intersecting_eventpairs():
+    td1h = timedelta(hours=1)
+    now = datetime.now()
+
+    # Test with two identical lists
+    e1 = [
+        Event(timestamp=now, duration=td1h),
+        Event(timestamp=now + td1h, duration=td1h),
+    ]
+    e2 = [
+        Event(timestamp=now, duration=td1h),
+        Event(timestamp=now + td1h, duration=td1h),
+    ]
+    intersecting = list(_intersecting_eventpairs(e1, e2))
+    assert len(intersecting) == 2
+
+    # Test with events in first list being in between events of second list
+    e1 = [
+        Event(timestamp=now + td1h, duration=td1h),
+    ]
+    e2 = [
+        Event(timestamp=now, duration=td1h),
+        Event(timestamp=now + 2 * td1h, duration=td1h),
+    ]
+    intersecting = list(_intersecting_eventpairs(e1, e2))
+    assert not intersecting
+
+    # Test with event in first list being identical to middle event in second list
+    e1 = [
+        Event(timestamp=now + td1h, duration=td1h),
+    ]
+    e2 = [
+        Event(timestamp=now, duration=td1h),
+        Event(timestamp=now + 1 * td1h, duration=td1h),
+        Event(timestamp=now + 2 * td1h, duration=td1h),
+    ]
+    intersecting = list(_intersecting_eventpairs(e1, e2))
+    assert len(intersecting) == 1
 
 
 def test_filter_period_intersect():
