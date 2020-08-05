@@ -516,14 +516,14 @@ def test_query2_query_categorize(datastore):
     starttime = iso8601.parse_date("1970")
     endtime = starttime + timedelta(hours=1)
 
-    example_query = """
+    example_query = r"""
     events = query_bucket("{bid}");
     events = sort_by_timestamp(events);
-    events = categorize(events, [[["test"], {{"regex": "test"}}], [["test", "subtest"], {{"regex": "test2"}}]]);
+    events = categorize(events, [[["test"], {{"regex": "test"}}], [["test", "subtest"], {{"regex": "test\w"}}]]);
     events_by_cat = merge_events_by_keys(events, ["$category"]);
     RETURN = {{"events": events, "events_by_cat": events_by_cat}};
     """.format(
-        bid=bid, bid_escaped=bid.replace("'", "\\'")
+        bid=bid
     )
     try:
         bucket = datastore.create_bucket(
@@ -531,17 +531,17 @@ def test_query2_query_categorize(datastore):
         )
         events = [
             Event(
-                data={"label": "test1"},
+                data={"label": "test"},
                 timestamp=starttime,
                 duration=timedelta(seconds=1),
             ),
             Event(
-                data={"label": "test2"},
+                data={"label": "testwithmoredetail"},
                 timestamp=starttime + timedelta(seconds=1),
                 duration=timedelta(seconds=1),
             ),
             Event(
-                data={"label": "test2"},
+                data={"label": "testwithmoredetail"},
                 timestamp=starttime + timedelta(seconds=2),
                 duration=timedelta(seconds=1),
             ),
@@ -550,9 +550,11 @@ def test_query2_query_categorize(datastore):
         result = query(qname, example_query, starttime, endtime, datastore)
         print(result)
         assert len(result["events"]) == 3
-        assert result["events"][0].data["label"] == "test1"
+        assert result["events"][0].data["label"] == "test"
         assert result["events"][0].data["$category"] == ["test"]
         assert result["events"][1].data["$category"] == ["test", "subtest"]
+
+        assert len(result["events_by_cat"]) == 2
         assert result["events_by_cat"][0].data["$category"] == ["test"]
         assert result["events_by_cat"][1].data["$category"] == ["test", "subtest"]
         assert result["events_by_cat"][1].duration == timedelta(seconds=2)
