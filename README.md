@@ -1,19 +1,21 @@
 aw-core
 =======
 
-[![Build Status Travis](https://travis-ci.org/ActivityWatch/aw-core.svg?branch=master)](https://travis-ci.org/ActivityWatch/aw-core)
-[![Build Status Appveyor](https://ci.appveyor.com/api/projects/status/h5cvxoghh1wr4ycr/branch/master?svg=true)](https://ci.appveyor.com/project/ErikBjare/aw-core/branch/master)
-[![codecov](https://codecov.io/gh/ActivityWatch/aw-core/branch/master/graph/badge.svg)](https://codecov.io/gh/ActivityWatch/aw-core)
+[![GitHub Actions badge](https://github.com/ActivityWatch/aw-core/workflows/Build/badge.svg)](https://github.com/ActivityWatch/aw-core/actions)
+[![Code coverage](https://codecov.io/gh/ActivityWatch/aw-core/branch/master/graph/badge.svg)](https://codecov.io/gh/ActivityWatch/aw-core)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Typechecking: Mypy](http://www.mypy-lang.org/static/mypy_badge.svg)](http://mypy-lang.org/)
 
 
 Core library for ActivityWatch.
 
 
-## Contents
+## Modules
 
- - Models
- - Schemas
- - Filtering algorithms for sensitive data
+ - `aw_core`, contains basic datatypes and utilities, such as the `Event` class, helpers for configuration and logging, as well as schemas for buckets, events, and exports.
+ - `aw_datastore`, contains the datastore classes used by aw-server-python.
+ - `aw_transform`, all event-transforms used in queries.
+ - `aw_query`, the query-language used by ActivityWatch.
 
 
 ## How to install
