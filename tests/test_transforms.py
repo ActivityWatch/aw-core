@@ -107,6 +107,12 @@ def test_intersecting_eventpairs():
     intersecting = list(_intersecting_eventpairs(e1, e2))
     assert len(intersecting) == 1
 
+    # Test same as before, but reversed
+    e1 = list(reversed(e1))
+    e2 = list(reversed(e2))
+    intersecting = list(_intersecting_eventpairs(e1, e2))
+    assert len(intersecting) == 1
+
 
 def test_filter_period_intersect():
     td1h = timedelta(hours=1)

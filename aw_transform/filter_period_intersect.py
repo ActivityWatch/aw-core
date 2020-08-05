@@ -25,6 +25,8 @@ def _intersecting_eventpairs(
     events1: List[Event], events2: List[Event]
 ) -> Iterable[Tuple[Event, Event, TimePeriod]]:
     """A generator that yields each overlapping pair of events from two eventlists along with a TimePeriod of the intersection"""
+    events1.sort(key=lambda e: e.timestamp)
+    events2.sort(key=lambda e: e.timestamp)
     e1_i = 0
     e2_i = 0
     while e1_i < len(events1) and e2_i < len(events2):
