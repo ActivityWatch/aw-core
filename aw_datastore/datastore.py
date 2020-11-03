@@ -73,7 +73,7 @@ class Datastore:
     def reloadAll(self,start,end):
         return self.storage_strategy.reloadAll(start, end)
     
-    def dummyData():
+    def dummyData(self):
         return "DUMMY"
 
 class Bucket:
