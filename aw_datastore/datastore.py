@@ -64,6 +64,17 @@ class Datastore:
     def buckets(self):
         return self.storage_strategy.buckets()
 
+    def getCustom(self):
+        return self.storage_strategy.select_custom()
+
+    def get_custom_events(self,start: datetime = None, end: datetime = None):
+        return self.storage_strategy.get_custom_events(start,end)
+
+    def reloadAll(self,start,end):
+        return self.storage_strategy.reloadAll(start, end)
+    
+    def dummyData():
+        return "DUMMY"
 
 class Bucket:
     def __init__(self, datastore: Datastore, bucket_id: str) -> None:
@@ -98,6 +109,8 @@ class Bucket:
         return self.ds.storage_strategy.get_events(
             self.bucket_id, limit, starttime, endtime
         )
+    
+    
 
     def get_eventcount(
         self, starttime: datetime = None, endtime: datetime = None

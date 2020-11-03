@@ -14,7 +14,7 @@ __all__ = [
 
 __title__ = "aw-core"
 __summary__ = "Core library for ActivityWatch"
-__uri__ = "https://github.com/ActivityWatch/aw-core"
+__uri__ = "https://github.com/vinothkumart/aw-core"
 
 __version__ = "0.4.1"
 

@@ -77,7 +77,7 @@ def filter_period_intersect(
         events2   | ------  ---  ---   ----   |
         result    |   ====  =          ====   |
 
-    A JavaScript version used to exist in aw-webui but was removed in `this PR <https://github.com/ActivityWatch/aw-webui/pull/48>`_.
+    A JavaScript version used to exist in aw-webui but was removed in `this PR <https://github.com/vinothkumart/aw-webui/pull/48>`_.
     """
 
     events = sorted(events)
