@@ -62,8 +62,10 @@ def _get_latest_log_files(name, testing=False) -> List[str]:  # pragma: no cover
 
 
 def get_latest_log_file(name, testing=False) -> Optional[str]:  # pragma: no cover
-    """Returns the filename of the last logfile with `name`.
-       Useful when you want to read the logfile of another ActivityWatch service."""
+    """
+    Returns the filename of the last logfile with `name`.
+    Useful when you want to read the logfile of another ActivityWatch service.
+    """
     last_logs = _get_latest_log_files(name, testing=testing)
     return last_logs[0] if last_logs else None
 
