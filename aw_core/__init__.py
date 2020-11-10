@@ -4,9 +4,6 @@ import logging
 
 from . import __about__
 
-# TODO timeperiod should be moved to a seperate library, has uses outside of ActivityWatch
-from .timeperiod import TimePeriod
-
 from . import decorators
 from . import util
 

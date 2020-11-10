@@ -3,18 +3,18 @@ from typing import List, Iterable, Tuple
 from copy import deepcopy
 
 from aw_core import Event
-from aw_core import TimePeriod
+from timeslot import Timeslot
 
 logger = logging.getLogger(__name__)
 
 
-def _get_event_period(event: Event) -> TimePeriod:
+def _get_event_period(event: Event) -> Timeslot:
     start = event.timestamp
     end = start + event.duration
-    return TimePeriod(start, end)
+    return Timeslot(start, end)
 
 
-def _replace_event_period(event: Event, period: TimePeriod) -> Event:
+def _replace_event_period(event: Event, period: Timeslot) -> Event:
     e = deepcopy(event)
     e.timestamp = period.start
     e.duration = period.duration
@@ -23,8 +23,8 @@ def _replace_event_period(event: Event, period: TimePeriod) -> Event:
 
 def _intersecting_eventpairs(
     events1: List[Event], events2: List[Event]
-) -> Iterable[Tuple[Event, Event, TimePeriod]]:
-    """A generator that yields each overlapping pair of events from two eventlists along with a TimePeriod of the intersection"""
+) -> Iterable[Tuple[Event, Event, Timeslot]]:
+    """A generator that yields each overlapping pair of events from two eventlists along with a Timeslot of the intersection"""
     events1.sort(key=lambda e: e.timestamp)
     events2.sort(key=lambda e: e.timestamp)
     e1_i = 0
