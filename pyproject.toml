@@ -28,9 +28,9 @@ strict-rfc3339 = "^0.7"
 timeslot = {git = "https://github.com/ErikBjare/timeslot.git"}
 
 [tool.poetry.dev-dependencies]
-pytest = "^5.3.2"
+pytest = "^6.0"
 pytest-cov = "^2.8.1"
-mypy = "^0.761"
+mypy = "*"
 pylint = "^2.4.4"
 
 [tool.poetry.extras]
