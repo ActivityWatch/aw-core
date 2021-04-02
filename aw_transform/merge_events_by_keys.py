@@ -7,7 +7,11 @@ logger = logging.getLogger(__name__)
 
 
 def merge_events_by_keys(events, keys) -> List[Event]:
-    # The result will be a list of events without timestamp since they are merged
+    """
+    Sums the duration of all events which share a value for a key and returns a new event for each value.
+
+    .. note: The result will be a list of events without timestamp since they are merged.
+    """
     # Call recursively until all keys are consumed
     if len(keys) < 1:
         return events

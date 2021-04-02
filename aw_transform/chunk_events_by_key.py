@@ -10,6 +10,10 @@ logger = logging.getLogger(__name__)
 def chunk_events_by_key(
     events: List[Event], key: str, pulsetime: float = 5.0
 ) -> List[Event]:
+    """
+    "Chunks" adjacent events together which have the same value for a key, and stores the
+    original events in the :code:`subevents` key of the new event.
+    """
     chunked_events: List[Event] = []
     for event in events:
         if key not in event.data:
