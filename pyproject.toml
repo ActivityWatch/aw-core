@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aw-core"
-version = "0.4.2"
+version = "0.5.0"
 description = "Core library for ActivityWatch"
 authors = ["Erik Bjäreholt <erik@bjareho.lt>", "Johan Bjäreholt <johan@bjareho.lt>"]
 license = "MPL-2.0"
