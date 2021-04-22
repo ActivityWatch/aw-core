@@ -16,7 +16,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.6"
+python = "^3.7"
 jsonschema = "^3.1"
 peewee = "3.*"
 appdirs = "^1.4.3"
