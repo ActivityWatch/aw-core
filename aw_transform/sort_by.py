@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import List
 from aw_core.models import Event
 
@@ -17,7 +17,7 @@ def sort_by_duration(events) -> List[Event]:
 
 
 def limit_events(events, count) -> List[Event]:
-    """Returns the `count` first events in the list of events"""
+    """Returns the ``count`` first events in the list of events"""
     return events[:count]
 
 
