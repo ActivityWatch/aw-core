@@ -15,6 +15,7 @@ from aw_transform import (
     split_url_events,
     simplify_string,
     union,
+    union_no_overlap,
     categorize,
     tag,
     Rule,
@@ -410,3 +411,41 @@ def test_tags():
 
     assert len(events[0].data["$tags"]) == 2
     assert len(events[1].data["$tags"]) == 0
+
+
+def test_union_no_overlap():
+    from pprint import pprint
+
+    now = datetime(2018, 1, 1, 0, 0)
+    td1h = timedelta(hours=1)
+    events1 = [
+        Event(timestamp=now + 2 * i * td1h, duration=td1h, data={"test": 1})
+        for i in range(3)
+    ]
+    events2 = [
+        Event(timestamp=now + (2 * i + 0.5) * td1h, duration=td1h, data={"test": 2})
+        for i in range(3)
+    ]
+
+    events_union = union_no_overlap(events1, events2)
+    # pprint(events_union)
+    dur = sum((e.duration for e in events_union), timedelta(0))
+    assert dur == timedelta(hours=4, minutes=30)
+    assert sorted(events_union, key=lambda e: e.timestamp)
+
+    events_union = union_no_overlap(events2, events1)
+    # pprint(events_union)
+    dur = sum((e.duration for e in events_union), timedelta(0))
+    assert dur == timedelta(hours=4, minutes=30)
+    assert sorted(events_union, key=lambda e: e.timestamp)
+
+    events1 = [
+        Event(timestamp=now + (2 * i) * td1h, duration=td1h, data={"test": 1})
+        for i in range(3)
+    ]
+    events2 = [Event(timestamp=now, duration=5 * td1h, data={"test": 2})]
+    events_union = union_no_overlap(events1, events2)
+    pprint(events_union)
+    dur = sum((e.duration for e in events_union), timedelta(0))
+    assert dur == timedelta(hours=5, minutes=0)
+    assert sorted(events_union, key=lambda e: e.timestamp)
