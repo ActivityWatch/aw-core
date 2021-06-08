@@ -14,6 +14,7 @@ from .split_url_events import split_url_events
 from .simplify import simplify_string
 from .flood import flood
 from .classify import categorize, tag, Rule
+from .union_no_overlap import union_no_overlap
 
 __all__ = [
     "flood",
@@ -24,6 +25,7 @@ __all__ = [
     "period_union",
     "filter_period_intersect",
     "union",
+    "union_no_overlap",
     "concat",
     "sum_durations",
     "sort_by_timestamp",
