@@ -16,7 +16,7 @@ __title__ = "aw-core"
 __summary__ = "Core library for ActivityWatch"
 __uri__ = "https://github.com/ActivityWatch/aw-core"
 
-__version__ = "0.4.1"
+__version__ = "0.4.2"
 
 __author__ = "Erik Bjäreholt, Johan Bjäreholt"
 __email__ = "erik@bjareho.lt, johan@bjareho.lt"
