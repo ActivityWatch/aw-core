@@ -75,7 +75,7 @@ def save_config_toml(appname: str, config: str) -> None:
 
 @deprecated(
     details="Use the load_config_toml function instead",
-    deprecated_in="0.4.2",
+    deprecated_in="0.5.3",
     current_version=__version__,
 )
 def load_config(appname, default_config):
@@ -101,7 +101,7 @@ def load_config(appname, default_config):
 
 @deprecated(
     details="Use the save_config_toml function instead",
-    deprecated_in="0.4.2",
+    deprecated_in="0.5.3",
     current_version=__version__,
 )
 def save_config(appname, config):
