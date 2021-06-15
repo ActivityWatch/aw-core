@@ -52,7 +52,7 @@ def load_config_toml(
             config = f.read()
         config_toml = tomlkit.parse(config)
     else:
-        # TODO: If file doesn't exist, write with commented-out default config
+        # If file doesn't exist, write with commented-out default config
         with open(config_file_path, "w") as f:
             f.write(_comment_out_toml(default_config))
         config_toml = dict()
