@@ -32,6 +32,12 @@ def clean_config():
     shutil.rmtree(config_dir)
 
 
+def test_create():
+    appname = "aw-core-test"
+    section = "section"
+    config_dir = dirs.get_config_dir(appname)
+
+
 def test_config_defaults():
     # Load non-existing config (will create a out-commented default config file)
     config = load_config_toml(appname, default_config_str)

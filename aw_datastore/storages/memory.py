@@ -11,6 +11,7 @@ from .abstract import AbstractStorage
 
 class MemoryStorage(AbstractStorage):
     """For storage of data in-memory, useful primarily in testing"""
+
     sid = "memory"
 
     def __init__(self, testing: bool) -> None:
@@ -19,7 +20,9 @@ class MemoryStorage(AbstractStorage):
         self.db: Dict[str, List[Event]] = {}
         self._metadata: Dict[str, dict] = dict()
 
-    def create_bucket(self, bucket_id, type_id, client, hostname, created, name=None) -> None:
+    def create_bucket(
+        self, bucket_id, type_id, client, hostname, created, name=None
+    ) -> None:
         if not name:
             name = bucket_id
         self._metadata[bucket_id] = {
@@ -28,7 +31,7 @@ class MemoryStorage(AbstractStorage):
             "type": type_id,
             "client": client,
             "hostname": hostname,
-            "created": created
+            "created": created,
         }
         self.db[bucket_id] = []
 
@@ -46,11 +49,16 @@ class MemoryStorage(AbstractStorage):
             buckets[bucket_id] = self.get_metadata(bucket_id)
         return buckets
 
-    def get_events(self, bucket: str, limit: int,
-                   starttime: datetime=None, endtime: datetime=None) -> List[Event]:
+    def get_events(
+        self,
+        bucket: str,
+        limit: int,
+        starttime: datetime = None,
+        endtime: datetime = None,
+    ) -> List[Event]:
         events = self.db[bucket]
         # Sort by timestamp
-        events = sorted(events, key=lambda k: k['timestamp'])[::-1]
+        events = sorted(events, key=lambda k: k["timestamp"])[::-1]
         # Filter by date
         if starttime:
             e = []
@@ -73,17 +81,23 @@ class MemoryStorage(AbstractStorage):
         # Return
         return copy.deepcopy(events)
 
-    def get_eventcount(self, bucket: str,
-                       starttime: datetime=None, endtime: datetime=None) -> int:
-        return len([e for e in self.db[bucket] if
-                    (not starttime or starttime <= e.timestamp) and
-                    (not endtime or e.timestamp <= endtime)])
+    def get_eventcount(
+        self, bucket: str, starttime: datetime = None, endtime: datetime = None
+    ) -> int:
+        return len(
+            [
+                e
+                for e in self.db[bucket]
+                if (not starttime or starttime <= e.timestamp)
+                and (not endtime or e.timestamp <= endtime)
+            ]
+        )
 
     def get_metadata(self, bucket_id: str):
         if bucket_id in self._metadata:
             return self._metadata[bucket_id]
         else:
-            raise Exception('Bucket did not exist, could not get metadata')
+            raise Exception("Bucket did not exist, could not get metadata")
 
     def insert_one(self, bucket: str, event: Event) -> Event:
         self.db[bucket].append(Event(**event))
@@ -91,7 +105,11 @@ class MemoryStorage(AbstractStorage):
         return event
 
     def delete(self, bucket_id, event_id):
-        for idx in (idx for idx, event in reversed(list(enumerate(self.db[bucket_id]))) if event.id == event_id):
+        for idx in (
+            idx
+            for idx, event in reversed(list(enumerate(self.db[bucket_id])))
+            if event.id == event_id
+        ):
             self.db[bucket_id].pop(idx)
             return True
         return False

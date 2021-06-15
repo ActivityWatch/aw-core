@@ -17,7 +17,9 @@ def create_test_events(n):
 
     events = []
     for i in range(n):
-        events.append(Event(timestamp=now + i * timedelta(seconds=1), data={"label": "asd"}))
+        events.append(
+            Event(timestamp=now + i * timedelta(seconds=1), data={"label": "asd"})
+        )
 
     return events
 
@@ -49,14 +51,14 @@ def benchmark(storage: Callable[..., AbstractStorage]):
 
     num_single_events = 50
     num_replace_events = 50
-    num_bulk_events = 2 * 10**3
+    num_bulk_events = 2 * 10 ** 3
     num_events = num_single_events + num_replace_events + num_bulk_events + 1
     num_final_events = num_single_events + num_bulk_events + 1
 
     events = create_test_events(num_events)
     single_events = events[:num_single_events]
-    replace_events = events[num_single_events:num_single_events+num_replace_events]
-    bulk_events = events[num_single_events+num_replace_events:-1]
+    replace_events = events[num_single_events : num_single_events + num_replace_events]
+    bulk_events = events[num_single_events + num_replace_events : -1]
 
     print(storage.__name__)
 

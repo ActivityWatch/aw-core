@@ -3,26 +3,30 @@ from typing import List, Iterable, Tuple
 from copy import deepcopy
 
 from aw_core import Event
-from aw_core import TimePeriod
+from timeslot import Timeslot
 
 logger = logging.getLogger(__name__)
 
 
-def _get_event_period(event: Event) -> TimePeriod:
+def _get_event_period(event: Event) -> Timeslot:
     start = event.timestamp
     end = start + event.duration
-    return TimePeriod(start, end)
+    return Timeslot(start, end)
 
 
-def _replace_event_period(event: Event, period: TimePeriod) -> Event:
+def _replace_event_period(event: Event, period: Timeslot) -> Event:
     e = deepcopy(event)
     e.timestamp = period.start
     e.duration = period.duration
     return e
 
 
-def _intersecting_eventpairs(events1: List[Event], events2: List[Event]) -> Iterable[Tuple[Event, Event, TimePeriod]]:
-    """A generator that yields each overlapping pair of events from two eventlists along with a TimePeriod of the intersection"""
+def _intersecting_eventpairs(
+    events1: List[Event], events2: List[Event]
+) -> Iterable[Tuple[Event, Event, Timeslot]]:
+    """A generator that yields each overlapping pair of events from two eventlists along with a Timeslot of the intersection"""
+    events1.sort(key=lambda e: e.timestamp)
+    events2.sort(key=lambda e: e.timestamp)
     e1_i = 0
     e2_i = 0
     while e1_i < len(events1) and e2_i < len(events2):
@@ -53,7 +57,9 @@ def _intersecting_eventpairs(events1: List[Event], events2: List[Event]) -> Iter
                 e2_i += 1
 
 
-def filter_period_intersect(events: List[Event], filterevents: List[Event]) -> List[Event]:
+def filter_period_intersect(
+    events: List[Event], filterevents: List[Event]
+) -> List[Event]:
     """
     Filters away all events or time periods of events in which a
     filterevent does not have an intersecting time period.
@@ -77,7 +83,10 @@ def filter_period_intersect(events: List[Event], filterevents: List[Event]) -> L
     events = sorted(events)
     filterevents = sorted(filterevents)
 
-    return [_replace_event_period(e1, ip) for (e1, _, ip) in _intersecting_eventpairs(events, filterevents)]
+    return [
+        _replace_event_period(e1, ip)
+        for (e1, _, ip) in _intersecting_eventpairs(events, filterevents)
+    ]
 
 
 def period_union(events1: List[Event], events2: List[Event]) -> List[Event]:

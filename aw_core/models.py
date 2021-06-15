@@ -40,11 +40,18 @@ class Event(dict):
     Used to represents an event.
     """
 
-    def __init__(self, id: Id = None, timestamp: ConvertableTimestamp = None,
-                 duration: Duration = 0, data: Data = dict()) -> None:
+    def __init__(
+        self,
+        id: Id = None,
+        timestamp: ConvertableTimestamp = None,
+        duration: Duration = 0,
+        data: Data = dict(),
+    ) -> None:
         self.id = id
         if timestamp is None:
-            logger.warning("Event initializer did not receive a timestamp argument, using now as timestamp")
+            logger.warning(
+                "Event initializer did not receive a timestamp argument, using now as timestamp"
+            )
             # FIXME: The typing.cast here was required for mypy to shut up, weird...
             self.timestamp = datetime.now(typing.cast(timezone, timezone.utc))
         else:
@@ -55,17 +62,27 @@ class Event(dict):
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Event):
-            return self.timestamp == other.timestamp \
-                and self.duration == other.duration \
+            return (
+                self.timestamp == other.timestamp
+                and self.duration == other.duration
                 and self.data == other.data
+            )
         else:
-            raise TypeError("operator not supported between instances of '{}' and '{}'".format(type(self), type(other)))
+            raise TypeError(
+                "operator not supported between instances of '{}' and '{}'".format(
+                    type(self), type(other)
+                )
+            )
 
     def __lt__(self, other: object) -> bool:
         if isinstance(other, Event):
             return self.timestamp < other.timestamp
         else:
-            raise TypeError("operator not supported between instances of '{}' and '{}'".format(type(self), type(other)))
+            raise TypeError(
+                "operator not supported between instances of '{}' and '{}'".format(
+                    type(self), type(other)
+                )
+            )
 
     def to_json_dict(self) -> dict:
         """Useful when sending data over the wire.
@@ -119,4 +136,6 @@ class Event(dict):
         elif isinstance(duration, numbers.Real):
             self["duration"] = timedelta(seconds=duration)  # type: ignore
         else:
-            raise TypeError("Couldn't parse duration of invalid type {}".format(type(duration)))
+            raise TypeError(
+                "Couldn't parse duration of invalid type {}".format(type(duration))
+            )

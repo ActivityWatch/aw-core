@@ -7,7 +7,9 @@ from aw_core.models import Event
 logger = logging.getLogger(__name__)
 
 
-def filter_keyvals(events: List[Event], key: str, vals: List[str], exclude=False) -> List[Event]:
+def filter_keyvals(
+    events: List[Event], key: str, vals: List[str], exclude=False
+) -> List[Event]:
     def predicate(event):
         return key in event.data and event.data[key] in vals
 

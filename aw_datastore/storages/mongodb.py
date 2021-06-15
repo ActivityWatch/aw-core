@@ -19,6 +19,7 @@ from .abstract import AbstractStorage
 
 class MongoDBStorage(AbstractStorage):
     """Uses a MongoDB server as backend"""
+
     sid = "mongodb"
 
     def __init__(self, testing) -> None:
@@ -31,7 +32,15 @@ class MongoDBStorage(AbstractStorage):
 
         self.db = self.client["activitywatch" + ("-testing" if testing else "")]
 
-    def create_bucket(self, bucket_id: str, type_id: str, client: str, hostname: str, created: str, name: str = None) -> None:
+    def create_bucket(
+        self,
+        bucket_id: str,
+        type_id: str,
+        client: str,
+        hostname: str,
+        created: str,
+        name: str = None,
+    ) -> None:
         if not name:
             name = bucket_id
         metadata = {
@@ -52,12 +61,12 @@ class MongoDBStorage(AbstractStorage):
             self.db[bucket_id]["metadata"].drop()
         else:
             # TODO: Create custom exception
-            raise Exception('Bucket did not exist, could not delete')
+            raise Exception("Bucket did not exist, could not delete")
 
     def buckets(self) -> Dict[str, dict]:
         bucketnames = set()
         for bucket_coll in self.db.collection_names():
-            bucketnames.add(bucket_coll.split('.')[0])
+            bucketnames.add(bucket_coll.split(".")[0])
         bucketnames.discard("system")  # Discard all system collections
         buckets = dict()
         for bucket_id in bucketnames:
@@ -70,10 +79,15 @@ class MongoDBStorage(AbstractStorage):
             del metadata["_id"]
             return metadata
         else:
-            raise Exception('Bucket did not exist, could not get metadata')
+            raise Exception("Bucket did not exist, could not get metadata")
 
-    def get_events(self, bucket_id: str, limit: int,
-                   starttime: Optional[datetime] = None, endtime: Optional[datetime] = None):
+    def get_events(
+        self,
+        bucket_id: str,
+        limit: int,
+        starttime: Optional[datetime] = None,
+        endtime: Optional[datetime] = None,
+    ):
         query_filter: Dict[str, dict] = {}
         if starttime or endtime:
             query_filter["timestamp"] = {}
@@ -85,20 +99,26 @@ class MongoDBStorage(AbstractStorage):
         if limit == 0:
             return []
         elif limit < 0:
-            limit = 10**9
-        ds_events = list(self.db[bucket_id]["events"].find(query_filter).sort([("timestamp", -1)]).limit(limit))
+            limit = 10 ** 9
+        ds_events = list(
+            self.db[bucket_id]["events"]
+            .find(query_filter)
+            .sort([("timestamp", -1)])
+            .limit(limit)
+        )
 
         events = []
         for event in ds_events:
-            event["id"] = str(event.pop('_id'))
+            event["id"] = str(event.pop("_id"))
             # Required since MongoDB doesn't handle timezones
             event["timestamp"] = event["timestamp"].replace(tzinfo=timezone.utc)
             event = Event(**event)
             events.append(event)
         return events
 
-    def get_eventcount(self, bucket_id: str,
-                       starttime: datetime = None, endtime: datetime = None) -> int:
+    def get_eventcount(
+        self, bucket_id: str, starttime: datetime = None, endtime: datetime = None
+    ) -> int:
         query_filter: Dict[str, dict] = {}
         if starttime or endtime:
             query_filter["timestamp"] = {}
@@ -123,7 +143,9 @@ class MongoDBStorage(AbstractStorage):
 
     def insert_many(self, bucket: str, events: List[Event]):
         # .copy is needed because otherwise mongodb inserts a _id field into the event
-        dict_events: List[dict] = [self._transform_event(event.copy()) for event in events]
+        dict_events: List[dict] = [
+            self._transform_event(event.copy()) for event in events
+        ]
         self.db[bucket]["events"].insert_many(dict_events)
 
     def delete(self, bucket_id: str, event_id) -> bool:
@@ -131,10 +153,16 @@ class MongoDBStorage(AbstractStorage):
         return result.deleted_count >= 1
 
     def replace_last(self, bucket_id: str, event: Event):
-        last_event = list(self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(1))[0]
-        self.db[bucket_id]["events"].replace_one({"_id": last_event["_id"]}, self._transform_event(event.copy()))
+        last_event = list(
+            self.db[bucket_id]["events"].find().sort([("timestamp", -1)]).limit(1)
+        )[0]
+        self.db[bucket_id]["events"].replace_one(
+            {"_id": last_event["_id"]}, self._transform_event(event.copy())
+        )
 
     def replace(self, bucket_id: str, event_id, event: Event) -> bool:
-        self.db[bucket_id]["events"].replace_one({"_id": event_id}, self._transform_event(event.copy()))
+        self.db[bucket_id]["events"].replace_one(
+            {"_id": event_id}, self._transform_event(event.copy())
+        )
         event.id = event_id
         return True

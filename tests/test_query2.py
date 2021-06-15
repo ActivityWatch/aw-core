@@ -7,8 +7,20 @@ from .utils import param_datastore_objects
 
 from aw_core.models import Event
 from aw_query import query
-from aw_query.query2 import QInteger, QVariable, QString, QFunction, QList, QDict, _parse_token
-from aw_query.exceptions import QueryFunctionException, QueryParseException, QueryInterpretException
+from aw_query.query2 import (
+    QInteger,
+    QVariable,
+    QString,
+    QFunction,
+    QList,
+    QDict,
+    _parse_token,
+)
+from aw_query.exceptions import (
+    QueryFunctionException,
+    QueryParseException,
+    QueryInterpretException,
+)
 
 
 def test_query2_test_token_parsing():
@@ -44,7 +56,7 @@ def test_query2_test_token_parsing():
     assert token == "{'a': 1, 'b}': 2}"
     assert t == QDict
 
-    assert _parse_token('', ns) == ((None, ""), "")
+    assert _parse_token("", ns) == ((None, ""), "")
 
     with pytest.raises(QueryParseException):
         _parse_token(None, ns)
@@ -61,7 +73,7 @@ def test_dict():
     ns = {}
     d_str = "{'a': {'a': {'a': 1}}, 'b': {'b\\'\"': ':'}}"
     d = QDict.parse(d_str, ns)
-    expected_res = {'a': {'a': {'a': 1}}, 'b': {'b\'"': ':'}}
+    expected_res = {"a": {"a": {"a": 1}}, "b": {"b'\"": ":"}}
     assert expected_res == d.interpret(ds, ns)
 
     # Key in dict is not a string
@@ -99,12 +111,12 @@ def test_list():
     ns = {}
     l_str = "[1,2,[[3],4],5]"
     l = QList.parse(l_str, ns)
-    expected_res = [1,2,[[3],4],5]
+    expected_res = [1, 2, [[3], 4], 5]
     assert expected_res == l.interpret(ds, ns)
 
     l_str = "['\\'',\"\\\"\"]"
     l = QList.parse(l_str, ns)
-    expected_res = ["'",'"']
+    expected_res = ["'", '"']
     assert expected_res == l.interpret(ds, ns)
 
     l_str = "[]"
@@ -190,15 +202,15 @@ def test_query2_return_value():
     endtime = iso8601.parse_date("1970-01-02")
     example_query = "RETURN = 1;"
     result = query(qname, example_query, starttime, endtime, None)
-    assert(result == 1)
+    assert result == 1
 
     example_query = "RETURN = 'testing 123'"
     result = query(qname, example_query, starttime, endtime, None)
-    assert(result == "testing 123")
+    assert result == "testing 123"
 
     example_query = "RETURN = {'a': 1}"
     result = query(qname, example_query, starttime, endtime, None)
-    assert(result == {'a': 1})
+    assert result == {"a": 1}
 
     # Nothing to return
     with pytest.raises(QueryParseException):
@@ -226,18 +238,18 @@ def test_query2_function_invalid_types():
     endtime = iso8601.parse_date("1970-01-02")
 
     # int instead of str
-    example_query = '''
+    example_query = """
         events = [];
         RETURN = filter_keyvals(events, 666, ["invalid_val"]);
-    '''
+    """
     with pytest.raises(QueryFunctionException):
         query(qname, example_query, starttime, endtime, None)
 
     # str instead of list
-    example_query = '''
+    example_query = """
         events = [];
         RETURN = filter_keyvals(events, "2", "invalid_val");
-    '''
+    """
     with pytest.raises(QueryFunctionException):
         query(qname, example_query, starttime, endtime, None)
 
@@ -268,13 +280,21 @@ def test_query2_function_in_function(datastore):
     endtime = iso8601.parse_date("1970-01-02")
     example_query = """
     RETURN=limit_events(query_bucket("{bid}"), 1);
-    """.format(bid=bid)
+    """.format(
+        bid=bid
+    )
     try:
         # Setup buckets
-        bucket1 = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name="test")
+        bucket1 = datastore.create_bucket(
+            bucket_id=bid, type="test", client="test", hostname="test", name="test"
+        )
         # Prepare buckets
         e1 = Event(data={}, timestamp=starttime, duration=timedelta(seconds=1))
-        e2 = Event(data={}, timestamp=starttime+timedelta(seconds=1), duration=timedelta(seconds=1))
+        e2 = Event(
+            data={},
+            timestamp=starttime + timedelta(seconds=1),
+            duration=timedelta(seconds=1),
+        )
         bucket1.insert(e1)
         result = query(qname, example_query, starttime, endtime, datastore)
         assert 1 == len(result)
@@ -313,12 +333,20 @@ def test_query2_query_functions(datastore):
     eventcount = query_bucket_eventcount(bid);
     asd = nop();
     RETURN = {{"events": events, "eventcount": eventcount}};
-    """.format(bid=bid, bid_escaped=bid.replace("'", "\\'"))
+    """.format(
+        bid=bid, bid_escaped=bid.replace("'", "\\'")
+    )
     try:
-        bucket = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name="asd")
-        bucket.insert(Event(data={"label": "test1"},
-                            timestamp=starttime,
-                            duration=timedelta(seconds=1)))
+        bucket = datastore.create_bucket(
+            bucket_id=bid, type="test", client="test", hostname="test", name="asd"
+        )
+        bucket.insert(
+            Event(
+                data={"label": "test1"},
+                timestamp=starttime,
+                duration=timedelta(seconds=1),
+            )
+        )
         result = query(qname, example_query, starttime, endtime, datastore)
         assert result["eventcount"] == 1
         assert len(result["events"]) == 1
@@ -343,22 +371,32 @@ def test_query2_basic_query(datastore):
     events = query_bucket(bid1);
     intersect_events = query_bucket(bid2);
     RETURN = filter_period_intersect(events, intersect_events);
-    """.format(bid1=bid1, bid2=bid2)
+    """.format(
+        bid1=bid1, bid2=bid2
+    )
 
     try:
         # Setup buckets
-        bucket1 = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
-        bucket2 = datastore.create_bucket(bucket_id=bid2, type="test", client="test", hostname="test", name=name)
+        bucket1 = datastore.create_bucket(
+            bucket_id=bid1, type="test", client="test", hostname="test", name=name
+        )
+        bucket2 = datastore.create_bucket(
+            bucket_id=bid2, type="test", client="test", hostname="test", name=name
+        )
         # Prepare buckets
-        e1 = Event(data={"label": "test1"},
-                   timestamp=starttime,
-                   duration=timedelta(seconds=1))
-        e2 = Event(data={"label": "test2"},
-                   timestamp=starttime + timedelta(seconds=2),
-                   duration=timedelta(seconds=1))
-        et = Event(data={"label": "intersect-label"},
-                   timestamp=starttime,
-                   duration=timedelta(seconds=1))
+        e1 = Event(
+            data={"label": "test1"}, timestamp=starttime, duration=timedelta(seconds=1)
+        )
+        e2 = Event(
+            data={"label": "test2"},
+            timestamp=starttime + timedelta(seconds=2),
+            duration=timedelta(seconds=1),
+        )
+        et = Event(
+            data={"label": "intersect-label"},
+            timestamp=starttime,
+            duration=timedelta(seconds=1),
+        )
         bucket1.insert(e1)
         bucket1.insert(e2)
         bucket2.insert(et)
@@ -387,20 +425,30 @@ def test_query2_test_merged_keys(datastore):
     events = sort_by_duration(events);
     eventcount = query_bucket_eventcount(bid1);
     RETURN = {{"events": events, "eventcount": eventcount}};
-    """.format(bid=bid)
+    """.format(
+        bid=bid
+    )
     try:
         # Setup buckets
-        bucket1 = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name=name)
+        bucket1 = datastore.create_bucket(
+            bucket_id=bid, type="test", client="test", hostname="test", name=name
+        )
         # Prepare buckets
-        e1 = Event(data={"label1": "test1", "label2": "test1"},
-                   timestamp=starttime,
-                   duration=timedelta(seconds=1))
-        e2 = Event(data={"label1": "test1", "label2": "test1"},
-                   timestamp=starttime + timedelta(seconds=1),
-                   duration=timedelta(seconds=1))
-        e3 = Event(data={"label1": "test1", "label2": "test2"},
-                   timestamp=starttime + timedelta(seconds=2),
-                   duration=timedelta(seconds=1))
+        e1 = Event(
+            data={"label1": "test1", "label2": "test1"},
+            timestamp=starttime,
+            duration=timedelta(seconds=1),
+        )
+        e2 = Event(
+            data={"label1": "test1", "label2": "test1"},
+            timestamp=starttime + timedelta(seconds=1),
+            duration=timedelta(seconds=1),
+        )
+        e3 = Event(
+            data={"label1": "test1", "label2": "test2"},
+            timestamp=starttime + timedelta(seconds=2),
+            duration=timedelta(seconds=1),
+        )
         bucket1.insert(e3)
         bucket1.insert(e1)
         bucket1.insert(e2)
@@ -437,20 +485,26 @@ def test_query2_fancy_query(datastore):
     bid = find_bucket("{}");
     events = query_bucket(bid);
     RETURN = simplify_window_titles(events, "title");
-    """.format(bid1[:10])
+    """.format(
+        bid1[:10]
+    )
 
     try:
         # Setup buckets
-        bucket_main = datastore.create_bucket(bucket_id=bid1, type="test", client="test", hostname="test", name=name)
+        bucket_main = datastore.create_bucket(
+            bucket_id=bid1, type="test", client="test", hostname="test", name=name
+        )
         # Prepare buckets
-        e1 = Event(data={"title": "(2) YouTube"},
-                   timestamp=starttime,
-                   duration=timedelta(seconds=1))
+        e1 = Event(
+            data={"title": "(2) YouTube"},
+            timestamp=starttime,
+            duration=timedelta(seconds=1),
+        )
         bucket_main.insert(e1)
         # Query
         result = query(qname, example_query, starttime, endtime, datastore)
         # Assert
-        assert(result[0]["data"]["title"] == "YouTube")
+        assert result[0]["data"]["title"] == "YouTube"
     finally:
         datastore.delete_bucket(bid1)
 
@@ -462,33 +516,45 @@ def test_query2_query_categorize(datastore):
     starttime = iso8601.parse_date("1970")
     endtime = starttime + timedelta(hours=1)
 
-    example_query = """
+    example_query = r"""
     events = query_bucket("{bid}");
     events = sort_by_timestamp(events);
-    events = categorize(events, [[["test"], {{"regex": "test"}}], [["test", "subtest"], {{"regex": "test2"}}]]);
+    events = categorize(events, [[["test"], {{"regex": "test"}}], [["test", "subtest"], {{"regex": "test\w"}}]]);
     events_by_cat = merge_events_by_keys(events, ["$category"]);
     RETURN = {{"events": events, "events_by_cat": events_by_cat}};
-    """.format(bid=bid, bid_escaped=bid.replace("'", "\\'"))
+    """.format(
+        bid=bid
+    )
     try:
-        bucket = datastore.create_bucket(bucket_id=bid, type="test", client="test", hostname="test", name="asd")
+        bucket = datastore.create_bucket(
+            bucket_id=bid, type="test", client="test", hostname="test", name="asd"
+        )
         events = [
-            Event(data={"label": "test1"},
-                  timestamp=starttime,
-                  duration=timedelta(seconds=1)),
-            Event(data={"label": "test2"},
-                  timestamp=starttime + timedelta(seconds=1),
-                  duration=timedelta(seconds=1)),
-            Event(data={"label": "test2"},
-                  timestamp=starttime + timedelta(seconds=2),
-                  duration=timedelta(seconds=1)),
+            Event(
+                data={"label": "test"},
+                timestamp=starttime,
+                duration=timedelta(seconds=1),
+            ),
+            Event(
+                data={"label": "testwithmoredetail"},
+                timestamp=starttime + timedelta(seconds=1),
+                duration=timedelta(seconds=1),
+            ),
+            Event(
+                data={"label": "testwithmoredetail"},
+                timestamp=starttime + timedelta(seconds=2),
+                duration=timedelta(seconds=1),
+            ),
         ]
         bucket.insert(events)
         result = query(qname, example_query, starttime, endtime, datastore)
         print(result)
         assert len(result["events"]) == 3
-        assert result["events"][0].data["label"] == "test1"
+        assert result["events"][0].data["label"] == "test"
         assert result["events"][0].data["$category"] == ["test"]
         assert result["events"][1].data["$category"] == ["test", "subtest"]
+
+        assert len(result["events_by_cat"]) == 2
         assert result["events_by_cat"][0].data["$category"] == ["test"]
         assert result["events_by_cat"][1].data["$category"] == ["test", "subtest"]
         assert result["events_by_cat"][1].duration == timedelta(seconds=2)

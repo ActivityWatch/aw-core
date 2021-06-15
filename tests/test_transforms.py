@@ -1,4 +1,3 @@
-import re
 from pprint import pprint
 from datetime import datetime, timedelta, timezone
 
@@ -16,10 +15,12 @@ from aw_transform import (
     split_url_events,
     simplify_string,
     union,
+    union_no_overlap,
     categorize,
     tag,
     Rule,
 )
+from aw_transform.filter_period_intersect import _intersecting_eventpairs
 
 
 def test_simplify_string():
@@ -33,8 +34,13 @@ def test_simplify_string():
     events = [Event(data={"app": "Cemu.exe", "title": "Cemu - FPS: 133.7 - BotW"})]
     assert simplify_string(events, "title")[0].data["title"] == "Cemu - FPS: ... - BotW"
 
-    events = [Event(data={"app": "VSCode.exe", "title": "● report.md - Visual Studio Code"})]
-    assert simplify_string(events, "title")[0].data["title"] == "report.md - Visual Studio Code"
+    events = [
+        Event(data={"app": "VSCode.exe", "title": "● report.md - Visual Studio Code"})
+    ]
+    assert (
+        simplify_string(events, "title")[0].data["title"]
+        == "report.md - Visual Studio Code"
+    )
 
     events = [Event(data={"app": "Gedit", "title": "*test.md - gedit"})]
     assert simplify_string(events, "title")[0].data["title"] == "test.md - gedit"
@@ -63,6 +69,52 @@ def test_filter_keyval_regex():
     assert len(events_re) == 2
 
 
+def test_intersecting_eventpairs():
+    td1h = timedelta(hours=1)
+    now = datetime.now()
+
+    # Test with two identical lists
+    e1 = [
+        Event(timestamp=now, duration=td1h),
+        Event(timestamp=now + td1h, duration=td1h),
+    ]
+    e2 = [
+        Event(timestamp=now, duration=td1h),
+        Event(timestamp=now + td1h, duration=td1h),
+    ]
+    intersecting = list(_intersecting_eventpairs(e1, e2))
+    assert len(intersecting) == 2
+
+    # Test with events in first list being in between events of second list
+    e1 = [
+        Event(timestamp=now + td1h, duration=td1h),
+    ]
+    e2 = [
+        Event(timestamp=now, duration=td1h),
+        Event(timestamp=now + 2 * td1h, duration=td1h),
+    ]
+    intersecting = list(_intersecting_eventpairs(e1, e2))
+    assert not intersecting
+
+    # Test with event in first list being identical to middle event in second list
+    e1 = [
+        Event(timestamp=now + td1h, duration=td1h),
+    ]
+    e2 = [
+        Event(timestamp=now, duration=td1h),
+        Event(timestamp=now + 1 * td1h, duration=td1h),
+        Event(timestamp=now + 2 * td1h, duration=td1h),
+    ]
+    intersecting = list(_intersecting_eventpairs(e1, e2))
+    assert len(intersecting) == 1
+
+    # Test same as before, but reversed
+    e1 = list(reversed(e1))
+    e2 = list(reversed(e2))
+    intersecting = list(_intersecting_eventpairs(e1, e2))
+    assert len(intersecting) == 1
+
+
 def test_filter_period_intersect():
     td1h = timedelta(hours=1)
     td30min = timedelta(minutes=30)
@@ -77,7 +129,7 @@ def test_filter_period_intersect():
     # Filter 2x 30min events with a 15min gap with another 45min event in between intersecting both
     to_filter = [
         Event(timestamp=now, duration=td30min),
-        Event(timestamp=now + timedelta(minutes=45), duration=td30min)
+        Event(timestamp=now + timedelta(minutes=45), duration=td30min),
     ]
     filter_with = [
         Event(timestamp=now + timedelta(minutes=15), duration=timedelta(minutes=45))
@@ -93,7 +145,7 @@ def test_filter_period_intersect():
     ]
     filter_with = [
         Event(timestamp=now, duration=td30min),
-        Event(timestamp=now + timedelta(minutes=45), duration=td30min)
+        Event(timestamp=now + timedelta(minutes=45), duration=td30min),
     ]
     filtered_events = filter_period_intersect(to_filter, filter_with)
     assert len(filtered_events) == 2
@@ -106,19 +158,25 @@ def test_period_union():
 
     # Events overlapping
     events1 = [Event(timestamp=now, duration=timedelta(seconds=10))]
-    events2 = [Event(timestamp=now + timedelta(seconds=9), duration=timedelta(seconds=10))]
+    events2 = [
+        Event(timestamp=now + timedelta(seconds=9), duration=timedelta(seconds=10))
+    ]
     unioned_events = period_union(events1, events2)
     assert len(unioned_events) == 1
 
     # Events adjacent but not overlapping
     events1 = [Event(timestamp=now, duration=timedelta(seconds=10))]
-    events2 = [Event(timestamp=now + timedelta(seconds=10), duration=timedelta(seconds=10))]
+    events2 = [
+        Event(timestamp=now + timedelta(seconds=10), duration=timedelta(seconds=10))
+    ]
     unioned_events = period_union(events1, events2)
     assert len(unioned_events) == 1
 
     # Events not overlapping or adjacent
     events1 = [Event(timestamp=now, duration=timedelta(seconds=10))]
-    events2 = [Event(timestamp=now + timedelta(seconds=11), duration=timedelta(seconds=10))]
+    events2 = [
+        Event(timestamp=now + timedelta(seconds=11), duration=timedelta(seconds=10))
+    ]
     unioned_events = period_union(events1, events2)
     assert len(unioned_events) == 2
 
@@ -126,8 +184,12 @@ def test_period_union():
 def test_sort_by_timestamp():
     now = datetime.now(timezone.utc)
     events = []
-    events.append(Event(timestamp=now + timedelta(seconds=2), duration=timedelta(seconds=1)))
-    events.append(Event(timestamp=now + timedelta(seconds=1), duration=timedelta(seconds=2)))
+    events.append(
+        Event(timestamp=now + timedelta(seconds=2), duration=timedelta(seconds=1))
+    )
+    events.append(
+        Event(timestamp=now + timedelta(seconds=1), duration=timedelta(seconds=2))
+    )
     events_sorted = sort_by_timestamp(events)
     assert events_sorted == events[::-1]
 
@@ -135,8 +197,12 @@ def test_sort_by_timestamp():
 def test_sort_by_duration():
     now = datetime.now(timezone.utc)
     events = []
-    events.append(Event(timestamp=now + timedelta(seconds=2), duration=timedelta(seconds=1)))
-    events.append(Event(timestamp=now + timedelta(seconds=1), duration=timedelta(seconds=2)))
+    events.append(
+        Event(timestamp=now + timedelta(seconds=2), duration=timedelta(seconds=1))
+    )
+    events.append(
+        Event(timestamp=now + timedelta(seconds=1), duration=timedelta(seconds=2))
+    )
     events_sorted = sort_by_duration(events)
     assert events_sorted == events[::-1]
 
@@ -145,7 +211,9 @@ def test_sum_durations():
     now = datetime.now(timezone.utc)
     events = []
     for i in range(10):
-        events.append(Event(timestamp=now + timedelta(seconds=i), duration=timedelta(seconds=1)))
+        events.append(
+            Event(timestamp=now + timedelta(seconds=i), duration=timedelta(seconds=1))
+        )
     result = sum_durations(events)
     assert result == timedelta(seconds=10)
 
@@ -231,7 +299,11 @@ def test_chunk_events_by_key():
 
 def test_url_parse_event():
     now = datetime.now(timezone.utc)
-    e = Event(data={"url": "http://asd.com/test/?a=1"}, timestamp=now, duration=timedelta(seconds=1))
+    e = Event(
+        data={"url": "http://asd.com/test/?a=1"},
+        timestamp=now,
+        duration=timedelta(seconds=1),
+    )
     result = split_url_events([e])
     print(result)
     assert result[0].data["$protocol"] == "http"
@@ -241,7 +313,11 @@ def test_url_parse_event():
     assert result[0].data["$options"] == "a=1"
     assert result[0].data["$identifier"] == ""
 
-    e2 = Event(data={"url": "https://www.asd.asd.com/test/test2/meh;meh2?asd=2&asdf=3#id"}, timestamp=now, duration=timedelta(seconds=1))
+    e2 = Event(
+        data={"url": "https://www.asd.asd.com/test/test2/meh;meh2?asd=2&asdf=3#id"},
+        timestamp=now,
+        duration=timedelta(seconds=1),
+    )
     result = split_url_events([e2])
     print(result)
     assert result[0].data["$protocol"] == "https"
@@ -251,7 +327,11 @@ def test_url_parse_event():
     assert result[0].data["$options"] == "asd=2&asdf=3"
     assert result[0].data["$identifier"] == "id"
 
-    e3 = Event(data={"url": "file:///home/johan/myfile.txt"}, timestamp=now, duration=timedelta(seconds=1))
+    e3 = Event(
+        data={"url": "file:///home/johan/myfile.txt"},
+        timestamp=now,
+        duration=timedelta(seconds=1),
+    )
     result = split_url_events([e3])
     print(result)
     assert result[0].data["$protocol"] == "file"
@@ -331,3 +411,41 @@ def test_tags():
 
     assert len(events[0].data["$tags"]) == 2
     assert len(events[1].data["$tags"]) == 0
+
+
+def test_union_no_overlap():
+    from pprint import pprint
+
+    now = datetime(2018, 1, 1, 0, 0)
+    td1h = timedelta(hours=1)
+    events1 = [
+        Event(timestamp=now + 2 * i * td1h, duration=td1h, data={"test": 1})
+        for i in range(3)
+    ]
+    events2 = [
+        Event(timestamp=now + (2 * i + 0.5) * td1h, duration=td1h, data={"test": 2})
+        for i in range(3)
+    ]
+
+    events_union = union_no_overlap(events1, events2)
+    # pprint(events_union)
+    dur = sum((e.duration for e in events_union), timedelta(0))
+    assert dur == timedelta(hours=4, minutes=30)
+    assert sorted(events_union, key=lambda e: e.timestamp)
+
+    events_union = union_no_overlap(events2, events1)
+    # pprint(events_union)
+    dur = sum((e.duration for e in events_union), timedelta(0))
+    assert dur == timedelta(hours=4, minutes=30)
+    assert sorted(events_union, key=lambda e: e.timestamp)
+
+    events1 = [
+        Event(timestamp=now + (2 * i) * td1h, duration=td1h, data={"test": 1})
+        for i in range(3)
+    ]
+    events2 = [Event(timestamp=now, duration=5 * td1h, data={"test": 2})]
+    events_union = union_no_overlap(events1, events2)
+    pprint(events_union)
+    dur = sum((e.duration for e in events_union), timedelta(0))
+    assert dur == timedelta(hours=5, minutes=0)
+    assert sorted(events_union, key=lambda e: e.timestamp)

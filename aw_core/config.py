@@ -109,3 +109,6 @@ def save_config(appname, config):
     config_file_path = os.path.join(config_dir, "{}.ini".format(appname))
     with open(config_file_path, "w") as f:
         config.write(f)
+        # Flush and fsync to lower risk of corrupted files
+        f.flush()
+        os.fsync(f.fileno())
