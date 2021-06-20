@@ -263,13 +263,13 @@ class SqliteStorage(AbstractStorage):
         c = self.conn.cursor()
         starttime_i = starttime.timestamp() * 1000000 if starttime else 0
         endtime_i = endtime.timestamp() * 1000000 if endtime else MAX_TIMESTAMP
-        query = (
-            "SELECT id, starttime, endtime, datastr "
-            + "FROM events "
-            + "WHERE bucketrow = (SELECT rowid FROM buckets WHERE id = ?) "
-            + "AND starttime >= ? AND endtime <= ? "
-            + "ORDER BY endtime DESC LIMIT ?"
-        )
+        query = """
+            SELECT id, starttime, endtime, datastr
+            FROM events
+            WHERE bucketrow = (SELECT rowid FROM buckets WHERE id = ?)
+            AND endtime >= ? AND starttime <= ?
+            ORDER BY endtime DESC LIMIT ?
+        """
         rows = c.execute(query, [bucket_id, starttime_i, endtime_i, limit])
         events = []
         for row in rows:

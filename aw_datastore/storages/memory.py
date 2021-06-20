@@ -57,21 +57,16 @@ class MemoryStorage(AbstractStorage):
         endtime: datetime = None,
     ) -> List[Event]:
         events = self.db[bucket]
+
         # Sort by timestamp
         events = sorted(events, key=lambda k: k["timestamp"])[::-1]
+
         # Filter by date
         if starttime:
-            e = []
-            for event in events:
-                if event.timestamp >= starttime:
-                    e.append(event)
-            events = e
+            events = [e for e in events if starttime <= (e.timestamp + e.duration)]
         if endtime:
-            e = []
-            for event in events:
-                if event.timestamp <= endtime:
-                    e.append(event)
-            events = e
+            events = [e for e in events if e.timestamp <= endtime]
+
         # Limit
         if limit == 0:
             return []
