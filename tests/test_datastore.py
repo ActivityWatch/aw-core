@@ -17,7 +17,8 @@ from .utils import param_datastore_objects, param_testing_buckets_cm
 logging.basicConfig(level=logging.DEBUG)
 
 # Useful when you just want some placeholder time in your events, saves typing
-now = datetime.now(timezone.utc)
+now = datetime.now(tz=timezone.utc)
+td1s = timedelta(seconds=1)
 
 
 def test_get_storage_methods():
@@ -84,11 +85,11 @@ def test_insert_one(bucket_cm):
     Tests inserting one event into a bucket
     """
     with bucket_cm as bucket:
-        l = len(bucket.get())
-        event = Event(timestamp=now, duration=timedelta(seconds=1), data={"key": "val"})
+        n_events = len(bucket.get())
+        event = Event(timestamp=now, duration=td1s, data={"key": "val"})
         bucket.insert(event)
         fetched_events = bucket.get()
-        assert l + 1 == len(fetched_events)
+        assert n_events + 1 == len(fetched_events)
         assert isinstance(fetched_events[0], Event)
         assert event == fetched_events[0]
         logging.info(event)
@@ -111,9 +112,7 @@ def test_insert_many(bucket_cm):
     """
     num_events = 5000
     with bucket_cm as bucket:
-        events = num_events * [
-            Event(timestamp=now, duration=timedelta(seconds=1), data={"key": "val"})
-        ]
+        events = num_events * [Event(timestamp=now, duration=td1s, data={"key": "val"})]
         bucket.insert(events)
         fetched_events = bucket.get(limit=-1)
         assert num_events == len(fetched_events)
@@ -128,9 +127,7 @@ def test_delete(bucket_cm):
     """
     num_events = 10
     with bucket_cm as bucket:
-        events = num_events * [
-            Event(timestamp=now, duration=timedelta(seconds=1), data={"key": "val"})
-        ]
+        events = num_events * [Event(timestamp=now, duration=td1s, data={"key": "val"})]
         bucket.insert(events)
 
         fetched_events = bucket.get(limit=-1)
@@ -170,7 +167,7 @@ def test_get_ordered(bucket_cm):
         eventcount = 10
         events = []
         for i in range(10):
-            events.append(Event(timestamp=now + timedelta(seconds=i)))
+            events.append(Event(timestamp=now + i * td1s, duration=td1s))
         random.shuffle(events)
         print(events)
         bucket.insert(events)
@@ -205,32 +202,119 @@ def test_get_event_with_timezone(bucket_cm):
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
-def test_get_datefilter(bucket_cm):
+def test_get_datefilter_simple(bucket_cm):
+    with bucket_cm as bucket:
+        eventcount = 3
+        events = [
+            Event(timestamp=now + i * td1s, duration=td1s) for i in range(eventcount)
+        ]
+        bucket.insert(events)
+
+        # Get first event, but expect only half the event to match the interval
+        fetched_events = bucket.get(
+            -1,
+            starttime=now - 0.5 * td1s,
+            endtime=now + 0.5 * td1s,
+        )
+        assert 1 == len(fetched_events)
+
+        # Get first two events, but expect only half of each to match the interval
+        fetched_events = bucket.get(
+            -1,
+            starttime=now + 0.5 * td1s,
+            endtime=now + 1.5 * td1s,
+        )
+        assert 2 == len(fetched_events)
+
+        # Get last event, but expect only half to match the interval
+        fetched_events = bucket.get(
+            -1,
+            starttime=now + 2.5 * td1s,
+            endtime=now + 3.5 * td1s,
+        )
+        assert 1 == len(fetched_events)
+
+        # Check approx precision
+        fetched_events = bucket.get(
+            -1,
+            starttime=now - 0.01 * td1s,
+            endtime=now + 0.01 * td1s,
+        )
+        assert 1 == len(fetched_events)
+
+        # Check precision of start
+        fetched_events = bucket.get(
+            -1,
+            starttime=now,
+            endtime=now,
+        )
+        assert 1 == len(fetched_events)
+
+        # Check approx precision of end
+        fetched_events = bucket.get(
+            -1,
+            starttime=now + 2.99 * td1s,
+            endtime=now + 3.01 * td1s,
+        )
+        assert 1 == len(fetched_events)
+
+
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
+def test_get_datefilter_start(bucket_cm):
     """
     Tests the datetimefilter when fetching events
     """
     with bucket_cm as bucket:
         eventcount = 10
-        events = []
-        for i in range(10):
-            events.append(Event(timestamp=now + timedelta(seconds=i)))
+        events = [
+            Event(timestamp=now + i * td1s, duration=td1s) for i in range(eventcount)
+        ]
         bucket.insert(events)
 
         # Starttime
         for i in range(eventcount):
-            fetched_events = bucket.get(-1, starttime=events[i].timestamp)
+            fetched_events = bucket.get(-1, starttime=events[i].timestamp + 0.01 * td1s)
             assert eventcount - i == len(fetched_events)
+
+
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
+def test_get_datefilter_end(bucket_cm):
+    """
+    Tests the datetimefilter when fetching events
+    """
+    with bucket_cm as bucket:
+        eventcount = 10
+        events = [
+            Event(timestamp=now + i * td1s, duration=td1s) for i in range(eventcount)
+        ]
+        bucket.insert(events)
 
         # Endtime
         for i in range(eventcount):
-            fetched_events = bucket.get(-1, endtime=events[i].timestamp)
-            assert i + 1 == len(fetched_events)
+            fetched_events = bucket.get(-1, endtime=events[i].timestamp - 0.01 * td1s)
+            assert i == len(fetched_events)
+
+
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
+def test_get_datefilter_both(bucket_cm):
+    """
+    Tests the datetimefilter when fetching events
+    """
+    with bucket_cm as bucket:
+        eventcount = 10
+        events = [
+            Event(timestamp=now + i * td1s, duration=td1s) for i in range(eventcount)
+        ]
+        bucket.insert(events)
 
         # Both
         for i in range(eventcount):
             for j in range(i + 1, eventcount):
                 fetched_events = bucket.get(
-                    starttime=events[i].timestamp, endtime=events[j].timestamp
+                    starttime=events[i].timestamp + timedelta(seconds=0.01),
+                    endtime=events[j].timestamp
+                    + events[j].duration
+                    - timedelta(seconds=0.01),
                 )
                 assert j - i + 1 == len(fetched_events)
 
