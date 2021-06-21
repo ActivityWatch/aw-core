@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import json
 import os
 import logging
@@ -314,7 +314,11 @@ class PeeweeStorage(AbstractStorage):
             endtime = endtime.astimezone(timezone.utc)
 
         if starttime:
-            # This can be slow on large databases... not sure if the unlikely here makes a differnce.
+            # Faster WHERE to speed up slow query below, leads to ~2-3x speedup
+            # We'll assume events aren't >24h
+            q = q.where(starttime - timedelta(hours=24) <= EventModel.timestamp)
+
+            # This can be slow on large databases...
             # Tried creating various indexes and using SQLite's unlikely() function, but it had no effect
             q = q.where(
                 starttime <= dt_plus_duration(EventModel.timestamp, EventModel.duration)
