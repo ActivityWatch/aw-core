@@ -11,12 +11,15 @@ logger = logging.getLogger(__name__)
 
 class Datastore:
     def __init__(
-        self, storage_strategy: Callable[..., AbstractStorage], testing=False
+        self,
+        storage_strategy: Callable[..., AbstractStorage],
+        testing=False,
+        **kwargs,
     ) -> None:
         self.logger = logger.getChild("Datastore")
         self.bucket_instances: Dict[str, Bucket] = dict()
 
-        self.storage_strategy = storage_strategy(testing=testing)
+        self.storage_strategy = storage_strategy(testing=testing, **kwargs)
 
     def __repr__(self):
         return "<Datastore object using {}>".format(
