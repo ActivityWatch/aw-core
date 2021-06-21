@@ -11,6 +11,8 @@ from takethetime import ttt
 from aw_datastore import get_storage_methods, Datastore
 from aw_datastore.storages import AbstractStorage
 
+td1s = timedelta(seconds=1)
+
 
 def create_test_events(n):
     now = datetime.now(timezone.utc) - timedelta(days=1000)
@@ -18,20 +20,10 @@ def create_test_events(n):
     events = []
     for i in range(n):
         events.append(
-            Event(timestamp=now + i * timedelta(seconds=1), data={"label": "asd"})
+            Event(timestamp=now + i * td1s, duration=td1s, data={"label": "asd"})
         )
 
     return events
-
-
-def create_tmpbucket(ds, num):
-    bucket_id = "benchmark_test_bucket_{}".format(str(num))
-    try:
-        ds.delete_bucket(bucket_id)
-    except KeyError:
-        pass
-    ds.create_bucket(bucket_id, "testingtype", "test-client", "testing-box")
-    return bucket_id
 
 
 @contextmanager
@@ -39,7 +31,7 @@ def temporary_bucket(ds):
     bucket_id = "test_bucket"
     try:
         ds.delete_bucket(bucket_id)
-    except KeyError:
+    except Exception:
         pass
     bucket = ds.create_bucket(bucket_id, "testingtype", "test-client", "testing-box")
     yield bucket
@@ -47,11 +39,14 @@ def temporary_bucket(ds):
 
 
 def benchmark(storage: Callable[..., AbstractStorage]):
-    ds = Datastore(storage, testing=True)
+    if storage.__name__ == "PeeweeStorage":
+        ds = Datastore(storage, testing=True, filepath="test.db")
+    else:
+        ds = Datastore(storage, testing=True)
 
     num_single_events = 50
     num_replace_events = 50
-    num_bulk_events = 2 * 10 ** 3
+    num_bulk_events = 20_000
     num_events = num_single_events + num_replace_events + num_bulk_events + 1
     num_final_events = num_single_events + num_bulk_events + 1
 
@@ -82,8 +77,16 @@ def benchmark(storage: Callable[..., AbstractStorage]):
                 events_tmp = bucket.get(limit=1)
 
             with ttt(" get all"):
-                events_tmp = bucket.get()
+                events_tmp = bucket.get(limit=-1)
                 assert len(events_tmp) == num_final_events
+
+            with ttt(" get range"):
+                events_tmp = bucket.get(
+                    limit=-1,
+                    starttime=events[1].timestamp + 0.01 * td1s,
+                    endtime=events[-1].timestamp + events[-1].duration,
+                )
+                assert len(events_tmp) == num_final_events - 1
 
 
 if __name__ == "__main__":

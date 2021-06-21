@@ -38,14 +38,15 @@ _db = SqliteExtDatabase(None)
 LATEST_VERSION = 2
 
 
-def chunks(l, n):
-    """Yield successive n-sized chunks from l.
+def chunks(ls, n):
+    """Yield successive n-sized chunks from ls.
     From: https://stackoverflow.com/a/312464/965332"""
-    for i in range(0, len(l), n):
-        yield l[i : i + n]
+    for i in range(0, len(ls), n):
+        yield ls[i : i + n]
 
 
 def dt_plus_duration(dt, duration):
+    # See peewee docs on datemath: https://docs.peewee-orm.com/en/latest/peewee/hacks.html#date-math
     return peewee.fn.strftime(
         "%Y-%m-%d %H:%M:%f+00:00",
         (peewee.fn.julianday(dt) - 2440587.5) * 86400.0 + duration,
@@ -255,7 +256,7 @@ class PeeweeStorage(AbstractStorage):
         Example raw query:
 
             SELECT strftime(
-              "%Y-%m-%d %H:%M:%f",
+              "%Y-%m-%d %H:%M:%f+00:00",
               ((julianday(timestamp) - 2440587.5) * 86400),
               'unixepoch'
             )
@@ -273,11 +274,22 @@ class PeeweeStorage(AbstractStorage):
             .limit(limit)
         )
 
-        # See peewee docs on datemath: https://docs.peewee-orm.com/en/latest/peewee/hacks.html#date-math
-        logging.getLogger("peewee").setLevel(logging.DEBUG)
-
         q = self._where_range(q, starttime, endtime)
-        return [Event(**e) for e in list(map(EventModel.json, q.execute()))]
+
+        res = q.execute()
+        events = [Event(**e) for e in list(map(EventModel.json, res))]
+
+        # Trim events that are out of range (as done in aw-server-rust)
+        # TODO: Do the same for the other storage methods
+        for e in events:
+            if starttime:
+                if e.timestamp < starttime:
+                    e.timestamp = starttime
+            if endtime:
+                if e.timestamp + e.duration > endtime:
+                    e.duration = endtime - e.timestamp
+
+        return events
 
     def get_eventcount(
         self,
@@ -302,6 +314,8 @@ class PeeweeStorage(AbstractStorage):
             endtime = endtime.astimezone(timezone.utc)
 
         if starttime:
+            # This can be slow on large databases... not sure if the unlikely here makes a differnce.
+            # Tried creating various indexes and using SQLite's unlikely() function, but it had no effect
             q = q.where(
                 starttime <= dt_plus_duration(EventModel.timestamp, EventModel.duration)
             )
