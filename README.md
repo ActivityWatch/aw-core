@@ -18,6 +18,9 @@ Core library for ActivityWatch.
  - `aw_transform`, all event-transforms used in queries.
  - `aw_query`, the query-language used by ActivityWatch.
 
+## Logging
+
+Run python with `LOG_LEVEL=debug` to use change the log level across all AW components
 
 ## How to install
 

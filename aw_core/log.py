@@ -32,6 +32,11 @@ def setup_logging(
     root_logger.setLevel(logging.DEBUG if verbose else logging.INFO)
     root_logger.handlers = []
 
+    # run with LOG_LEVEL=DEBUG to customize log level across all AW components
+    log_level = os.environ.get('LOG_LEVEL')
+    if log_level:
+        root_logger.setLevel(logging.__getattribute__(log_level.upper()))
+
     if log_stderr:
         root_logger.addHandler(_create_stderr_handler())
     if log_file:
