@@ -6,7 +6,7 @@ import platform
 from pathlib import Path
 from glob import glob
 from time import sleep
-from typing import Optional, List, Hashable
+from typing import Optional, List, Hashable, Union
 
 import aw_core
 
@@ -222,7 +222,7 @@ class Module:
         return self.path.parent
 
     @property
-    def static_directory(self) -> Path:
+    def static_directory(self) -> Union[Path, None]:
         static_dir = self.base_directory / "static"
 
         if static_dir.is_dir():
