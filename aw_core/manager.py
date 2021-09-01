@@ -18,10 +18,14 @@ _module_dir = os.path.dirname(os.path.realpath(__file__))
 # The path of the aw-qt executable (when using PyInstaller)
 _parent_dir = os.path.abspath(os.path.join(_module_dir, os.pardir))
 
+# Required for Manager use in aw_server for custom_watcher_pages
+_parent_parent_dir = os.path.abspath(os.path.join(_parent_dir, os.pardir))
+
 
 def _log_modules(modules: List["Module"]) -> None:
     for module in modules:
         logger.info(" - {} at {}".format(module.name, module.path))
+
 
 def is_executable(path: str, filename: str) -> bool:
     if not os.path.isfile(path):
@@ -31,7 +35,7 @@ def is_executable(path: str, filename: str) -> bool:
         return filename.endswith(".exe")
     # On Unix platforms all files having executable permissions are executables
     # We do not however want to include .desktop files
-    else: # Assumes Unix
+    else:  # Assumes Unix
         if not os.access(path, os.X_OK):
             return False
         if filename.endswith(".desktop"):
@@ -61,9 +65,13 @@ def _filename_to_name(filename: str) -> str:
     return filename.replace(".exe", "")
 
 
-def _discover_modules_bundled() -> List["Module"]:
+def _discover_modules_bundled(use_parent_parent) -> List["Module"]:
     """Use ``_discover_modules_in_directory`` to find all bundled modules """
     _search_paths = [_module_dir, _parent_dir]
+
+    if use_parent_parent:
+        _search_paths.append(_parent_parent_dir)
+
     logger.info("Searching for bundled modules in: {}".format(_search_paths))
     modules: List[Module] = []
     for path in _search_paths:
@@ -224,11 +232,11 @@ class Module:
 
 
 class Manager:
-    def __init__(self, testing: bool = False) -> None:
+    def __init__(self, testing: bool = False, use_parent_parent: bool = False) -> None:
         self.modules: List[Module] = []
         self.testing = testing
 
-        self.discover_modules()
+        self.discover_modules(use_parent_parent)
 
     @property
     def modules_system(self) -> List[Module]:
@@ -238,9 +246,9 @@ class Manager:
     def modules_bundled(self) -> List[Module]:
         return [m for m in self.modules if m.type == "bundled"]
 
-    def discover_modules(self) -> None:
+    def discover_modules(self, use_parent_parent: bool = False) -> None:
         # These should always be bundled with aw-qt
-        found_modules = set(_discover_modules_bundled())
+        found_modules = set(_discover_modules_bundled(use_parent_parent))
         found_modules |= set(_discover_modules_system())
         found_modules = {
             m
