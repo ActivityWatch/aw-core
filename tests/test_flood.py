@@ -67,7 +67,7 @@ def test_flood_negative_gap_differing_data():
         Event(timestamp=now, duration=100, data={"b": 1}),
     ]
     flooded = flood(events)
-    assert flooded == events
+    assert flooded == [events[1]]
 
 
 def test_flood_negative_small_gap_differing_data():
@@ -78,3 +78,32 @@ def test_flood_negative_small_gap_differing_data():
     flooded = flood(events)
     duration = sum((e.duration for e in flooded), timedelta(0))
     assert duration == timedelta(seconds=100 + 99.99)
+
+
+def test_flood_idempotent():
+    events = [
+        # slight overlap, same data
+        Event(timestamp=now, duration=10, data={"a": 0}),
+        Event(timestamp=now + 9 * td1s, duration=5, data={"a": 0}),
+        # different data, no overlap
+        Event(timestamp=now + 15 * td1s, duration=5, data={"b": 0}),
+    ]
+    flood_first = flood(events, pulsetime=0)
+    flooded = flood_first
+    for i in range(2):
+        flooded = flood(flooded, pulsetime=0)
+        assert flood_first == flooded
+
+    assert sum((e.duration for e in flooded), timedelta(0)) == 19 * td1s
+
+
+def test_flood_unsafe_gap():
+    events = [
+        # slight overlap, different data
+        Event(timestamp=now, duration=10, data={"a": 0}),
+        Event(timestamp=now + 9 * td1s, duration=5, data={"b": 0}),
+    ]
+    flooded = flood(events, pulsetime=0)
+
+    # The total duration should not exceed the range duration
+    assert sum((e.duration for e in flooded), timedelta(0)) == 14 * td1s
