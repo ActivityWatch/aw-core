@@ -379,6 +379,6 @@ class PeeweeStorage(AbstractStorage):
                 )
         
 
-        res = q.execute()
+        q.execute()
         return True
 

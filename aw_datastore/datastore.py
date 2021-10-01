@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Union, Callable, Optional
 
-from aw_core.models import Event, Setting
+from aw_core.models import Event
 
 from .storages import AbstractStorage
 
