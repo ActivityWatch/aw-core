@@ -1,0 +1,15 @@
+{
+	"$schema": "http://json-schema.org/draft-04/schema#",
+	"title": "Settings",
+	"description": "The Settings model that is used in ActivityWatch",
+	"type": "object",
+	"required": ["key", "value"],
+	"properties": {
+		"key": {
+            "type": "string"
+		},
+		"value": {
+            "type": "string"
+		}
+	}
+}

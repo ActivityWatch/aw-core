@@ -3,7 +3,7 @@ from typing import List, Dict, Optional
 from datetime import datetime
 from abc import ABCMeta, abstractmethod, abstractproperty
 
-from aw_core.models import Event
+from aw_core.models import Event, Setting
 
 
 class AbstractStorage(metaclass=ABCMeta):
@@ -78,4 +78,12 @@ class AbstractStorage(metaclass=ABCMeta):
 
     @abstractmethod
     def replace_last(self, bucket_id: str, event: Event) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_settings(self) -> List[Setting]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def update_setting(self, key: str, value: str) -> bool:
         raise NotImplementedError

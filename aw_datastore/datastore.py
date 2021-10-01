@@ -67,6 +67,12 @@ class Datastore:
     def buckets(self):
         return self.storage_strategy.buckets()
 
+    def get_settings(self):
+        return self.storage_strategy.get_settings()
+
+    def update_setting(self, key, value):
+        return self.storage_strategy.update_setting(key, value)
+
 
 class Bucket:
     def __init__(self, datastore: Datastore, bucket_id: str) -> None:

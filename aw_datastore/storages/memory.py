@@ -114,3 +114,11 @@ class MemoryStorage(AbstractStorage):
 
     def replace_last(self, bucket_id, event):
         self.db[bucket_id][-1] = event
+
+    def get_settings(self):
+        settings = self.db["settings"]
+        return settings
+
+    def update_setting(self, key: str, value: str):
+        self.db["settings"][key] = value
+        return True
