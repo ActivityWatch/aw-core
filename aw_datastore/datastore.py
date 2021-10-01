@@ -69,7 +69,7 @@ class Datastore:
 
     def get_settings(self):
         return self.storage_strategy.get_settings()
-    
+
     def update_setting(self, key, value):
         return self.storage_strategy.update_setting(key, value)
 
@@ -180,5 +180,3 @@ class Bucket:
 
     def replace(self, event_id, event):
         return self.ds.storage_strategy.replace(self.bucket_id, event_id, event)
-
-# class Setting:

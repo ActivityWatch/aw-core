@@ -168,9 +168,9 @@ class MongoDBStorage(AbstractStorage):
         return True
 
     def get_settings(self):
-        settings = self.db['settings'].find()
+        settings = self.db["settings"].find()
         return settings
 
     def update_setting(self, key: str, value: str):
-        self.db['settings'].update({'key': key}, {'value': value}, True )
+        self.db["settings"].update({"key": key}, {"value": value}, True )
         return True

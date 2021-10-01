@@ -154,7 +154,6 @@ class Setting(dict):
         self.key = key
         self.value = value
 
-
     def to_json_dict(self) -> dict:
         """Useful when sending data over the wire.
         Any mongodb interop should not use do this as it accepts datetimes."""
@@ -185,5 +184,3 @@ class Setting(dict):
     @value.setter
     def value(self, value: Text) -> None:
         self["value"] = value
-
-

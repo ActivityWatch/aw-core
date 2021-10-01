@@ -86,4 +86,4 @@ class AbstractStorage(metaclass=ABCMeta):
 
     @abstractmethod
     def update_setting(self, key: str, value: str) -> bool:
-        raise NotImplementedError 
+        raise NotImplementedError

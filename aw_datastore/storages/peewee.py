@@ -106,6 +106,7 @@ class EventModel(BaseModel):
             "data": json.loads(self.datastr),
         }
 
+
 class SettingModel(BaseModel): 
     id = AutoField()
     key = CharField(unique=True)
@@ -116,6 +117,7 @@ class SettingModel(BaseModel):
             "key": self.key,
             "value": self.value,
         }
+
 
 class PeeweeStorage(AbstractStorage):
     sid = "peewee"
@@ -350,9 +352,7 @@ class PeeweeStorage(AbstractStorage):
             SELECT * FROM settings
 
         """
-        q = (
-            SettingModel.select()
-        )
+        q = (SettingModel.select()
 
         res = q.execute()
         settings = [Setting(**e) for e in list(map(SettingModel.json, res))]
@@ -370,15 +370,14 @@ class PeeweeStorage(AbstractStorage):
                    WHERE key = ?
 
         """
-        q = (
-            SettingModel
+        q = SettingModel
                 .insert(value= value, key= key)
                 .on_conflict(
                     conflict_target=[SettingModel.key],
                     preserve=[SettingModel.key],
                     update={SettingModel.value: value}
                 )
-        )
+        
 
         res = q.execute()
         return True

@@ -319,9 +319,7 @@ class SqliteStorage(AbstractStorage):
     def get_settings(self):
         self.commit()
         c = self.conn.cursor
-        query = (
-            "SELECT * FROM settings"
-        )
+        query = "SELECT * FROM settings"
         rows = c.execute(query)
         return rows
 

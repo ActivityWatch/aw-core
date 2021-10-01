@@ -116,9 +116,9 @@ class MemoryStorage(AbstractStorage):
         self.db[bucket_id][-1] = event
 
     def get_settings(self):
-        settings = self.db['settings']
-        return settings;
+        settings = self.db["settings"]
+        return settings
 
     def update_setting(self, key: str, value: str):
-        self.db['settings'][key] = value
+        self.db["settings"][key] = value
         return True
