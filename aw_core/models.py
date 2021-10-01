@@ -3,7 +3,7 @@ import logging
 import numbers
 import typing
 from datetime import datetime, timedelta, timezone
-from typing import Any, List, Dict, Union, Optional
+from typing import Any, List, Dict, Union, Optional, Text
 
 import iso8601
 
@@ -139,3 +139,51 @@ class Event(dict):
             raise TypeError(
                 "Couldn't parse duration of invalid type {}".format(type(duration))
             )
+
+
+class Setting(dict):
+    """
+    Used to represents a setting.
+    """
+
+    def __init__(
+        self,
+        key: Text = None,
+        value: Text = None,
+    ) -> None:
+        self.key = key
+        self.value = value
+
+
+    def to_json_dict(self) -> dict:
+        """Useful when sending data over the wire.
+        Any mongodb interop should not use do this as it accepts datetimes."""
+        json_data = self.copy()
+        return json_data
+
+    def to_json_str(self) -> str:
+        data = self.to_json_dict()
+        return json.dumps(data)
+
+    def _hasprop(self, propname: str) -> bool:
+        """Badly named, but basically checks if the underlying
+        dict has a prop, and if it is a non-empty list"""
+        return propname in self and self[propname] is not None
+
+    @property
+    def key(self) -> Text:
+        return self["key"] if self._hasprop("key") else None
+
+    @key.setter
+    def key(self, key: Text) -> None:
+        self["key"] = key
+
+    @property
+    def value(self) -> dict:
+        return self["value"] if self._hasprop("value") else None
+
+    @value.setter
+    def value(self, value: Text) -> None:
+        self["value"] = value
+
+

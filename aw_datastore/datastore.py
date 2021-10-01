@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Union, Callable, Optional
 
-from aw_core.models import Event
+from aw_core.models import Event, Setting
 
 from .storages import AbstractStorage
 
@@ -66,6 +66,12 @@ class Datastore:
 
     def buckets(self):
         return self.storage_strategy.buckets()
+
+    def get_settings(self):
+        return self.storage_strategy.get_settings()
+    
+    def update_setting(self, key, value):
+        return self.storage_strategy.update_setting(key, value)
 
 
 class Bucket:
@@ -174,3 +180,5 @@ class Bucket:
 
     def replace(self, event_id, event):
         return self.ds.storage_strategy.replace(self.bucket_id, event_id, event)
+
+# class Setting:

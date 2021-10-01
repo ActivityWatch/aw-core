@@ -13,7 +13,11 @@ from .abstract import AbstractStorage
 
 logger = logging.getLogger(__name__)
 
-LATEST_VERSION = 1
+"""
+v1: initial version
+v2: add settings table
+"""
+LATEST_VERSION = 2
 
 # The max integer value in SQLite is signed 8 Bytes / 64 bits
 MAX_TIMESTAMP = 2 ** 63 - 1
@@ -39,6 +43,13 @@ CREATE_EVENTS_TABLE = """
         endtime INTEGER NOT NULL,
         datastr TEXT NOT NULL,
         FOREIGN KEY (bucketrow) REFERENCES buckets(rowid)
+    )
+"""
+
+CREATE_SETTINGS_TABLE = """
+    CREATE TABLE IF NOT EXISTS settings (
+        key TEXT NOT NULL,
+        value TEXT NOT NULL
     )
 """
 
@@ -77,6 +88,7 @@ class SqliteStorage(AbstractStorage):
         # Create tables
         self.conn.execute(CREATE_BUCKETS_TABLE)
         self.conn.execute(CREATE_EVENTS_TABLE)
+        self.conn.execute(CREATE_SETTINGS_TABLE)
         self.conn.execute(INDEX_BUCKETS_TABLE_ID)
         self.conn.execute(INDEX_EVENTS_TABLE_STARTTIME)
         self.conn.execute(INDEX_EVENTS_TABLE_ENDTIME)
@@ -303,3 +315,20 @@ class SqliteStorage(AbstractStorage):
         row = rows.fetchone()
         eventcount = row[0]
         return eventcount
+
+    def get_settings(self):
+        self.commit()
+        c = self.conn.cursor
+        query = (
+            "SELECT * FROM settings"
+        )
+        rows = c.execute(query)
+        return rows
+
+    def update_setting(self, key, value):
+        query = """UPDATE settings
+                   SET value = ?
+                   WHERE key = ?"""
+        self.conn.execute(query, [key, value])
+        self.conditional_commit(1)
+        return True

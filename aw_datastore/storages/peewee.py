@@ -17,7 +17,7 @@ from peewee import (
 )
 from playhouse.sqlite_ext import SqliteExtDatabase
 
-from aw_core.models import Event
+from aw_core.models import Event, Setting
 from aw_core.dirs import get_data_dir
 
 from .abstract import AbstractStorage
@@ -106,6 +106,16 @@ class EventModel(BaseModel):
             "data": json.loads(self.datastr),
         }
 
+class SettingModel(BaseModel): 
+    id = AutoField()
+    key = CharField(unique=True)
+    value = CharField()
+
+    def json(self):
+        return {
+            "key": self.key,
+            "value": self.value,
+        }
 
 class PeeweeStorage(AbstractStorage):
     sid = "peewee"
@@ -130,6 +140,7 @@ class PeeweeStorage(AbstractStorage):
         self.bucket_keys: Dict[str, int] = {}
         BucketModel.create_table(safe=True)
         EventModel.create_table(safe=True)
+        SettingModel.create_table(safe=True)
         self.update_bucket_keys()
 
     def update_bucket_keys(self) -> None:
@@ -327,3 +338,48 @@ class PeeweeStorage(AbstractStorage):
             q = q.where(EventModel.timestamp <= endtime)
 
         return q
+
+    def get_settings(
+        self,
+    ):
+        """
+        Fetch all settings
+
+        Example raw query:
+
+            SELECT * FROM settings
+
+        """
+        q = (
+            SettingModel.select()
+        )
+
+        res = q.execute()
+        settings = [Setting(**e) for e in list(map(SettingModel.json, res))]
+
+        return settings
+
+    def update_setting(self, key, value):
+        """
+        Update a setting
+
+        Example raw query:
+
+            UPDATE settings
+                   SET value = ?
+                   WHERE key = ?
+
+        """
+        q = (
+            SettingModel
+                .insert(value= value, key= key)
+                .on_conflict(
+                    conflict_target=[SettingModel.key],
+                    preserve=[SettingModel.key],
+                    update={SettingModel.value: value}
+                )
+        )
+
+        res = q.execute()
+        return True
+
