@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "aw-core"
-version = "0.5.5"
+version = "0.5.6"
 description = "Core library for ActivityWatch"
 authors = ["Erik Bjäreholt <erik@bjareho.lt>", "Johan Bjäreholt <johan@bjareho.lt>"]
 license = "MPL-2.0"
 readme = "README.md"
 homepage = "https://activitywatch.net/"
 repository = "https://github.com/ActivityWatch/aw-core/"
-documentation = "https://activitywatch.readthedocs.io/"
+documentation = "https://docs.activitywatch.net/"
 packages = [
     { include = "aw_core" },
     { include = "aw_datastore" },
