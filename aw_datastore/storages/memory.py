@@ -101,7 +101,7 @@ class MemoryStorage(AbstractStorage):
             # We need to copy the event to avoid setting the ID on the passed event
             event = copy.copy(event)
             if self.db[bucket]:
-                event.id = max(e.id for e in self.db[bucket]) + 1
+                event.id = max(int(e.id or 0) for e in self.db[bucket]) + 1
             else:
                 event.id = 0
             self.db[bucket].append(event)
