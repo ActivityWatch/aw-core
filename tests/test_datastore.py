@@ -122,6 +122,32 @@ def test_insert_many(bucket_cm):
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
+def test_insert_many_upsert(bucket_cm):
+    """
+    Tests that you can update/upsert many events at the same time to a bucket
+    """
+    num_events = 10
+    with bucket_cm as bucket:
+        events = num_events * [Event(timestamp=now, duration=td1s, data={"key": "val"})]
+        # insert events to get IDs assigned
+        bucket.insert(events)
+
+        events = bucket.get(limit=-1)
+        assert num_events == len(events)
+        for e in events:
+            assert e.id is not None
+            e.data["key"] = "new val"
+
+        # Upsert the events
+        bucket.insert(events)
+
+        events = bucket.get(limit=-1)
+        assert num_events == len(events)
+        for e in events:
+            assert e.data["key"] == "new val"
+
+
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_delete(bucket_cm):
     """
     Tests deleting single events

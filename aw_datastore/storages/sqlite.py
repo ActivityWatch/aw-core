@@ -194,13 +194,21 @@ class SqliteStorage(AbstractStorage):
         self.conditional_commit(1)
         return event
 
-    def insert_many(self, bucket_id, events: List[Event], fast=False) -> None:
+    def insert_many(self, bucket_id, events: List[Event]) -> None:
         # FIXME: Is this true not only for peewee but sqlite aswell?
         # Chunking into lists of length 100 is needed here due to SQLITE_MAX_COMPOUND_SELECT
         # and SQLITE_LIMIT_VARIABLE_NUMBER under Windows.
         # See: https://github.com/coleifer/peewee/issues/948
+
+        # First, upsert events with id's set
+        events_upsert = [e for e in events if e.id is not None]
+        for e in events_upsert:
+            self.replace(bucket_id, e.id, e)
+
+        # Then insert events without id's set
+        events_insert = [e for e in events if e.id is None]
         event_rows = []
-        for event in events:
+        for event in events_insert:
             starttime = event.timestamp.timestamp() * 1000000
             endtime = starttime + (event.duration.total_seconds() * 1000000)
             datastr = json.dumps(event.data)
