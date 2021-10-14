@@ -19,6 +19,7 @@ logging.basicConfig(level=logging.DEBUG)
 # Useful when you just want some placeholder time in your events, saves typing
 now = datetime.now(tz=timezone.utc)
 td1s = timedelta(seconds=1)
+td1d = timedelta(days=1)
 
 
 def test_get_storage_methods():
@@ -257,6 +258,35 @@ def test_get_datefilter_simple(bucket_cm):
             endtime=now + 3.01 * td1s,
         )
         assert 1 == len(fetched_events)
+
+
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
+def test_get_event_trimming(bucket_cm):
+    """Test that event trimming works correctly (when querying events that intersect with the query range)"""
+    # TODO: Trimming should be possible to disable
+    # (needed in raw data view, among other places where event editing is permitted)
+    from aw_datastore.storages import PeeweeStorage
+
+    with bucket_cm as bucket:
+        if not isinstance(bucket.ds.storage_strategy, PeeweeStorage):
+            pytest.skip("Trimming not supported for datastore")
+
+        eventcount = 2
+        # Create 1-day long events
+        events = [
+            Event(timestamp=now + i * td1d, duration=td1d) for i in range(eventcount)
+        ]
+        bucket.insert(events)
+
+        # Result should contain half of each event
+        fetched_events = bucket.get(
+            -1,
+            starttime=now + td1d / 2,
+            endtime=now + 1.5 * td1d,
+        )
+        assert 2 == len(fetched_events)
+        total_duration = sum([e.duration for e in fetched_events], timedelta())
+        assert td1d == timedelta(seconds=round(total_duration.total_seconds()))
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
