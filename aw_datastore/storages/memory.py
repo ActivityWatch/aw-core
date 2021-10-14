@@ -95,8 +95,16 @@ class MemoryStorage(AbstractStorage):
             raise Exception("Bucket did not exist, could not get metadata")
 
     def insert_one(self, bucket: str, event: Event) -> Event:
-        self.db[bucket].append(Event(**event))
-        event.id = len(self.db[bucket]) - 1
+        if event.id is not None:
+            self.replace(bucket, event.id, event)
+        else:
+            # We need to copy the event to avoid setting the ID on the passed event
+            event = copy.copy(event)
+            if self.db[bucket]:
+                event.id = max(int(e.id or 0) for e in self.db[bucket]) + 1
+            else:
+                event.id = 0
+            self.db[bucket].append(event)
         return event
 
     def delete(self, bucket_id, event_id):
@@ -110,7 +118,17 @@ class MemoryStorage(AbstractStorage):
         return False
 
     def replace(self, bucket_id, event_id, event):
-        self.db[bucket_id][event_id] = event
+        for idx in (
+            idx
+            for idx, event in reversed(list(enumerate(self.db[bucket_id])))
+            if event.id == event_id
+        ):
+            # We need to copy the event to avoid setting the ID on the passed event
+            event = copy.copy(event)
+            event.id = event_id
+            self.db[bucket_id][idx] = event
 
     def replace_last(self, bucket_id, event):
-        self.db[bucket_id][-1] = event
+        # NOTE: This does not actually get the most recent event, only the last inserted
+        last = sorted(self.db[bucket_id], key=lambda e: e.timestamp)[-1]
+        self.replace(bucket_id, last.id, event)

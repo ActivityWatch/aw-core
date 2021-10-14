@@ -185,7 +185,16 @@ class PeeweeStorage(AbstractStorage):
         event.id = e.id
         return event
 
-    def insert_many(self, bucket_id, events: List[Event], fast=False) -> None:
+    def insert_many(self, bucket_id, events: List[Event]) -> None:
+        # NOTE: Events need to be handled differently depending on
+        #       if they're upserts or inserts (have id's or not).
+
+        # These events are updates which need to be applied one by one
+        events_updates = [e for e in events if e.id is not None]
+        for e in events_updates:
+            self.insert_one(bucket_id, e)
+
+        # These events can be inserted with insert_many
         events_dictlist = [
             {
                 "bucket": self.bucket_keys[bucket_id],
@@ -194,7 +203,9 @@ class PeeweeStorage(AbstractStorage):
                 "datastr": json.dumps(event.data),
             }
             for event in events
+            if event.id is None
         ]
+
         # Chunking into lists of length 100 is needed here due to SQLITE_MAX_COMPOUND_SELECT
         # and SQLITE_LIMIT_VARIABLE_NUMBER under Windows.
         # See: https://github.com/coleifer/peewee/issues/948
