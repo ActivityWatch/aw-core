@@ -284,7 +284,9 @@ class PeeweeStorage(AbstractStorage):
         for e in events:
             if starttime:
                 if e.timestamp < starttime:
+                    e_end = e.timestamp + e.duration
                     e.timestamp = starttime
+                    e.duration = e_end - e.timestamp
             if endtime:
                 if e.timestamp + e.duration > endtime:
                     e.duration = endtime - e.timestamp
