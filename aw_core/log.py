@@ -33,12 +33,14 @@ def setup_logging(
     root_logger.handlers = []
 
     # run with LOG_LEVEL=DEBUG to customize log level across all AW components
-    log_level = os.environ.get('LOG_LEVEL')
+    log_level = os.environ.get("LOG_LEVEL")
     if log_level:
         if hasattr(logging, log_level.upper()):
             root_logger.setLevel(getattr(logging, log_level.upper()))
         else:
-            root_logger.warning(f'No logging level called {log_level} (as specified in env var)')
+            root_logger.warning(
+                f"No logging level called {log_level} (as specified in env var)"
+            )
 
     if log_stderr:
         root_logger.addHandler(_create_stderr_handler())
