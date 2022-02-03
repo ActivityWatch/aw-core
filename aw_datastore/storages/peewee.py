@@ -117,13 +117,13 @@ class PeeweeStorage(AbstractStorage):
             filename = (
                 "peewee-sqlite"
                 + ("-testing" if testing else "")
-                + ".v{}".format(LATEST_VERSION)
+                + f".v{LATEST_VERSION}"
                 + ".db"
             )
             filepath = os.path.join(data_dir, filename)
         self.db = _db
         self.db.init(filepath)
-        logger.info("Using database file: {}".format(filepath))
+        logger.info(f"Using database file: {filepath}")
 
         self.db.connect()
 

@@ -59,14 +59,14 @@ def benchmark(storage: Callable[..., AbstractStorage]):
 
     with temporary_bucket(ds) as bucket:
         with ttt(" sum"):
-            with ttt(" single insert {} events".format(num_single_events)):
+            with ttt(f" single insert {num_single_events} events"):
                 for event in single_events:
                     bucket.insert(event)
 
-            with ttt(" bulk insert {} events".format(num_bulk_events)):
+            with ttt(f" bulk insert {num_bulk_events} events"):
                 bucket.insert(bulk_events)
 
-            with ttt(" replace last {}".format(num_replace_events)):
+            with ttt(f" replace last {num_replace_events}"):
                 for e in replace_events:
                     bucket.replace_last(e)
 

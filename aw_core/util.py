@@ -22,4 +22,4 @@ def assert_version(required_version: Tuple[int, ...] = (3, 5)):  # pragma: no co
                 + " version to at least {}."
             ).format(required_version)
         )
-    logger.debug("Python version: {}".format(_version_info_tuple()))
+    logger.debug(f"Python version: {_version_info_tuple()}")

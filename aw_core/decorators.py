@@ -44,7 +44,7 @@ def restart_on_exception(f, delay=1, exception=Exception):  # pragma: no cover
             except exception as e:
                 # TODO: Use warnings module instead?
                 logging.error(
-                    "{} crashed due to exception, restarting.".format(f.__name__)
+                    f"{f.__name__} crashed due to exception, restarting."
                 )
                 logging.error(e)
                 time.sleep(

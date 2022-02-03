@@ -52,14 +52,14 @@ class Datastore:
         created: datetime = datetime.now(timezone.utc),
         name: Optional[str] = None,
     ) -> "Bucket":
-        self.logger.info("Creating bucket '{}'".format(bucket_id))
+        self.logger.info(f"Creating bucket '{bucket_id}'")
         self.storage_strategy.create_bucket(
             bucket_id, type, client, hostname, created.isoformat(), name=name
         )
         return self[bucket_id]
 
     def delete_bucket(self, bucket_id: str):
-        self.logger.info("Deleting bucket '{}'".format(bucket_id))
+        self.logger.info(f"Deleting bucket '{bucket_id}'")
         if bucket_id in self.bucket_instances:
             del self.bucket_instances[bucket_id]
         return self.storage_strategy.delete_bucket(bucket_id)

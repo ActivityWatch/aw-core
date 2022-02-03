@@ -35,7 +35,7 @@ def _verify_bucket_exists(datastore, bucketname):
     if bucketname in datastore.buckets():
         return
     else:
-        raise QueryFunctionException("There's no bucket named '{}'".format(bucketname))
+        raise QueryFunctionException(f"There's no bucket named '{bucketname}'")
 
 
 def _verify_variable_is_type(variable, t):

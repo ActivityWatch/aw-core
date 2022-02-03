@@ -141,7 +141,7 @@ def _create_json_formatter() -> logging.Formatter:  # pragma: no cover
 
     def log_format(x):
         """Used to give JsonFormatter proper parameter format"""
-        return ["%({0:s})".format(i) for i in x]
+        return [f"%({i:s})" for i in x]
 
     custom_format = " ".join(log_format(supported_keys))
 

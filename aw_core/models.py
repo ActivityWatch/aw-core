@@ -30,7 +30,7 @@ def _timestamp_parse(ts_in: ConvertableTimestamp) -> datetime:
     if not ts.tzinfo:
         # Needed? All timestamps should be iso8601 so ought to always contain timezone.
         # Yes, because it is optional in iso8601
-        logger.warning("timestamp without timezone found, using UTC: {}".format(ts))
+        logger.warning(f"timestamp without timezone found, using UTC: {ts}")
         ts = ts.replace(tzinfo=timezone.utc)
     return ts
 
@@ -137,5 +137,5 @@ class Event(dict):
             self["duration"] = timedelta(seconds=duration)  # type: ignore
         else:
             raise TypeError(
-                "Couldn't parse duration of invalid type {}".format(type(duration))
+                f"Couldn't parse duration of invalid type {type(duration)}"
             )

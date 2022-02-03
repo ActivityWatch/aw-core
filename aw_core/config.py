@@ -41,14 +41,14 @@ def load_config_toml(
     appname: str, default_config: str
 ) -> Union[dict, tomlkit.container.Container]:
     config_dir = dirs.get_config_dir(appname)
-    config_file_path = os.path.join(config_dir, "{}.toml".format(appname))
+    config_file_path = os.path.join(config_dir, f"{appname}.toml")
 
     # Run early to ensure input is valid toml before writing
     default_config_toml = tomlkit.parse(default_config)
 
     # Override defaults from existing config file
     if os.path.isfile(config_file_path):
-        with open(config_file_path, "r") as f:
+        with open(config_file_path) as f:
             config = f.read()
         config_toml = tomlkit.parse(config)
     else:
@@ -67,7 +67,7 @@ def save_config_toml(appname: str, config: str) -> None:
     assert tomlkit.parse(config)
 
     config_dir = dirs.get_config_dir(appname)
-    config_file_path = os.path.join(config_dir, "{}.toml".format(appname))
+    config_file_path = os.path.join(config_dir, f"{appname}.toml")
 
     with open(config_file_path, "w") as f:
         f.write(config)
@@ -86,11 +86,11 @@ def load_config(appname, default_config):
     config = default_config
 
     config_dir = dirs.get_config_dir(appname)
-    config_file_path = os.path.join(config_dir, "{}.toml".format(appname))
+    config_file_path = os.path.join(config_dir, f"{appname}.toml")
 
     # Override defaults from existing config file
     if os.path.isfile(config_file_path):
-        with open(config_file_path, "r") as f:
+        with open(config_file_path) as f:
             config.read_file(f)
 
     # Overwrite current config file (necessary in case new default would be added)
@@ -106,7 +106,7 @@ def load_config(appname, default_config):
 )
 def save_config(appname, config):
     config_dir = dirs.get_config_dir(appname)
-    config_file_path = os.path.join(config_dir, "{}.ini".format(appname))
+    config_file_path = os.path.join(config_dir, f"{appname}.ini")
     with open(config_file_path, "w") as f:
         config.write(f)
         # Flush and fsync to lower risk of corrupted files

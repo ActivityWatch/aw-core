@@ -23,7 +23,7 @@ def detect_db_files(
         db_files = [
             filename
             for filename in db_files
-            if filename.split(".")[1] == "v{}".format(version)
+            if filename.split(".")[1] == f"v{version}"
         ]
     return db_files
 
@@ -49,7 +49,7 @@ def peewee_v2_to_sqlite_v1(datastore):
     buckets = pw_db.buckets()
     # Insert buckets and events to new db
     for bucket_id in buckets:
-        logger.info("Migrating bucket {}".format(bucket_id))
+        logger.info(f"Migrating bucket {bucket_id}")
         bucket = buckets[bucket_id]
         datastore.create_bucket(
             bucket["id"],

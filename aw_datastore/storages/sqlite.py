@@ -67,12 +67,12 @@ class SqliteStorage(AbstractStorage):
         ds_name = self.sid + ("-testing" if testing else "")
         if not filepath:
             data_dir = get_data_dir("aw-server")
-            filename = ds_name + ".v{}".format(LATEST_VERSION) + ".db"
+            filename = ds_name + f".v{LATEST_VERSION}" + ".db"
             filepath = os.path.join(data_dir, filename)
 
         new_db_file = not os.path.exists(filepath)
         self.conn = sqlite3.connect(filepath)
-        logger.info("Using database file: {}".format(filepath))
+        logger.info(f"Using database file: {filepath}")
 
         # Create tables
         self.conn.execute(CREATE_BUCKETS_TABLE)

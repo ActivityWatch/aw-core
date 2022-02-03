@@ -124,7 +124,7 @@ class QFunction(QToken):
     def interpret(self, datastore: Datastore, namespace: dict):
         if self.name not in functions:
             raise QueryInterpretException(
-                "Tried to call function '{}' which doesn't exist".format(self.name)
+                f"Tried to call function '{self.name}' which doesn't exist"
             )
         call_args = [datastore, namespace]
         for arg in self.args:
@@ -345,7 +345,7 @@ def _parse_token(string: str, namespace: dict) -> Tuple[Tuple[Any, str], str]:
         if token:
             break
     if not token:
-        raise QueryParseException("Syntax error: {}".format(string))
+        raise QueryParseException(f"Syntax error: {string}")
     return (t, token), string
 
 
