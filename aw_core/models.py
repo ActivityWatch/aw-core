@@ -136,6 +136,4 @@ class Event(dict):
         elif isinstance(duration, numbers.Real):
             self["duration"] = timedelta(seconds=duration)  # type: ignore
         else:
-            raise TypeError(
-                f"Couldn't parse duration of invalid type {type(duration)}"
-            )
+            raise TypeError(f"Couldn't parse duration of invalid type {type(duration)}")

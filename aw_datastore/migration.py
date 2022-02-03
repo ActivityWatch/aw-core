@@ -21,9 +21,7 @@ def detect_db_files(
         ]
     if version:
         db_files = [
-            filename
-            for filename in db_files
-            if filename.split(".")[1] == f"v{version}"
+            filename for filename in db_files if filename.split(".")[1] == f"v{version}"
         ]
     return db_files
 
