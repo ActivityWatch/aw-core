@@ -18,6 +18,9 @@ typecheck:
 typecheck-strict:
 	export MYPYPATH=./stubs; python -m mypy aw_core aw_datastore aw_transform aw_query --strict-optional --check-untyped-defs; echo "Not a failing step"
 
+lint-fix:
+	pyupgrade --py37-plus aw_core/**.py aw_datastore/**.py aw_query/**.py aw_transform/**.py
+
 clean:
 	rm -rf build dist
 	rm -rf aw_core/__pycache__ aw_datastore/__pycache__
