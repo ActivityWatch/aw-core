@@ -32,9 +32,10 @@ timeslot = "*"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.0"
-pytest-cov = "^2.8.1"
+pytest-cov = "*"
 mypy = "*"
 pylint = "^2.4.4"
+black = "^22.1.0"
 
 [tool.poetry.extras]
 mongo = ["pymongo"]
