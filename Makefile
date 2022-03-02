@@ -18,10 +18,10 @@ typecheck:
 typecheck-strict:
 	export MYPYPATH=./stubs; python -m mypy aw_core aw_datastore aw_transform aw_query --strict-optional --check-untyped-defs; echo "Not a failing step"
 
-PYFILES=aw_core/**.py aw_datastore/**.py aw_query/**.py aw_transform/**.py
+PYFILES=aw_core/**.py aw_datastore/**.py aw_query/**.py aw_transform/**.py tests/**.py
 
 lint-fix:
-	pyupgrade --py37-plus ${PYFILES}
+	pyupgrade --py37-plus ${PYFILES} && true
 	black ${PYFILES}
 
 clean:

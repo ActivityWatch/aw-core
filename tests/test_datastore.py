@@ -330,7 +330,7 @@ def test_get_event_trimming(bucket_cm):
             endtime=now + 1.5 * td1d,
         )
         assert 2 == len(fetched_events)
-        total_duration = sum([e.duration for e in fetched_events], timedelta())
+        total_duration = sum((e.duration for e in fetched_events), timedelta())
         assert td1d == timedelta(seconds=round(total_duration.total_seconds()))
 
 
