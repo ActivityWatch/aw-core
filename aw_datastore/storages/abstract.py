@@ -43,6 +43,14 @@ class AbstractStorage(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
+    def get_event(
+        self,
+        bucket_id: str,
+        event_id: int,
+    ) -> Event:
+        raise NotImplementedError
+
+    @abstractmethod
     def get_events(
         self,
         bucket_id: str,

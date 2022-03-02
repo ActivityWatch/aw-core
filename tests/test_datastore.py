@@ -287,6 +287,25 @@ def test_get_datefilter_simple(bucket_cm):
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
+def test_get_event_by_id(bucket_cm):
+    """Test that we can retrieve single events by their IDs"""
+    with bucket_cm as bucket:
+        eventcount = 2
+        # Create 1-day long events
+        events = [
+            Event(timestamp=now + i * td1d, duration=td1d) for i in range(eventcount)
+        ]
+        bucket.insert(events)
+
+        # Retrieve stored events
+        events = bucket.get()
+        for e in events:
+            # Query them one-by-one
+            event = bucket.get_by_id(e.id)
+            assert e == event
+
+
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_get_event_trimming(bucket_cm):
     """Test that event trimming works correctly (when querying events that intersect with the query range)"""
     # TODO: Trimming should be possible to disable
@@ -311,7 +330,7 @@ def test_get_event_trimming(bucket_cm):
             endtime=now + 1.5 * td1d,
         )
         assert 2 == len(fetched_events)
-        total_duration = sum([e.duration for e in fetched_events], timedelta())
+        total_duration = sum((e.duration for e in fetched_events), timedelta())
         assert td1d == timedelta(seconds=round(total_duration.total_seconds()))
 
 

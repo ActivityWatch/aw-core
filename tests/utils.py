@@ -15,7 +15,7 @@ class TempTestBucket:
 
     def __init__(self, datastore):
         self.ds = datastore
-        self.bucket_id = "test-{}".format(random.randint(0, 10 ** 4))
+        self.bucket_id = f"test-{random.randint(0, 10 ** 4)}"
 
     def __enter__(self):
         self.ds.create_bucket(

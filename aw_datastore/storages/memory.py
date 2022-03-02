@@ -49,6 +49,14 @@ class MemoryStorage(AbstractStorage):
             buckets[bucket_id] = self.get_metadata(bucket_id)
         return buckets
 
+    def get_event(
+        self,
+        bucket_id: str,
+        event_id: int,
+    ) -> Event:
+        event = self._get_event(bucket_id, event_id)
+        return copy.deepcopy(event)
+
     def get_events(
         self,
         bucket: str,
@@ -116,6 +124,15 @@ class MemoryStorage(AbstractStorage):
             self.db[bucket_id].pop(idx)
             return True
         return False
+
+    def _get_event(self, bucket_id, event_id):
+        events = [
+            event
+            for idx, event in reversed(list(enumerate(self.db[bucket_id])))
+            if event.id == event_id
+        ]
+        assert len(events) == 1
+        return events[0]
 
     def replace(self, bucket_id, event_id, event):
         for idx in (
