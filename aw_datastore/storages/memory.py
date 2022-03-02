@@ -53,7 +53,7 @@ class MemoryStorage(AbstractStorage):
         self,
         bucket_id: str,
         event_id: int,
-    ) -> List[Event]:
+    ) -> Event:
         event = self._get_event(bucket_id, event_id)
         return copy.deepcopy(event)
 

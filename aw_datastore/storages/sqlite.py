@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Iterable
 from datetime import datetime, timezone, timedelta
 import json
 import os
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 LATEST_VERSION = 1
 
 # The max integer value in SQLite is signed 8 Bytes / 64 bits
-MAX_TIMESTAMP = 2 ** 63 - 1
+MAX_TIMESTAMP = 2**63 - 1
 
 CREATE_BUCKETS_TABLE = """
     CREATE TABLE IF NOT EXISTS buckets (
@@ -54,7 +54,7 @@ INDEX_EVENTS_TABLE_ENDTIME = """
 """
 
 
-def _rows_to_events(rows: list) -> Event:
+def _rows_to_events(rows: Iterable) -> List[Event]:
     events = []
     for row in rows:
         eid = row[0]
@@ -62,9 +62,7 @@ def _rows_to_events(rows: list) -> Event:
         endtime = datetime.fromtimestamp(row[2] / 1000000, timezone.utc)
         duration = endtime - starttime
         data = json.loads(row[3])
-        events.append(
-            Event(id=eid, timestamp=starttime, duration=duration, data=data)
-        )
+        events.append(Event(id=eid, timestamp=starttime, duration=duration, data=data))
     return events
 
 
@@ -273,8 +271,8 @@ class SqliteStorage(AbstractStorage):
     def get_event(
         self,
         bucket_id: str,
-        event_id: str,
-    ):
+        event_id: int,
+    ) -> Event:
         self.commit()
         c = self.conn.cursor()
         query = """

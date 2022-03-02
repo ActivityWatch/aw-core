@@ -47,7 +47,7 @@ class AbstractStorage(metaclass=ABCMeta):
         self,
         bucket_id: str,
         event_id: int,
-    ) -> List[Event]:
+    ) -> Event:
         raise NotImplementedError
 
     @abstractmethod
