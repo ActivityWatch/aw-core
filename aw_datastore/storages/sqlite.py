@@ -54,6 +54,20 @@ INDEX_EVENTS_TABLE_ENDTIME = """
 """
 
 
+def _rows_to_events(rows: list) -> Event:
+    events = []
+    for row in rows:
+        eid = row[0]
+        starttime = datetime.fromtimestamp(row[1] / 1000000, timezone.utc)
+        endtime = datetime.fromtimestamp(row[2] / 1000000, timezone.utc)
+        duration = endtime - starttime
+        data = json.loads(row[3])
+        events.append(
+            Event(id=eid, timestamp=starttime, duration=duration, data=data)
+        )
+    return events
+
+
 class SqliteStorage(AbstractStorage):
     sid = "sqlite"
 
@@ -256,6 +270,23 @@ class SqliteStorage(AbstractStorage):
         self.conditional_commit(1)
         return True
 
+    def get_event(
+        self,
+        bucket_id: str,
+        event_id: str,
+    ):
+        self.commit()
+        c = self.conn.cursor()
+        query = """
+            SELECT id, starttime, endtime, datastr
+            FROM events
+            WHERE bucketrow = (SELECT rowid FROM buckets WHERE id = ?) AND id = ?
+            LIMIT 1
+        """
+        rows = c.execute(query, [bucket_id, event_id])
+        events = _rows_to_events(rows)
+        return events[0]
+
     def get_events(
         self,
         bucket_id: str,
@@ -279,16 +310,7 @@ class SqliteStorage(AbstractStorage):
             ORDER BY endtime DESC LIMIT ?
         """
         rows = c.execute(query, [bucket_id, starttime_i, endtime_i, limit])
-        events = []
-        for row in rows:
-            eid = row[0]
-            starttime = datetime.fromtimestamp(row[1] / 1000000, timezone.utc)
-            endtime = datetime.fromtimestamp(row[2] / 1000000, timezone.utc)
-            duration = endtime - starttime
-            data = json.loads(row[3])
-            events.append(
-                Event(id=eid, timestamp=starttime, duration=duration, data=data)
-            )
+        events = _rows_to_events(rows)
         return events
 
     def get_eventcount(

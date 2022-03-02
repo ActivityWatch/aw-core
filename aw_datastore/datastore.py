@@ -102,6 +102,11 @@ class Bucket:
             self.bucket_id, limit, starttime, endtime
         )
 
+    def get_by_id(self, event_id) -> Event:
+        return self.ds.storage_strategy.get_event(
+            self.bucket_id, event_id
+        )
+
     def get_eventcount(
         self, starttime: datetime = None, endtime: datetime = None
     ) -> int:

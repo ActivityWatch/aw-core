@@ -254,6 +254,17 @@ class PeeweeStorage(AbstractStorage):
         event.id = e.id
         return event
 
+    def get_event(
+        self,
+        bucket_id: str,
+        event_id: int,
+    ):
+        """
+        Fetch a single event from a bucket.
+        """
+        res = self._get_event(bucket_id, event_id)
+        return Event(**EventModel.json(res))
+
     def get_events(
         self,
         bucket_id: str,
