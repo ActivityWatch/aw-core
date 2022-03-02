@@ -126,7 +126,11 @@ class MemoryStorage(AbstractStorage):
         return False
 
     def _get_event(self, bucket_id, event_id):
-        events = [event for idx, event in reversed(list(enumerate(self.db[bucket_id]))) if event.id == event_id]
+        events = [
+            event
+            for idx, event in reversed(list(enumerate(self.db[bucket_id])))
+            if event.id == event_id
+        ]
         assert len(events) == 1
         return events[0]
 
