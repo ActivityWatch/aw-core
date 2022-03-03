@@ -272,7 +272,7 @@ class SqliteStorage(AbstractStorage):
         self,
         bucket_id: str,
         event_id: int,
-    ) -> Event:
+    ) -> Optional[Event]:
         self.commit()
         c = self.conn.cursor()
         query = """
@@ -283,7 +283,10 @@ class SqliteStorage(AbstractStorage):
         """
         rows = c.execute(query, [bucket_id, event_id])
         events = _rows_to_events(rows)
-        return events[0]
+        if events:
+            return events[0]
+        else:
+            return None
 
     def get_events(
         self,

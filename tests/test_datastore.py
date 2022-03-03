@@ -306,6 +306,13 @@ def test_get_event_by_id(bucket_cm):
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
+def test_get_event_by_id_notfound(bucket_cm):
+    """Test fetching an ID that does not exist"""
+    with bucket_cm as bucket:
+        assert bucket.get_by_id(1337 * 10**6) is None
+
+
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_get_event_trimming(bucket_cm):
     """Test that event trimming works correctly (when querying events that intersect with the query range)"""
     # TODO: Trimming should be possible to disable

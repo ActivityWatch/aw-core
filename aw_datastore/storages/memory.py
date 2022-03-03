@@ -1,7 +1,7 @@
 import sys
 import copy
 from datetime import datetime
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from aw_core.models import Event
 
@@ -53,7 +53,7 @@ class MemoryStorage(AbstractStorage):
         self,
         bucket_id: str,
         event_id: int,
-    ) -> Event:
+    ) -> Optional[Event]:
         event = self._get_event(bucket_id, event_id)
         return copy.deepcopy(event)
 
@@ -125,14 +125,16 @@ class MemoryStorage(AbstractStorage):
             return True
         return False
 
-    def _get_event(self, bucket_id, event_id):
+    def _get_event(self, bucket_id, event_id) -> Optional[Event]:
         events = [
             event
             for idx, event in reversed(list(enumerate(self.db[bucket_id])))
             if event.id == event_id
         ]
-        assert len(events) == 1
-        return events[0]
+        if len(events) < 1:
+            return None
+        else:
+            return events[0]
 
     def replace(self, bucket_id, event_id, event):
         for idx in (

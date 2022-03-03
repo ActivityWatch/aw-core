@@ -212,13 +212,16 @@ class PeeweeStorage(AbstractStorage):
         for chunk in chunks(events_dictlist, 100):
             EventModel.insert_many(chunk).execute()
 
-    def _get_event(self, bucket_id, event_id) -> EventModel:
-        return (
-            EventModel.select()
-            .where(EventModel.id == event_id)
-            .where(EventModel.bucket == self.bucket_keys[bucket_id])
-            .get()
-        )
+    def _get_event(self, bucket_id, event_id) -> Optional[EventModel]:
+        try:
+            return (
+                EventModel.select()
+                .where(EventModel.id == event_id)
+                .where(EventModel.bucket == self.bucket_keys[bucket_id])
+                .get()
+            )
+        except peewee.DoesNotExist:
+            return None
 
     def _get_last(self, bucket_id) -> EventModel:
         return (
@@ -258,12 +261,12 @@ class PeeweeStorage(AbstractStorage):
         self,
         bucket_id: str,
         event_id: int,
-    ):
+    ) -> Optional[Event]:
         """
         Fetch a single event from a bucket.
         """
         res = self._get_event(bucket_id, event_id)
-        return Event(**EventModel.json(res))
+        return Event(**EventModel.json(res)) if res else None
 
     def get_events(
         self,

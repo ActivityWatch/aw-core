@@ -102,7 +102,8 @@ class Bucket:
             self.bucket_id, limit, starttime, endtime
         )
 
-    def get_by_id(self, event_id) -> Event:
+    def get_by_id(self, event_id) -> Optional[Event]:
+        """Will return the event with the provided ID, or None if not found."""
         return self.ds.storage_strategy.get_event(self.bucket_id, event_id)
 
     def get_eventcount(
