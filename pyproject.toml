@@ -15,6 +15,9 @@ packages = [
     { include = "aw_query" },
 ]
 
+[tool.poetry.scripts]
+aw-cli = "aw_cli.__main__:main"
+
 [tool.poetry.dependencies]
 python = "^3.7"
 jsonschema = "^4.3"

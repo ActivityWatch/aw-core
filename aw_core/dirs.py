@@ -14,7 +14,7 @@ def ensure_path_exists(path: str) -> None:
 
 def _ensure_returned_path_exists(f: GetDirFunc) -> GetDirFunc:
     @wraps(f)
-    def wrapper(subpath: Optional[str]) -> str:
+    def wrapper(subpath: Optional[str] = None) -> str:
         path = f(subpath)
         ensure_path_exists(path)
         return path
@@ -23,24 +23,24 @@ def _ensure_returned_path_exists(f: GetDirFunc) -> GetDirFunc:
 
 
 @_ensure_returned_path_exists
-def get_data_dir(module_name: Optional[str]) -> str:
+def get_data_dir(module_name: Optional[str] = None) -> str:
     data_dir = appdirs.user_data_dir("activitywatch")
     return os.path.join(data_dir, module_name) if module_name else data_dir
 
 
 @_ensure_returned_path_exists
-def get_cache_dir(module_name: Optional[str]) -> str:
+def get_cache_dir(module_name: Optional[str] = None) -> str:
     cache_dir = appdirs.user_cache_dir("activitywatch")
     return os.path.join(cache_dir, module_name) if module_name else cache_dir
 
 
 @_ensure_returned_path_exists
-def get_config_dir(module_name: Optional[str]) -> str:
+def get_config_dir(module_name: Optional[str] = None) -> str:
     config_dir = appdirs.user_config_dir("activitywatch")
     return os.path.join(config_dir, module_name) if module_name else config_dir
 
 
 @_ensure_returned_path_exists
-def get_log_dir(module_name: Optional[str]) -> str:  # pragma: no cover
+def get_log_dir(module_name: Optional[str] = None) -> str:  # pragma: no cover
     log_dir = appdirs.user_log_dir("activitywatch")
     return os.path.join(log_dir, module_name) if module_name else log_dir
