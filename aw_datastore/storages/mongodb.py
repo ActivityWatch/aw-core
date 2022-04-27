@@ -4,12 +4,11 @@ from datetime import datetime, timezone
 
 import iso8601
 
-# MongoDB
+# will be unavailable if pymongo is
 try:
-    import pymongo
     from bson.objectid import ObjectId
-except ImportError:  # pragma: no cover
-    logging.warning("Could not import pymongo, not available as a datastore backend")
+except ImportError:
+    pass
 
 from aw_core.models import Event
 
@@ -24,6 +23,14 @@ class MongoDBStorage(AbstractStorage):
 
     def __init__(self, testing) -> None:
         self.logger = logger.getChild(self.sid)
+
+        # MongoDB
+        try:
+            import pymongo
+        except ImportError:  # pragma: no cover
+            raise ImportError(
+                "Could not import pymongo, cannot use as a datastore backend"
+            )
 
         self.client = pymongo.MongoClient(serverSelectionTimeoutMS=5000)
         # Try to connect to the server to make sure that it's available
