@@ -19,7 +19,7 @@ packages = [
 aw-cli = "aw_cli.__main__:main"
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.8"
 jsonschema = "^4.3"
 peewee = "3.*"
 appdirs = "^1.4.4"
