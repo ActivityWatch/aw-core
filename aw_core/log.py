@@ -4,8 +4,6 @@ import logging
 from typing import Optional, List
 from datetime import datetime
 
-from pythonjsonlogger import jsonlogger
-
 from . import dirs
 from .decorators import deprecated
 
@@ -144,5 +142,10 @@ def _create_json_formatter() -> logging.Formatter:  # pragma: no cover
         return [f"%({i:s})" for i in x]
 
     custom_format = " ".join(log_format(supported_keys))
+
+    try:
+        from pythonjsonlogger import jsonlogger
+    except ImportError:
+        raise ImportError("pythonjsonlogger is required to use json logging.")
 
     return jsonlogger.JsonFormatter(custom_format)
