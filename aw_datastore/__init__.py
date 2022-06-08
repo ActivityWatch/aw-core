@@ -7,7 +7,7 @@ from . import storages
 from .datastore import Datastore
 
 # The Callable[[Any], ...] here should be Callable[..., ...] but Python 3.5.2 doesn't
-# like ellipsises. See here: https://github.com/python/typing/issues/259
+# like ellipsis. See here: https://github.com/python/typing/issues/259
 def get_storage_methods() -> Dict[str, Callable[[Any], storages.AbstractStorage]]:
     from .storages import MemoryStorage, MongoDBStorage, PeeweeStorage, SqliteStorage
 
