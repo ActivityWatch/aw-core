@@ -12,12 +12,12 @@ logger = logging.getLogger(__name__)
 
 Number = Union[int, float]
 Id = Optional[Union[int, str]]
-ConvertableTimestamp = Union[datetime, str]
+ConvertibleTimestamp = Union[datetime, str]
 Duration = Union[timedelta, Number]
 Data = Dict[str, Any]
 
 
-def _timestamp_parse(ts_in: ConvertableTimestamp) -> datetime:
+def _timestamp_parse(ts_in: ConvertibleTimestamp) -> datetime:
     """
     Takes something representing a timestamp and
     returns a timestamp in the representation we want.
@@ -43,7 +43,7 @@ class Event(dict):
     def __init__(
         self,
         id: Id = None,
-        timestamp: ConvertableTimestamp = None,
+        timestamp: ConvertibleTimestamp = None,
         duration: Duration = 0,
         data: Data = dict(),
     ) -> None:
@@ -122,7 +122,7 @@ class Event(dict):
         return self["timestamp"]
 
     @timestamp.setter
-    def timestamp(self, timestamp: ConvertableTimestamp) -> None:
+    def timestamp(self, timestamp: ConvertibleTimestamp) -> None:
         self["timestamp"] = _timestamp_parse(timestamp).astimezone(timezone.utc)
 
     @property

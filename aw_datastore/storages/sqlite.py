@@ -102,7 +102,7 @@ class SqliteStorage(AbstractStorage):
             check_for_migration(self)
 
         self.last_commit = datetime.now()
-        self.num_uncommited_statements = 0
+        self.num_uncommitted_statements = 0
 
     def commit(self):
         """
@@ -111,7 +111,7 @@ class SqliteStorage(AbstractStorage):
         """
         self.conn.commit()
         self.last_commit = datetime.now()
-        self.num_uncommited_statements = 0
+        self.num_uncommitted_statements = 0
 
     def conditional_commit(self, num_statements):
         """
@@ -122,8 +122,8 @@ class SqliteStorage(AbstractStorage):
         is a way to batch them together and lower CPU+disk usage
         """
         if self.enable_lazy_commit:
-            self.num_uncommited_statements += num_statements
-            if self.num_uncommited_statements > 50:
+            self.num_uncommitted_statements += num_statements
+            if self.num_uncommitted_statements > 50:
                 self.commit()
             if (self.last_commit - datetime.now()) > timedelta(seconds=10):
                 self.commit()

@@ -72,9 +72,9 @@ def test_delete_bucket(datastore):
 
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
-def test_nonexistant_bucket(datastore):
+def test_nonexistent_bucket(datastore):
     """
-    Tests that a KeyError is raised if you request a non-existant bucket
+    Tests that a KeyError is raised if you request a non-existent bucket
     """
     with pytest.raises(KeyError):
         datastore["I-do-not-exist"]
@@ -164,7 +164,7 @@ def test_delete(bucket_cm):
         # Test deleting event
         assert bucket.delete(fetched_events[0]["id"])
 
-        # Test deleting non-existant event
+        # Test deleting non-existent event
         # FIXME: Doesn't work due to lazy evaluation in SqliteDatastore
         # assert not bucket.delete(fetched_events[0]["id"])
 
