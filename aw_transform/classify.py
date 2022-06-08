@@ -32,7 +32,7 @@ class Rule:
         # `data` contains keys like 'app', 'title'
         # by default, the rule regex is matched against all values
 
-        if self.select_keys == 'all'
+        if self.select_keys == "all":
             values = list(e.data.values())
         elif self.select_keys:
             values = [e.data.get(key, None) for key in self.select_keys]
