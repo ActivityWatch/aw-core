@@ -50,7 +50,7 @@ def categorize(events: List[Event], classes: List[Tuple[Category, Rule]]):
 
 
 def _categorize_one(e: Event, classes: List[Tuple[Category, Rule]]) -> Event:
-    # TODO can we add a color here too? why is color rendered on the frontend?
+    # coloring is intentionally left to the frontend in order to keep the backend as simple as possible
     e.data["$category"] = _pick_category(
         [_cls for _cls, rule in classes if rule.match(e)]
     )
