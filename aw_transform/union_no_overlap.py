@@ -30,6 +30,7 @@ def test_split_event():
     e1, e2 = _split_event(e, now + td1h)
     assert e1.timestamp == now
     assert e1.duration == td1h
+    assert e2
     assert e2.timestamp == now + td1h
     assert e2.duration == td1h
 

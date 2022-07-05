@@ -13,6 +13,7 @@ from aw_transform import (
     filter_keyvals,
     filter_keyvals_regex,
     period_union,
+    union_no_overlap,
     categorize,
     tag,
     Rule,
@@ -264,6 +265,12 @@ def q2_sum_durations(events: list) -> timedelta:
 @q2_typecheck
 def q2_concat(events1: list, events2: list) -> List[Event]:
     return concat(events1, events2)
+
+
+@q2_function(union_no_overlap)
+@q2_typecheck
+def q2_union_no_overlap(events1: list, events2: list) -> List[Event]:
+    return union_no_overlap(events1, events2)
 
 
 """
