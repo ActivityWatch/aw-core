@@ -14,7 +14,7 @@ class Rule:
     select_keys: Optional[List[str]]
     ignore_case: bool
 
-    def __init__(self, rules: Dict[str, Any]):
+    def __init__(self, rules: Dict[str, Any]) -> None:
         self.select_keys = rules.get("select_keys", None)
         self.ignore_case = rules.get("ignore_case", False)
 
@@ -40,7 +40,9 @@ class Rule:
         return False
 
 
-def categorize(events: List[Event], classes: List[Tuple[Category, Rule]]):
+def categorize(
+    events: List[Event], classes: List[Tuple[Category, Rule]]
+) -> List[Event]:
     return [_categorize_one(e, classes) for e in events]
 
 
@@ -51,7 +53,7 @@ def _categorize_one(e: Event, classes: List[Tuple[Category, Rule]]) -> Event:
     return e
 
 
-def tag(events: List[Event], classes: List[Tuple[Tag, Rule]]):
+def tag(events: List[Event], classes: List[Tuple[Tag, Rule]]) -> List[Event]:
     return [_tag_one(e, classes) for e in events]
 
 
