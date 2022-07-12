@@ -6,7 +6,10 @@ build:
 test:
 	python -m pytest tests -v --cov=aw_core --cov=aw_datastore --cov=aw_transform --cov=aw_query
 
-coverage_html: test
+.coverage:
+	make test
+
+coverage_html: .coverage
 	python -m coverage html -d coverage_html
 
 benchmark:

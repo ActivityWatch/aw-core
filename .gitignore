@@ -7,3 +7,4 @@ dist
 .coverage
 venv*
 .*cache
+coverage_html
