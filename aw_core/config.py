@@ -1,10 +1,9 @@
-import os
 import logging
-from typing import Any, Dict, Union
-from configparser import ConfigParser
+import os
+from typing import Union
 
-from deprecation import deprecated
 import tomlkit
+from deprecation import deprecated
 
 from aw_core import dirs
 from aw_core.__about__ import __version__
@@ -34,7 +33,13 @@ def _merge(a: dict, b: dict, path=None):
 
 
 def _comment_out_toml(s: str):
-    return "\n".join(["#" + line for line in s.split("\n")])
+    # Only comment out keys, not headers or empty lines
+    return "\n".join(
+        [
+            "#" + line if line.strip() and not line.strip().startswith("[") else line
+            for line in s.split("\n")
+        ]
+    )
 
 
 def load_config_toml(
