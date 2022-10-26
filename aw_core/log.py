@@ -1,8 +1,9 @@
+import logging
 import os
 import sys
-import logging
-from typing import Optional, List
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
+from typing import List, Optional
 
 from . import dirs
 from .decorators import deprecated
@@ -100,7 +101,13 @@ def _create_file_handler(
     log_name = name + "_" + ("testing_" if testing else "") + now_str + file_ext
     log_file_path = os.path.join(log_dir, log_name)
 
-    fh = logging.FileHandler(log_file_path, mode="w")
+    # Create rotating logfile handler, max 10MB per file, 3 files max
+    # Prevents logfile from growing too large, like in:
+    #  - https://github.com/ActivityWatch/activitywatch/issues/815#issue-1423555466
+    #  - https://github.com/ActivityWatch/activitywatch/issues/756#issuecomment-1266662861
+    fh = RotatingFileHandler(
+        log_file_path, mode="a", maxBytes=10 * 1024 * 1024, backupCount=3
+    )
     if log_json:
         fh.setFormatter(_create_json_formatter())
     else:
