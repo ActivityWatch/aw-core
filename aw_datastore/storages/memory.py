@@ -61,8 +61,8 @@ class MemoryStorage(AbstractStorage):
         self,
         bucket: str,
         limit: int,
-        starttime: datetime = None,
-        endtime: datetime = None,
+        starttime: Optional[datetime] = None,
+        endtime: Optional[datetime] = None,
     ) -> List[Event]:
         events = self.db[bucket]
 
@@ -85,7 +85,7 @@ class MemoryStorage(AbstractStorage):
         return copy.deepcopy(events)
 
     def get_eventcount(
-        self, bucket: str, starttime: datetime = None, endtime: datetime = None
+        self, bucket: str, starttime: Optional[datetime] = None, endtime: Optional[datetime] = None
     ) -> int:
         return len(
             [

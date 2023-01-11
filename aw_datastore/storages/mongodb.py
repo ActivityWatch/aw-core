@@ -46,7 +46,7 @@ class MongoDBStorage(AbstractStorage):
         client: str,
         hostname: str,
         created: str,
-        name: str = None,
+        name: Optional[str] = None,
     ) -> None:
         if not name:
             name = bucket_id
@@ -124,7 +124,7 @@ class MongoDBStorage(AbstractStorage):
         return events
 
     def get_eventcount(
-        self, bucket_id: str, starttime: datetime = None, endtime: datetime = None
+        self, bucket_id: str, starttime: Optional[datetime] = None, endtime: Optional[datetime] = None
     ) -> int:
         query_filter: Dict[str, dict] = {}
         if starttime or endtime:

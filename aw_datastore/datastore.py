@@ -78,7 +78,7 @@ class Bucket:
         return self.ds.storage_strategy.get_metadata(self.bucket_id)
 
     def get(
-        self, limit: int = -1, starttime: datetime = None, endtime: datetime = None
+        self, limit: int = -1, starttime: Optional[datetime] = None, endtime: Optional[datetime] = None
     ) -> List[Event]:
         """Returns events sorted in descending order by timestamp"""
         # Resolution is rounded down since not all datastores like microsecond precision
@@ -107,7 +107,7 @@ class Bucket:
         return self.ds.storage_strategy.get_event(self.bucket_id, event_id)
 
     def get_eventcount(
-        self, starttime: datetime = None, endtime: datetime = None
+        self, starttime: Optional[datetime] = None, endtime: Optional[datetime] = None
     ) -> int:
         return self.ds.storage_strategy.get_eventcount(
             self.bucket_id, starttime, endtime

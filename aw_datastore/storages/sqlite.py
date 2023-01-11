@@ -69,7 +69,7 @@ def _rows_to_events(rows: Iterable) -> List[Event]:
 class SqliteStorage(AbstractStorage):
     sid = "sqlite"
 
-    def __init__(self, testing, filepath: str = None, enable_lazy_commit=True) -> None:
+    def __init__(self, testing, filepath: Optional[str] = None, enable_lazy_commit=True) -> None:
         self.testing = testing
         self.enable_lazy_commit = enable_lazy_commit
 

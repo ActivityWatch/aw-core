@@ -1,11 +1,17 @@
 import logging
-from typing import Union, List, Dict, Sequence, Callable, Type, Any, Tuple
 from datetime import datetime
+from typing import (
+    Any,
+    Dict,
+    List,
+    Sequence,
+    Tuple,
+    Type,
+)
 
-from aw_core.models import Event
 from aw_datastore import Datastore
 
-from .exceptions import QueryException, QueryParseException, QueryInterpretException
+from .exceptions import QueryInterpretException, QueryParseException
 from .functions import functions
 
 logger = logging.getLogger(__name__)
@@ -396,7 +402,7 @@ def get_return(namespace):
 
 def query(
     name: str, query: str, starttime: datetime, endtime: datetime, datastore: Datastore
-) -> None:
+) -> Any:
     namespace = create_namespace()
     namespace["NAME"] = name
     namespace["STARTTIME"] = starttime.isoformat()

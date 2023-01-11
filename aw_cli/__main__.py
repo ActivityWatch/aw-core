@@ -10,6 +10,7 @@ import subprocess
 import click
 
 from aw_cli.log import find_oldest_log, print_log, LOGLEVELS
+from typing import Optional
 
 
 @click.group()
@@ -51,7 +52,7 @@ def directories():
     type=click.Choice(LOGLEVELS),
     help="Only show logs of this level, or higher.",
 )
-def logs(ctx, module_name: str = None, since: datetime = None, level: str = None):
+def logs(ctx, module_name: Optional[str] = None, since: Optional[datetime] = None, level: Optional[str] = None):
     from aw_core.dirs import get_log_dir
 
     testing = ctx.parent.params["testing"]

@@ -110,7 +110,7 @@ class EventModel(BaseModel):
 class PeeweeStorage(AbstractStorage):
     sid = "peewee"
 
-    def __init__(self, testing: bool = True, filepath: str = None) -> None:
+    def __init__(self, testing: bool = True, filepath: Optional[str] = None) -> None:
         data_dir = get_data_dir("aw-server")
 
         if not filepath:

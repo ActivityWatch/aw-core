@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def detect_db_files(
-    data_dir: str, datastore_name: str = None, version=None
+    data_dir: str, datastore_name: Optional[str] = None, version=None
 ) -> List[str]:
     db_files = [filename for filename in os.listdir(data_dir)]
     if datastore_name:

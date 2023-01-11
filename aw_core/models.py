@@ -42,8 +42,8 @@ class Event(dict):
 
     def __init__(
         self,
-        id: Id = None,
-        timestamp: ConvertibleTimestamp = None,
+        id: Optional[Id] = None,
+        timestamp: Optional[ConvertibleTimestamp] = None,
         duration: Duration = 0,
         data: Data = dict(),
     ) -> None:
