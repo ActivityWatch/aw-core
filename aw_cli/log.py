@@ -6,7 +6,9 @@ from typing import Optional
 LOGLEVELS = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 
-def print_log(path: Path, since: Optional[datetime] = None, level: Optional[str] = None):
+def print_log(
+    path: Path, since: Optional[datetime] = None, level: Optional[str] = None
+):
     if not path.is_file():
         return
 

@@ -126,7 +126,9 @@ def q2_typecheck(f):
 
 @q2_function()
 @q2_typecheck
-def q2_find_bucket(datastore: Datastore, filter_str: str, hostname: Optional[str] = None):
+def q2_find_bucket(
+    datastore: Datastore, filter_str: str, hostname: Optional[str] = None
+):
     """Find bucket by using a filter_str (to avoid hardcoding bucket names)"""
     for bucket in datastore.buckets():
         if filter_str in bucket:

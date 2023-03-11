@@ -52,7 +52,12 @@ def directories():
     type=click.Choice(LOGLEVELS),
     help="Only show logs of this level, or higher.",
 )
-def logs(ctx, module_name: Optional[str] = None, since: Optional[datetime] = None, level: Optional[str] = None):
+def logs(
+    ctx,
+    module_name: Optional[str] = None,
+    since: Optional[datetime] = None,
+    level: Optional[str] = None,
+):
     from aw_core.dirs import get_log_dir
 
     testing = ctx.parent.params["testing"]
