@@ -30,7 +30,6 @@ strict-rfc3339 = "^0.7"
 tomlkit = "*"
 deprecation = "*"
 timeslot = "*"
-python-json-logger = {version = "*", optional = true}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0"
