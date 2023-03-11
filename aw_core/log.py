@@ -26,7 +26,6 @@ def setup_logging(
     verbose=False,
     log_stderr=True,
     log_file=False,
-    log_file_json=False,
 ):  # pragma: no cover
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG if verbose else logging.INFO)
@@ -45,9 +44,7 @@ def setup_logging(
     if log_stderr:
         root_logger.addHandler(_create_stderr_handler())
     if log_file:
-        root_logger.addHandler(
-            _create_file_handler(name, testing=testing, log_json=log_file_json)
-        )
+        root_logger.addHandler(_create_file_handler(name, testing=testing))
 
     def excepthook(type_, value, traceback):
         root_logger.exception("Unhandled exception", exc_info=(type_, value, traceback))
@@ -113,10 +110,7 @@ def _create_file_handler(
     fh = RotatingFileHandler(
         log_file_path, mode="a", maxBytes=10 * 1024 * 1024, backupCount=3
     )
-    if log_json:
-        fh.setFormatter(_create_json_formatter())
-    else:
-        fh.setFormatter(_create_human_formatter())
+    fh.setFormatter(_create_human_formatter())
 
     return fh
 
@@ -126,38 +120,3 @@ def _create_human_formatter() -> logging.Formatter:  # pragma: no cover
         "%(asctime)s [%(levelname)-5s]: %(message)s  (%(name)s:%(lineno)s)",
         "%Y-%m-%d %H:%M:%S",
     )
-
-
-def _create_json_formatter() -> logging.Formatter:  # pragma: no cover
-    supported_keys = [
-        "asctime",
-        # 'created',
-        "filename",
-        "funcName",
-        "levelname",
-        # 'levelno',
-        "lineno",
-        "module",
-        # 'msecs',
-        "message",
-        "name",
-        "pathname",
-        # 'process',
-        # 'processName',
-        # 'relativeCreated',
-        # 'thread',
-        # 'threadName'
-    ]
-
-    def log_format(x):
-        """Used to give JsonFormatter proper parameter format"""
-        return [f"%({i:s})" for i in x]
-
-    custom_format = " ".join(log_format(supported_keys))
-
-    try:
-        from pythonjsonlogger import jsonlogger
-    except ImportError:
-        raise ImportError("pythonjsonlogger is required to use json logging.")
-
-    return jsonlogger.JsonFormatter(custom_format)
