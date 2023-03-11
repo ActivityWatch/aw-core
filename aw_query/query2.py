@@ -290,10 +290,10 @@ class QList(QToken):
     @staticmethod
     def parse(string: str, namespace: dict) -> QToken:
         entries_str = string[1:-1]
-        l: List[QToken] = []
+        ls: List[QToken] = []
         while len(entries_str) > 0:
             entries_str = entries_str.strip()
-            if len(l) > 0 and entries_str[0] == ",":
+            if len(ls) > 0 and entries_str[0] == ",":
                 entries_str = entries_str[1:]
             # parse
             (val_t, val_str), entries_str = _parse_token(entries_str, namespace)
@@ -301,8 +301,8 @@ class QList(QToken):
                 raise QueryParseException("List expected a value, got nothing")
             val = val_t.parse(val_str, namespace)
             # set
-            l.append(val)
-        return QList(l)
+            ls.append(val)
+        return QList(ls)
 
     @staticmethod
     def check(string: str):

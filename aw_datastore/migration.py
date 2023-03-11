@@ -1,9 +1,9 @@
-from typing import Optional, List
-import os
-import re
 import logging
+import os
+from typing import List, Optional
 
 from aw_core.dirs import get_data_dir
+
 from .storages import AbstractStorage
 
 logger = logging.getLogger(__name__)

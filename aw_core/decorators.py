@@ -1,7 +1,7 @@
-import warnings
 import functools
 import logging
 import time
+import warnings
 
 
 def deprecated(f):  # pragma: no cover
@@ -22,9 +22,8 @@ def deprecated(f):  # pragma: no cover
         if not warned_for:
             warnings.simplefilter("always", DeprecationWarning)  # turn off filter
             warnings.warn(
-                "Call to deprecated function {}, this warning will only show once per function.".format(
-                    f.__name__
-                ),
+                "Call to deprecated function {}, "
+                "this warning will only show once per function.".format(f.__name__),
                 category=DeprecationWarning,
                 stacklevel=2,
             )

@@ -1,7 +1,6 @@
-import logging
-from typing import List, Dict, Optional
+from abc import ABCMeta, abstractmethod
 from datetime import datetime
-from abc import ABCMeta, abstractmethod, abstractproperty
+from typing import Dict, List, Optional
 
 from aw_core.models import Event
 
