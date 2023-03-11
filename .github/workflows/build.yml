@@ -17,18 +17,17 @@ jobs:
         os: [ubuntu-18.04, windows-latest, macOS-latest]
         python_version: [3.8]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         submodules: 'recursive'
     - name: Set up Python
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python_version }}
     - name: Create virtualenv
       shell: bash
       run: |
-        pip install virtualenv
-        python -m virtualenv venv
+        python -m venv venv
     - name: Install dependencies
       shell: bash
       run: |
