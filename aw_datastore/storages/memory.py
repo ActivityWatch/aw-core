@@ -85,7 +85,10 @@ class MemoryStorage(AbstractStorage):
         return copy.deepcopy(events)
 
     def get_eventcount(
-        self, bucket: str, starttime: Optional[datetime] = None, endtime: Optional[datetime] = None
+        self,
+        bucket: str,
+        starttime: Optional[datetime] = None,
+        endtime: Optional[datetime] = None,
     ) -> int:
         return len(
             [
