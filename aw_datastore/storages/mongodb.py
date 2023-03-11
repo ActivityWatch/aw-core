@@ -1,8 +1,5 @@
-import logging
 from typing import List, Dict, Optional
 from datetime import datetime, timezone
-
-import iso8601
 
 # will be unavailable if pymongo is
 try:

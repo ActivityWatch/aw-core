@@ -1,6 +1,12 @@
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Union, Callable, Optional
+from datetime import datetime, timedelta, timezone
+from typing import (
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Union,
+)
 
 from aw_core.models import Event
 
@@ -122,14 +128,16 @@ class Bucket:
         If a single event is inserted, return the event with its id assigned.
         If several events are inserted, returns None. (This is due to there being no efficient way of getting ids out when doing bulk inserts with some datastores such as peewee/SQLite)
         """
+
         # NOTE: Should we keep the timestamp checking?
+        warn_older_event = False
+
         # Get last event for timestamp check after insert
-        """
-        last_event_list = self.get(1)
-        last_event = None
-        if last_event_list:
-            last_event = last_event_list[0]
-        """
+        if warn_older_event:
+            last_event_list = self.get(1)
+            last_event = None
+            if last_event_list:
+                last_event = last_event_list[0]
 
         now = datetime.now(tz=timezone.utc)
 
@@ -163,13 +171,13 @@ class Bucket:
             raise TypeError
 
         # Warn if timestamp is older than last event
-        """
-        if last_event and oldest_event:
+        if warn_older_event and last_event and oldest_event:
             if oldest_event.timestamp < last_event.timestamp:  # pragma: no cover
-                self.logger.warning("Inserting event that has a older timestamp than previous event!" +
-                                    "\nPrevious:" + str(last_event) +
-                                    "\nInserted:" + str(oldest_event))
-        """
+                self.logger.warning(
+                    f"""Inserting event that has a older timestamp than previous event!
+Previous: {last_event}
+Inserted: {oldest_event}"""
+                )
 
         return inserted
 

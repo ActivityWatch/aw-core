@@ -1,11 +1,7 @@
-from datetime import datetime, timedelta, timezone
-import json
-import logging
+from datetime import datetime, timedelta
 
 from aw_core.models import Event
 from aw_transform import heartbeat_merge, heartbeat_reduce
-
-import unittest
 
 
 def test_heartbeat_merge():

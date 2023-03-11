@@ -8,7 +8,8 @@ from typing import List, Optional
 from . import dirs
 from .decorators import deprecated
 
-# NOTE: Will be removed in a future version since it's not compatible with running a multi-service process
+# NOTE: Will be removed in a future version since it's not compatible
+#       with running a multi-service process.
 # TODO: prefix with `_`
 log_file_path = None
 
@@ -50,7 +51,8 @@ def setup_logging(
 
     def excepthook(type_, value, traceback):
         root_logger.exception("Unhandled exception", exc_info=(type_, value, traceback))
-        # call the default excepthook if log_stderr isn't true (otherwise it'll just get duplicated)
+        # call the default excepthook if log_stderr isn't true
+        # (otherwise it'll just get duplicated)
         if not log_stderr:
             sys.__excepthook__(type_, value, traceback)
 
@@ -58,7 +60,10 @@ def setup_logging(
 
 
 def _get_latest_log_files(name, testing=False) -> List[str]:  # pragma: no cover
-    """Returns a list with the paths of all available logfiles for `name` sorted by latest first."""
+    """
+    Returns a list with the paths of all available logfiles for `name`,
+    sorted by latest first.
+    """
     log_dir = dirs.get_log_dir(name)
     files = filter(lambda filename: name in filename, os.listdir(log_dir))
     files = filter(

@@ -3,7 +3,12 @@ import logging
 import numbers
 import typing
 from datetime import datetime, timedelta, timezone
-from typing import Any, List, Dict, Union, Optional
+from typing import (
+    Any,
+    Dict,
+    Optional,
+    Union,
+)
 
 import iso8601
 
@@ -50,12 +55,14 @@ class Event(dict):
         self.id = id
         if timestamp is None:
             logger.warning(
-                "Event initializer did not receive a timestamp argument, using now as timestamp"
+                "Event initializer did not receive a timestamp argument, "
+                "using now as timestamp"
             )
             # FIXME: The typing.cast here was required for mypy to shut up, weird...
             self.timestamp = datetime.now(typing.cast(timezone, timezone.utc))
         else:
-            # The conversion needs to be explicit here for mypy to pick it up (lacks support for properties)
+            # The conversion needs to be explicit here for mypy to pick it up
+            # (lacks support for properties)
             self.timestamp = _timestamp_parse(timestamp)
         self.duration = duration  # type: ignore
         self.data = data

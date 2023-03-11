@@ -1,4 +1,3 @@
-import re
 import iso8601
 from typing import Optional, Callable, Dict, Any, List
 from inspect import signature

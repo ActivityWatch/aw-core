@@ -1,6 +1,6 @@
 import logging
-from typing import List, Dict
 from datetime import timedelta
+from typing import List
 
 from aw_core.models import Event
 

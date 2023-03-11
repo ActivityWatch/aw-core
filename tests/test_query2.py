@@ -1,30 +1,38 @@
 from datetime import datetime, timedelta, timezone
-import iso8601
+from typing import Any, Dict
 
+import iso8601
 import pytest
+from aw_core.models import Event
+from aw_datastore.storages import MemoryStorage
+from aw_query import query
+from aw_query.exceptions import (
+    QueryFunctionException,
+    QueryInterpretException,
+    QueryParseException,
+)
+from aw_query.query2 import (
+    QDict,
+    QFunction,
+    QInteger,
+    QList,
+    QString,
+    QVariable,
+    _parse_token,
+)
 
 from .utils import param_datastore_objects
 
-from aw_core.models import Event
-from aw_query import query
-from aw_query.query2 import (
-    QInteger,
-    QVariable,
-    QString,
-    QFunction,
-    QList,
-    QDict,
-    _parse_token,
-)
-from aw_query.exceptions import (
-    QueryFunctionException,
-    QueryParseException,
-    QueryInterpretException,
-)
+
+class MockDatastore(MemoryStorage):
+    pass
+
+
+mock_ds = MockDatastore(testing=True)
 
 
 def test_query2_test_token_parsing():
-    ns = {}
+    ns: Dict[str, Any] = {}
     (t, token), trash = _parse_token("123", ns)
     assert token == "123"
     assert t == QInteger
@@ -59,7 +67,7 @@ def test_query2_test_token_parsing():
     assert _parse_token("", ns) == ((None, ""), "")
 
     with pytest.raises(QueryParseException):
-        _parse_token(None, ns)
+        _parse_token(None, ns)  # type: ignore
 
     with pytest.raises(QueryParseException):
         _parse_token('"', ns)
@@ -69,8 +77,8 @@ def test_query2_test_token_parsing():
 
 
 def test_dict():
-    ds = None
-    ns = {}
+    ds = mock_ds
+    ns: Dict[str, Any] = {}
     d_str = "{'a': {'a': {'a': 1}}, 'b': {'b\\'\"': ':'}}"
     d = QDict.parse(d_str, ns)
     expected_res = {"a": {"a": {"a": 1}}, "b": {"b'\"": ":"}}
@@ -107,40 +115,41 @@ def test_dict():
 
 
 def test_list():
-    ds = None
-    ns = {}
+    ds = mock_ds
+    ns: Dict[str, Any] = {}
     l_str = "[1,2,[[3],4],5]"
-    l = QList.parse(l_str, ns)
+    ls = QList.parse(l_str, ns)
     expected_res = [1, 2, [[3], 4], 5]
-    assert expected_res == l.interpret(ds, ns)
+    assert expected_res == ls.interpret(ds, ns)
 
     l_str = "['\\'',\"\\\"\"]"
-    l = QList.parse(l_str, ns)
+    ls = QList.parse(l_str, ns)
     expected_res = ["'", '"']
-    assert expected_res == l.interpret(ds, ns)
+    assert expected_res == ls.interpret(ds, ns)
 
     l_str = "[]"
-    l = QList.parse(l_str, ns)
+    ls = QList.parse(l_str, ns)
     expected_res = []
-    assert expected_res == l.interpret(ds, ns)
+    assert expected_res == ls.interpret(ds, ns)
 
     # Comma without pre/post value
     with pytest.raises(QueryParseException):
         l_str = "[,]"
-        l = QList.parse(l_str, ns)
+        ls = QList.parse(l_str, ns)
 
     # Comma without post value
     with pytest.raises(QueryParseException):
         l_str = "[1,]"
-        l = QList.parse(l_str, ns)
+        ls = QList.parse(l_str, ns)
 
     # Comma without pre value
     with pytest.raises(QueryParseException):
         l_str = "[,2]"
-        l = QList.parse(l_str, ns)
+        ls = QList.parse(l_str, ns)
 
 
 def test_query2_bogus_query():
+    ds = mock_ds
     qname = "test"
     qstartdate = datetime.now(tz=timezone.utc)
     qenddate = qstartdate
@@ -148,35 +157,36 @@ def test_query2_bogus_query():
     # Nothing to assign
     with pytest.raises(QueryParseException):
         example_query = "a="
-        query(qname, example_query, qstartdate, qenddate, None)
+        query(qname, example_query, qstartdate, qenddate, ds)
 
     # Assign to non-variable
     with pytest.raises(QueryParseException):
         example_query = "1 = 2"
-        query(qname, example_query, qstartdate, qenddate, None)
+        query(qname, example_query, qstartdate, qenddate, ds)
 
     # Unclosed function
     with pytest.raises(QueryParseException):
         example_query = "a = unclosed_function(var1"
-        query(qname, example_query, qstartdate, qenddate, None)
+        query(qname, example_query, qstartdate, qenddate, ds)
 
     # Two tokens in assignment
     with pytest.raises(QueryParseException):
         example_query = "asd nop() = 2"
-        query(qname, example_query, qstartdate, qenddate, None)
+        query(qname, example_query, qstartdate, qenddate, ds)
 
     # Unclosed string
     with pytest.raises(QueryParseException):
         example_query = 'asd = "something is wrong with me'
-        query(qname, example_query, qstartdate, qenddate, None)
+        query(qname, example_query, qstartdate, qenddate, ds)
 
     # Two tokens in value
     with pytest.raises(QueryParseException):
         example_query = "asd = asd1 asd2"
-        query(qname, example_query, qstartdate, qenddate, None)
+        query(qname, example_query, qstartdate, qenddate, ds)
 
 
 def test_query2_query_function_calling():
+    ds = mock_ds
     qname = "asd"
     starttime = iso8601.parse_date("1970-01-01")
     endtime = iso8601.parse_date("1970-01-02")
@@ -184,41 +194,43 @@ def test_query2_query_function_calling():
     # Function which doesn't exist
     with pytest.raises(QueryInterpretException):
         example_query = "RETURN = asd();"
-        query(qname, example_query, starttime, endtime, None)
+        query(qname, example_query, starttime, endtime, ds)
 
     # Function which does exist with invalid arguments
     with pytest.raises(QueryInterpretException):
         example_query = "RETURN = nop(badarg);"
-        query(qname, example_query, starttime, endtime, None)
+        query(qname, example_query, starttime, endtime, ds)
 
     # Function which does exist with valid arguments
     example_query = "RETURN = nop();"
-    query(qname, example_query, starttime, endtime, None)
+    query(qname, example_query, starttime, endtime, ds)
 
 
 def test_query2_return_value():
+    ds = mock_ds
     qname = "asd"
     starttime = iso8601.parse_date("1970-01-01")
     endtime = iso8601.parse_date("1970-01-02")
     example_query = "RETURN = 1;"
-    result = query(qname, example_query, starttime, endtime, None)
+    result = query(qname, example_query, starttime, endtime, ds)
     assert result == 1
 
     example_query = "RETURN = 'testing 123'"
-    result = query(qname, example_query, starttime, endtime, None)
+    result = query(qname, example_query, starttime, endtime, ds)
     assert result == "testing 123"
 
     example_query = "RETURN = {'a': 1}"
-    result = query(qname, example_query, starttime, endtime, None)
+    result = query(qname, example_query, starttime, endtime, ds)
     assert result == {"a": 1}
 
     # Nothing to return
     with pytest.raises(QueryParseException):
         example_query = "a=1"
-        result = query(qname, example_query, starttime, endtime, None)
+        result = query(qname, example_query, starttime, endtime, ds)
 
 
 def test_query2_multiline():
+    ds = mock_ds
     qname = "asd"
     starttime = iso8601.parse_date("1970-01-01")
     endtime = iso8601.parse_date("1970-01-02")
@@ -227,12 +239,13 @@ my_multiline_string = "a
 b";
 RETURN = my_multiline_string;
     """
-    result = query(qname, example_query, starttime, endtime, None)
+    result = query(qname, example_query, starttime, endtime, ds)
     assert result == "a\nb"
 
 
 def test_query2_function_invalid_types():
     """Tests the q2_typecheck decorator"""
+    ds = mock_ds
     qname = "asd"
     starttime = iso8601.parse_date("1970-01-01")
     endtime = iso8601.parse_date("1970-01-02")
@@ -243,7 +256,7 @@ def test_query2_function_invalid_types():
         RETURN = filter_keyvals(events, 666, ["invalid_val"]);
     """
     with pytest.raises(QueryFunctionException):
-        query(qname, example_query, starttime, endtime, None)
+        query(qname, example_query, starttime, endtime, ds)
 
     # str instead of list
     example_query = """
@@ -251,9 +264,10 @@ def test_query2_function_invalid_types():
         RETURN = filter_keyvals(events, "2", "invalid_val");
     """
     with pytest.raises(QueryFunctionException):
-        query(qname, example_query, starttime, endtime, None)
+        query(qname, example_query, starttime, endtime, ds)
 
-    # FIXME: For unknown reasons, query2 drops the second argument when the first argument is a bare []
+    # FIXME: For unknown reasons, query2 drops the second argument
+    #        when the first argument is a bare []
     """
     example_query = '''
         RETURN = filter_keyvals([], "2", "invalid_val");
@@ -264,12 +278,13 @@ def test_query2_function_invalid_types():
 
 
 def test_query2_function_invalid_argument_count():
+    ds = mock_ds
     qname = "asd"
     starttime = iso8601.parse_date("1970-01-01")
     endtime = iso8601.parse_date("1970-01-02")
     example_query = "RETURN=nop(nop())"
     with pytest.raises(QueryInterpretException):
-        result = query(qname, example_query, starttime, endtime, None)
+        query(qname, example_query, starttime, endtime, ds)
 
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
@@ -290,11 +305,6 @@ def test_query2_function_in_function(datastore):
         )
         # Prepare buckets
         e1 = Event(data={}, timestamp=starttime, duration=timedelta(seconds=1))
-        e2 = Event(
-            data={},
-            timestamp=starttime + timedelta(seconds=1),
-            duration=timedelta(seconds=1),
-        )
         bucket1.insert(e1)
         result = query(qname, example_query, starttime, endtime, datastore)
         assert 1 == len(result)
@@ -516,15 +526,18 @@ def test_query2_query_categorize(datastore):
     starttime = iso8601.parse_date("1970")
     endtime = starttime + timedelta(hours=1)
 
-    example_query = r"""
+    example_query = (
+        r"""
     events = query_bucket("{bid}");
     events = sort_by_timestamp(events);
-    events = categorize(events, [[["test"], {{"regex": "test"}}], [["test", "subtest"], {{"regex": "test\w"}}]]);
+    events = categorize(events, [
+                [["test"], {{"regex": "test"}}],
+                [["test", "subtest"], {{"regex": "test\w"}}]
+            ]);
     events_by_cat = merge_events_by_keys(events, ["$category"]);
     RETURN = {{"events": events, "events_by_cat": events_by_cat}};
-    """.format(
-        bid=bid
-    )
+    """
+    ).format(bid=bid)
     try:
         bucket = datastore.create_bucket(
             bucket_id=bid, type="test", client="test", hostname="test", name="asd"

@@ -1,18 +1,14 @@
 import logging
 import random
-import iso8601
 from datetime import datetime, timedelta, timezone
+
 import iso8601
-
 import pytest
-
-from . import context
-
 from aw_core.models import Event
 from aw_datastore import get_storage_methods
 
+from . import context  # noqa: F401
 from .utils import param_datastore_objects, param_testing_buckets_cm
-
 
 logging.basicConfig(level=logging.DEBUG)
 

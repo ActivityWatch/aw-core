@@ -1,11 +1,16 @@
 import shutil
 from configparser import ConfigParser
+from pathlib import Path
 
-import pytest
 import deprecation
-
+import pytest
 from aw_core import dirs
-from aw_core.config import load_config, save_config, load_config_toml, save_config_toml
+from aw_core.config import (
+    load_config,
+    load_config_toml,
+    save_config,
+    save_config_toml,
+)
 
 appname = "aw-core-test"
 section = "section"
@@ -34,8 +39,8 @@ def clean_config():
 
 def test_create():
     appname = "aw-core-test"
-    section = "section"
     config_dir = dirs.get_config_dir(appname)
+    assert Path(config_dir).exists()
 
 
 def test_config_defaults():
@@ -61,9 +66,9 @@ def test_config_no_defaults():
 
 def test_config_override():
     # Create a minimal config file with one overridden value
-    config = """[section]
+    config_str = """[section]
 somevalue = 1000.1"""
-    save_config_toml(appname, config)
+    save_config_toml(appname, config_str)
 
     # Open non-default config file and verify that values are correct
     config = load_config_toml(appname, default_config_str)
@@ -74,7 +79,7 @@ somevalue = 1000.1"""
 def test_config_ini():
     # Create default config
     default_config = ConfigParser()
-    default_config[section] = {"somestring": "Hello World!", "somevalue": 12.3}
+    default_config[section] = {"somestring": "Hello World!", "somevalue": 12.3}  # type: ignore
 
     # Load non-existing config (will create a default config file)
     config = load_config(appname, default_config)
