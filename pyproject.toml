@@ -39,6 +39,7 @@ pylint = "^2.4.4"
 black = "^22.1.0"
 ruff = "^0.0.254"
 pyupgrade = "^3.3.1"
+hypothesis = "^6.75.2"
 
 [tool.ruff]
 ignore = ["E402", "E501"]
