@@ -8,3 +8,4 @@ dist
 venv*
 .*cache
 coverage_html
+.hypothesis
