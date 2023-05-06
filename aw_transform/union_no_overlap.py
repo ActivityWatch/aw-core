@@ -3,12 +3,11 @@ Originally from aw-research
 """
 
 from copy import deepcopy
-from typing import List, Tuple, Optional
 from datetime import datetime, timedelta, timezone
-
-from timeslot import Timeslot
+from typing import List, Optional, Tuple
 
 from aw_core import Event
+from timeslot import Timeslot
 
 
 def _split_event(e: Event, dt: datetime) -> Tuple[Event, Optional[Event]]:
@@ -83,3 +82,51 @@ def union_no_overlap(events1: List[Event], events2: List[Event]) -> List[Event]:
     events_union += events1[e1_i:]
     events_union += events2[e2_i:]
     return events_union
+
+
+# TODO: rename
+def union_stack(events: List[Event]) -> List[Event]:
+    """Takes a list of events, where some may overlap, and returns a new list of events with no overlap.
+
+    The strategy to resolve overlaps is to walk through the events sorted by their starting timestamp and then iterate over the events,
+    adding/popping them from a stack depending on wether they haven't ended by the time of the next event start.
+
+    The event with the most recent starting time will always have precendence, but if a later event ends before a previous event,
+    it will fall back to creating a following event with data of the previous (still active) event.
+
+    Example:
+      events  | 11111    1 |
+              |  222  222  |
+              |   3    3   |
+      result  | 12321 2321 |
+    """
+    events = deepcopy(events)
+    events.sort(key=lambda e: e.timestamp)
+    events_stack = []
+    result = []
+
+    # The current time is the time at which we have perfect information about past events, but no information about future events
+    # Events that end on or before the `current_time` are considered to be finished, and should not remain in the stack.
+    current_time = events[0].timestamp
+
+    for e in events:
+        # Before adding the event, we need to pop all events that have ended
+        # Pop events from the stack that have ended, and add them to the union
+        while (
+            events_stack
+            and events_stack[-1].timestamp + events_stack[-1].duration <= current_time
+        ):
+            popped = events_stack.pop()
+            #
+            result.append(popped)
+
+        # If we have an active event in the stack, we need to create a new event
+        # with the data of the active event
+        if events_stack:
+            new_e = deepcopy(events_stack[-1])
+            new_e.duration = e.timestamp - current_time
+            result.append(new_e)
+
+        # Add the new event to the stack
+
+    return result

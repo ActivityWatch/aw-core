@@ -1,5 +1,6 @@
 from pprint import pprint
 from datetime import datetime, timedelta, timezone
+from typing import List
 
 from aw_core.models import Event
 from aw_transform import (
@@ -16,11 +17,13 @@ from aw_transform import (
     simplify_string,
     union,
     union_no_overlap,
+    union_stack,
     categorize,
     tag,
     Rule,
 )
 from aw_transform.filter_period_intersect import _intersecting_eventpairs
+from timeslot import Timeslot
 
 
 def test_simplify_string():
@@ -449,3 +452,46 @@ def test_union_no_overlap():
     dur = sum((e.duration for e in events_union), timedelta(0))
     assert dur == timedelta(hours=5, minutes=0)
     assert sorted(events_union, key=lambda e: e.timestamp)
+
+
+def _has_overlap(events: List[Event]) -> bool:
+    """Returns true if the events have overlap"""
+    for i, e1 in enumerate(events):
+        for e2 in events[i + 1 :]:
+            e1_p = Timeslot(e1.timestamp, e1.timestamp + e1.duration)
+            e2_p = Timeslot(e2.timestamp, e2.timestamp + e2.duration)
+            if e1_p.intersects(e2_p):
+                return True
+    return False
+
+
+def test_union_stack():
+    # In this case, we should get a result where first 1 is active, then 2, then 3, then 1 again
+    events = [
+        Event(
+            timestamp=datetime(2023, 1, 1, 0, 0),
+            duration=timedelta(hours=3),
+            data={"a": 1},
+        ),
+        Event(
+            timestamp=datetime(2023, 1, 1, 1, 0),
+            duration=timedelta(hours=1),
+            data={"a": 2},
+        ),
+        Event(
+            timestamp=datetime(2023, 1, 1, 3, 0),
+            duration=timedelta(hours=1),
+            data={"a": 3},
+        ),
+    ]
+
+    events_union = union_stack(events)
+    assert len(events_union) == 4
+    assert events_union[0].data["a"] == 1
+    assert events_union[1].data["a"] == 2
+    assert events_union[2].data["a"] == 3
+    assert events_union[3].data["a"] == 1
+
+    # check for overlap
+    assert not _has_overlap(events_union)
+
