@@ -57,10 +57,11 @@ class Datastore:
         hostname: str,
         created: datetime = datetime.now(timezone.utc),
         name: Optional[str] = None,
+        data: Optional[dict] = None,
     ) -> "Bucket":
         self.logger.info(f"Creating bucket '{bucket_id}'")
         self.storage_strategy.create_bucket(
-            bucket_id, type, client, hostname, created.isoformat(), name=name
+            bucket_id, type, client, hostname, created.isoformat(), name=name, data=data
         )
         return self[bucket_id]
 
