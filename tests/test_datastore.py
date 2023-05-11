@@ -45,14 +45,17 @@ def test_create_bucket(datastore):
             hostname="testhost",
             name=name,
             created=now,
+            data={"key": "value"},
         )
-        assert bid == bucket.metadata()["id"]
-        assert name == bucket.metadata()["name"]
-        assert "testtype" == bucket.metadata()["type"]
-        assert "testclient" == bucket.metadata()["client"]
-        assert "testhost" == bucket.metadata()["hostname"]
-        assert now == iso8601.parse_date(bucket.metadata()["created"])
+        metadata = bucket.metadata()
+        assert bid == metadata["id"]
+        assert name == metadata["name"]
+        assert "testtype" == metadata["type"]
+        assert "testclient" == metadata["client"]
+        assert "testhost" == metadata["hostname"]
+        assert now == iso8601.parse_date(metadata["created"])
         assert bid in datastore.buckets()
+        assert {"key": "value"} == metadata["data"]
     finally:
         datastore.delete_bucket(bid)
     assert bid not in datastore.buckets()

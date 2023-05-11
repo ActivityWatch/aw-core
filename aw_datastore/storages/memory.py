@@ -39,7 +39,7 @@ class MemoryStorage(AbstractStorage):
             "client": client,
             "hostname": hostname,
             "created": created,
-            "data": data,
+            "data": data or {},
         }
         self.db[bucket_id] = []
 
