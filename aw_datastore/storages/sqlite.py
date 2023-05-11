@@ -183,36 +183,23 @@ class SqliteStorage(AbstractStorage):
         name: Optional[str] = None,
         data: Optional[dict] = None,
     ):
-        updates = []
-        values = []
-
-        if type_id is not None:
-            updates.append("type = ?")
-            values.append(type_id)
-
-        if client is not None:
-            updates.append("client = ?")
-            values.append(client)
-
-        if hostname is not None:
-            updates.append("hostname = ?")
-            values.append(hostname)
-
-        if name is not None:
-            updates.append("name = ?")
-            values.append(name)
-
-        if data is not None:
-            updates.append("datastr = ?")
-            values.append(json.dumps(data))
-
-        values.append(bucket_id)
-
+        update_values = [
+            ("type", type_id),
+            ("client", client),
+            ("hostname", hostname),
+            ("name", name),
+            ("datastr", json.dumps(data) if data is not None else None),
+        ]
+        updates, values = zip(*[(k, v) for k, v in update_values if v is not None])
         if not updates:
             raise ValueError("At least one field must be updated.")
 
-        sql = "UPDATE buckets SET " + ", ".join(updates) + " WHERE id = ?"
-        self.conn.execute(sql, values)
+        sql = (
+            "UPDATE buckets SET "
+            + ", ".join(f"{u} = ?" for u in updates)
+            + " WHERE id = ?"
+        )
+        self.conn.execute(sql, (*values, bucket_id))
         self.commit()
         return self.get_metadata(bucket_id)
 
