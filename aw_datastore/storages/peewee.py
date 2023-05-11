@@ -185,7 +185,7 @@ class PeeweeStorage(AbstractStorage):
             hostname=hostname,
             created=created,
             name=name,
-            datastr=json.dumps(data) if data else "{}",
+            datastr=json.dumps(data or {}),
         )
         self.update_bucket_keys()
 
