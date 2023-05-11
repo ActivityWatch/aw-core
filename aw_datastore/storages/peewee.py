@@ -49,15 +49,14 @@ def auto_migrate(path: str) -> None:
     db = SqliteExtDatabase(path)
     migrator = SqliteMigrator(db)
 
-    # check db version (NOTE: this is not the same as the file-based version)
-    db_version = next(db.execute_sql("PRAGMA user_version"))[0]
+    # check if bucketmodel has datastr field
+    info = db.execute_sql("PRAGMA table_info(bucketmodel)")
+    has_datastr = any(row[1] == "datastr" for row in info)
 
-    if db_version == 0:
+    if not has_datastr:
         datastr_field = CharField(default="{}")
         with db.atomic():
             migrate(migrator.add_column("bucketmodel", "datastr", datastr_field))
-            # bump version
-            db.execute_sql("PRAGMA user_version = 1")
 
     db.close()
 
