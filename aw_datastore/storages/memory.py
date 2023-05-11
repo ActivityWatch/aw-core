@@ -1,7 +1,7 @@
-import sys
 import copy
+import sys
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
 from aw_core.models import Event
 
@@ -21,7 +21,14 @@ class MemoryStorage(AbstractStorage):
         self._metadata: Dict[str, dict] = dict()
 
     def create_bucket(
-        self, bucket_id, type_id, client, hostname, created, name=None
+        self,
+        bucket_id,
+        type_id,
+        client,
+        hostname,
+        created,
+        name=None,
+        data=None,
     ) -> None:
         if not name:
             name = bucket_id
@@ -32,8 +39,32 @@ class MemoryStorage(AbstractStorage):
             "client": client,
             "hostname": hostname,
             "created": created,
+            "data": data,
         }
         self.db[bucket_id] = []
+
+    def update_bucket(
+        self,
+        bucket_id: str,
+        type_id: Optional[str] = None,
+        client: Optional[str] = None,
+        hostname: Optional[str] = None,
+        name: Optional[str] = None,
+        data: Optional[dict] = None,
+    ) -> None:
+        if bucket_id in self._metadata:
+            if type_id:
+                self._metadata[bucket_id]["type"] = type_id
+            if client:
+                self._metadata[bucket_id]["client"] = client
+            if hostname:
+                self._metadata[bucket_id]["hostname"] = hostname
+            if name:
+                self._metadata[bucket_id]["name"] = name
+            if data:
+                self._metadata[bucket_id]["data"] = data
+        else:
+            raise Exception("Bucket did not exist, could not update")
 
     def delete_bucket(self, bucket_id: str) -> None:
         if bucket_id in self.db:

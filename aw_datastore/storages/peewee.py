@@ -1,24 +1,29 @@
-from typing import Optional, List, Dict, Any
-from datetime import datetime, timezone, timedelta
 import json
-import os
 import logging
+import os
+from datetime import datetime, timedelta, timezone
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+)
+
 import iso8601
+from aw_core.dirs import get_data_dir
+from aw_core.models import Event
+from playhouse.sqlite_ext import SqliteExtDatabase
 
 import peewee
 from peewee import (
-    Model,
-    CharField,
-    IntegerField,
-    DecimalField,
-    DateTimeField,
-    ForeignKeyField,
     AutoField,
+    CharField,
+    DateTimeField,
+    DecimalField,
+    ForeignKeyField,
+    IntegerField,
+    Model,
 )
-from playhouse.sqlite_ext import SqliteExtDatabase
-
-from aw_core.models import Event
-from aw_core.dirs import get_data_dir
 
 from .abstract import AbstractStorage
 
@@ -36,6 +41,25 @@ _db = SqliteExtDatabase(None)
 
 
 LATEST_VERSION = 2
+
+
+def auto_migrate(path: str) -> None:
+    from playhouse.migrate import SqliteMigrator, migrate
+
+    db = SqliteExtDatabase(path)
+    migrator = SqliteMigrator(db)
+
+    # check db version (NOTE: this is not the same as the file-based version)
+    db_version = next(db.execute_sql("PRAGMA user_version"))[0]
+
+    if db_version == 0:
+        datastr_field = CharField(default="{}")
+        with db.atomic():
+            migrate(migrator.add_column("bucketmodel", "datastr", datastr_field))
+            # bump version
+            db.execute_sql("PRAGMA user_version = 1")
+
+    db.close()
 
 
 def chunks(ls, n):
@@ -67,6 +91,7 @@ class BucketModel(BaseModel):
     type = CharField()
     client = CharField()
     hostname = CharField()
+    datastr = CharField(null=True)  # JSON-encoded object
 
     def json(self):
         return {
@@ -78,6 +103,7 @@ class BucketModel(BaseModel):
             "type": self.type,
             "client": self.client,
             "hostname": self.hostname,
+            "data": json.loads(self.datastr) if self.datastr else {},
         }
 
 
@@ -124,7 +150,6 @@ class PeeweeStorage(AbstractStorage):
         self.db = _db
         self.db.init(filepath)
         logger.info(f"Using database file: {filepath}")
-
         self.db.connect()
 
         self.bucket_keys: Dict[str, int] = {}
@@ -132,13 +157,17 @@ class PeeweeStorage(AbstractStorage):
         EventModel.create_table(safe=True)
         self.update_bucket_keys()
 
+        # Migrate database if needed, requires closing the connection first
+        self.db.close()
+        auto_migrate(filepath)
+        self.db.connect()
+
     def update_bucket_keys(self) -> None:
         buckets = BucketModel.select()
         self.bucket_keys = {bucket.id: bucket.key for bucket in buckets}
 
     def buckets(self) -> Dict[str, Dict[str, Any]]:
-        buckets = {bucket.id: bucket.json() for bucket in BucketModel.select()}
-        return buckets
+        return {bucket.id: bucket.json() for bucket in BucketModel.select()}
 
     def create_bucket(
         self,
@@ -148,6 +177,7 @@ class PeeweeStorage(AbstractStorage):
         hostname: str,
         created: str,
         name: Optional[str] = None,
+        data: Optional[Dict[str, Any]] = None,
     ):
         BucketModel.create(
             id=bucket_id,
@@ -156,8 +186,36 @@ class PeeweeStorage(AbstractStorage):
             hostname=hostname,
             created=created,
             name=name,
+            datastr=json.dumps(data or "{}"),
         )
         self.update_bucket_keys()
+
+    def update_bucket(
+        self,
+        bucket_id: str,
+        type_id: Optional[str] = None,
+        client: Optional[str] = None,
+        hostname: Optional[str] = None,
+        name: Optional[str] = None,
+        data: Optional[dict] = None,
+    ) -> None:
+        if bucket_id in self.bucket_keys:
+            bucket = BucketModel.get(BucketModel.key == self.bucket_keys[bucket_id])
+
+            if type_id is not None:
+                bucket.type = type_id
+            if client is not None:
+                bucket.client = client
+            if hostname is not None:
+                bucket.hostname = hostname
+            if name is not None:
+                bucket.name = name
+            if data is not None:
+                bucket.datastr = json.dumps(data)  # Encoding data dictionary to JSON
+
+            bucket.save()
+        else:
+            raise Exception("Bucket did not exist, could not update")
 
     def delete_bucket(self, bucket_id: str) -> None:
         if bucket_id in self.bucket_keys:
@@ -173,9 +231,10 @@ class PeeweeStorage(AbstractStorage):
 
     def get_metadata(self, bucket_id: str):
         if bucket_id in self.bucket_keys:
-            return BucketModel.get(
+            bucket = BucketModel.get(
                 BucketModel.key == self.bucket_keys[bucket_id]
             ).json()
+            return bucket
         else:
             raise Exception("Bucket did not exist, could not get metadata")
 

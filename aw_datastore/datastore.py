@@ -64,6 +64,10 @@ class Datastore:
         )
         return self[bucket_id]
 
+    def update_bucket(self, bucket_id: str, **kwargs):
+        self.logger.info(f"Updating bucket '{bucket_id}'")
+        return self.storage_strategy.update_bucket(bucket_id, **kwargs)
+
     def delete_bucket(self, bucket_id: str):
         self.logger.info(f"Deleting bucket '{bucket_id}'")
         if bucket_id in self.bucket_instances:
