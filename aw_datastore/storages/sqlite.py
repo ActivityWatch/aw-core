@@ -1,13 +1,12 @@
-from typing import Optional, List, Iterable
-from datetime import datetime, timezone, timedelta
 import json
-import os
 import logging
-
+import os
 import sqlite3
+from datetime import datetime, timedelta, timezone
+from typing import Iterable, List, Optional
 
-from aw_core.models import Event
 from aw_core.dirs import get_data_dir
+from aw_core.models import Event
 
 from .abstract import AbstractStorage
 
@@ -136,7 +135,7 @@ class SqliteStorage(AbstractStorage):
         buckets = {}
         c = self.conn.cursor()
         for row in c.execute(
-            "SELECT id, name, type, client, hostname, created FROM buckets"
+            "SELECT id, name, type, client, hostname, created, datastr FROM buckets"
         ):
             buckets[row[0]] = {
                 "id": row[0],
@@ -145,6 +144,7 @@ class SqliteStorage(AbstractStorage):
                 "client": row[3],
                 "hostname": row[4],
                 "created": row[5],
+                "data": json.loads(row[6] or "{}"),
             }
         return buckets
 
@@ -156,12 +156,50 @@ class SqliteStorage(AbstractStorage):
         hostname: str,
         created: str,
         name: Optional[str] = None,
+        data: Optional[dict] = None,
     ):
         self.conn.execute(
             "INSERT INTO buckets(id, name, type, client, hostname, created, datastr) "
             + "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [bucket_id, name, type_id, client, hostname, created, str({})],
+            [
+                bucket_id,
+                name,
+                type_id,
+                client,
+                hostname,
+                created,
+                json.dumps(data or {}),
+            ],
         )
+        self.commit()
+        return self.get_metadata(bucket_id)
+
+    def update_bucket(
+        self,
+        bucket_id: str,
+        type_id: Optional[str] = None,
+        client: Optional[str] = None,
+        hostname: Optional[str] = None,
+        name: Optional[str] = None,
+        data: Optional[dict] = None,
+    ):
+        update_values = [
+            ("type", type_id),
+            ("client", client),
+            ("hostname", hostname),
+            ("name", name),
+            ("datastr", json.dumps(data) if data is not None else None),
+        ]
+        updates, values = zip(*[(k, v) for k, v in update_values if v is not None])
+        if not updates:
+            raise ValueError("At least one field must be updated.")
+
+        sql = (
+            "UPDATE buckets SET "
+            + ", ".join(f"{u} = ?" for u in updates)
+            + " WHERE id = ?"
+        )
+        self.conn.execute(sql, (*values, bucket_id))
         self.commit()
         return self.get_metadata(bucket_id)
 
@@ -178,7 +216,7 @@ class SqliteStorage(AbstractStorage):
     def get_metadata(self, bucket_id: str):
         c = self.conn.cursor()
         res = c.execute(
-            "SELECT id, name, type, client, hostname, created FROM buckets WHERE id = ?",
+            "SELECT id, name, type, client, hostname, created, datastr FROM buckets WHERE id = ?",
             [bucket_id],
         )
         row = res.fetchone()
@@ -190,6 +228,7 @@ class SqliteStorage(AbstractStorage):
                 "client": row[3],
                 "hostname": row[4],
                 "created": row[5],
+                "data": json.loads(row[6] or "{}"),
             }
         else:
             raise Exception("Bucket did not exist, could not get metadata")

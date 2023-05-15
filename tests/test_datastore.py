@@ -27,7 +27,10 @@ def test_get_buckets(datastore):
     """
     Tests fetching buckets
     """
-    datastore.buckets()
+    buckets = datastore.buckets()
+    for bucket in buckets.values():
+        assert bucket["id"] in buckets
+        assert bucket["data"] == {}
 
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
@@ -42,22 +45,40 @@ def test_create_bucket(datastore):
             hostname="testhost",
             name=name,
             created=now,
+            data={"key": "value"},
         )
-        assert bid == bucket.metadata()["id"]
-        assert name == bucket.metadata()["name"]
-        assert "testtype" == bucket.metadata()["type"]
-        assert "testclient" == bucket.metadata()["client"]
-        assert "testhost" == bucket.metadata()["hostname"]
-        assert now == iso8601.parse_date(bucket.metadata()["created"])
+        metadata = bucket.metadata()
+        assert bid == metadata["id"]
+        assert name == metadata["name"]
+        assert "testtype" == metadata["type"]
+        assert "testclient" == metadata["client"]
+        assert "testhost" == metadata["hostname"]
+        assert now == iso8601.parse_date(metadata["created"])
         assert bid in datastore.buckets()
+        assert {"key": "value"} == metadata["data"]
     finally:
         datastore.delete_bucket(bid)
     assert bid not in datastore.buckets()
 
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
+def test_update_bucket(datastore):
+    try:
+        bid = "test-" + str(random.randint(0, 1000000))
+        datastore.create_bucket(
+            bucket_id=bid, type="test", client="test", hostname="test", name="test"
+        )
+        datastore.update_bucket(bid, name="new name")
+        assert datastore[bid].metadata()["name"] == "new name"
+        datastore.update_bucket(bid, data={"key": "value"})
+        assert datastore[bid].metadata()["data"] == {"key": "value"}
+    finally:
+        datastore.delete_bucket(bid)
+
+
+@pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_delete_bucket(datastore):
-    bid = "test"
+    bid = "test-" + str(random.randint(0, 1000000))
     datastore.create_bucket(
         bucket_id=bid, type="test", client="test", hostname="test", name="test"
     )

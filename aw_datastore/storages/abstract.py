@@ -30,6 +30,19 @@ class AbstractStorage(metaclass=ABCMeta):
         hostname: str,
         created: str,
         name: Optional[str] = None,
+        data: Optional[dict] = None,
+    ) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def update_bucket(
+        self,
+        bucket_id: str,
+        type_id: Optional[str] = None,
+        client: Optional[str] = None,
+        hostname: Optional[str] = None,
+        name: Optional[str] = None,
+        data: Optional[dict] = None,
     ) -> None:
         raise NotImplementedError
 

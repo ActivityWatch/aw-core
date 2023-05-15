@@ -57,12 +57,17 @@ class Datastore:
         hostname: str,
         created: datetime = datetime.now(timezone.utc),
         name: Optional[str] = None,
+        data: Optional[dict] = None,
     ) -> "Bucket":
         self.logger.info(f"Creating bucket '{bucket_id}'")
         self.storage_strategy.create_bucket(
-            bucket_id, type, client, hostname, created.isoformat(), name=name
+            bucket_id, type, client, hostname, created.isoformat(), name=name, data=data
         )
         return self[bucket_id]
+
+    def update_bucket(self, bucket_id: str, **kwargs):
+        self.logger.info(f"Updating bucket '{bucket_id}'")
+        return self.storage_strategy.update_bucket(bucket_id, **kwargs)
 
     def delete_bucket(self, bucket_id: str):
         self.logger.info(f"Deleting bucket '{bucket_id}'")
