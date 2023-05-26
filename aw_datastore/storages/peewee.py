@@ -12,6 +12,7 @@ from typing import (
 import iso8601
 from aw_core.dirs import get_data_dir
 from aw_core.models import Event
+from playhouse.migrate import SqliteMigrator, migrate
 from playhouse.sqlite_ext import SqliteExtDatabase
 
 import peewee
@@ -44,7 +45,6 @@ LATEST_VERSION = 2
 
 
 def auto_migrate(path: str) -> None:
-    from playhouse.migrate import SqliteMigrator, migrate
 
     db = SqliteExtDatabase(path)
     migrator = SqliteMigrator(db)
@@ -154,12 +154,14 @@ class PeeweeStorage(AbstractStorage):
         self.bucket_keys: Dict[str, int] = {}
         BucketModel.create_table(safe=True)
         EventModel.create_table(safe=True)
-        self.update_bucket_keys()
 
         # Migrate database if needed, requires closing the connection first
         self.db.close()
         auto_migrate(filepath)
         self.db.connect()
+
+        # Update bucket keys
+        self.update_bucket_keys()
 
     def update_bucket_keys(self) -> None:
         buckets = BucketModel.select()
