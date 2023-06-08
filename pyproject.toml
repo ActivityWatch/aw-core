@@ -25,7 +25,6 @@ peewee = "3.*"
 appdirs = "^1.4.4"
 iso8601 = "^1.0.2"
 rfc3339-validator = "^0.1.4"  # needed for the date-type format in jsonschema
-TakeTheTime = "^0.3.1"
 strict-rfc3339 = "^0.7"
 tomlkit = "*"
 deprecation = "*"
@@ -39,6 +38,7 @@ pylint = "^2.4.4"
 black = "^22.1.0"
 ruff = "^0.0.254"
 pyupgrade = "^3.3.1"
+TakeTheTime = "^0.3.1"
 
 [tool.ruff]
 ignore = ["E402", "E501"]
