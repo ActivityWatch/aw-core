@@ -45,7 +45,6 @@ LATEST_VERSION = 2
 
 
 def auto_migrate(path: str) -> None:
-
     db = SqliteExtDatabase(path)
     migrator = SqliteMigrator(db)
 
