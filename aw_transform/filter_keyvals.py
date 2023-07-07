@@ -23,6 +23,6 @@ def filter_keyvals_regex(events: List[Event], key: str, regex: str) -> List[Even
     r = re.compile(regex)
 
     def predicate(event):
-        return bool(r.findall(event.data[key]))
+        return key in event.data and bool(r.findall(event.data[key]))
 
     return [e for e in events if predicate(e)]
