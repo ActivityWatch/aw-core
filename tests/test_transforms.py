@@ -69,6 +69,16 @@ def test_filter_keyval_regex():
     assert len(events_re) == 2
 
 
+def test_filter_keyval_regex_keyerror():
+    events = [
+        Event(data={"label": "aa"}),
+        Event(),
+        Event(data={"label": "cc"}),
+    ]
+    events_re = filter_keyvals_regex(events, "label", "aa|cc")
+    assert len(events_re) == 2
+
+
 def test_intersecting_eventpairs():
     td1h = timedelta(hours=1)
     now = datetime.now()
