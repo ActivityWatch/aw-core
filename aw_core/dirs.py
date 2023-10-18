@@ -1,6 +1,7 @@
 import os
+import sys
 from functools import wraps
-from typing import Optional, Callable
+from typing import Callable, Optional
 
 import platformdirs
 
@@ -42,5 +43,11 @@ def get_config_dir(module_name: Optional[str] = None) -> str:
 
 @_ensure_returned_path_exists
 def get_log_dir(module_name: Optional[str] = None) -> str:  # pragma: no cover
-    log_dir = platformdirs.user_log_dir("activitywatch")
+    # on Linux/Unix, platformdirs changed to using XDG_STATE_HOME instead of XDG_DATA_HOME for log_dir in v2.6
+    # we want to keep using XDG_DATA_HOME for backwards compatibility
+    # https://github.com/ActivityWatch/aw-core/pull/122#issuecomment-1768020335
+    if sys.platform.startswith("linux"):
+        log_dir = platformdirs.user_data_path("activitywatch") / "log"
+    else:
+        log_dir = platformdirs.user_log_dir("activitywatch")
     return os.path.join(log_dir, module_name) if module_name else log_dir
