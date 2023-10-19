@@ -47,7 +47,7 @@ def get_log_dir(module_name: Optional[str] = None) -> str:  # pragma: no cover
     # we want to keep using XDG_DATA_HOME for backwards compatibility
     # https://github.com/ActivityWatch/aw-core/pull/122#issuecomment-1768020335
     if sys.platform.startswith("linux"):
-        log_dir = platformdirs.user_data_path("activitywatch") / "log"
+        log_dir = platformdirs.user_cache_path("activitywatch") / "log"
     else:
         log_dir = platformdirs.user_log_dir("activitywatch")
     return os.path.join(log_dir, module_name) if module_name else log_dir
