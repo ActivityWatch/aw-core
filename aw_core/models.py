@@ -50,7 +50,7 @@ class Event(dict):
         id: Optional[Id] = None,
         timestamp: Optional[ConvertibleTimestamp] = None,
         duration: Duration = 0,
-        data: Data = dict(),
+        data: Optional[Data] = None,
     ) -> None:
         self.id = id
         if timestamp is None:
@@ -65,7 +65,7 @@ class Event(dict):
             # (lacks support for properties)
             self.timestamp = _timestamp_parse(timestamp)
         self.duration = duration  # type: ignore
-        self.data = data
+        self.data = data or {}
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Event):
@@ -76,9 +76,7 @@ class Event(dict):
             )
         else:
             raise TypeError(
-                "operator not supported between instances of '{}' and '{}'".format(
-                    type(self), type(other)
-                )
+                f"operator not supported between instances of '{type(self)}' and '{type(other)}'"
             )
 
     def __lt__(self, other: object) -> bool:
@@ -86,9 +84,7 @@ class Event(dict):
             return self.timestamp < other.timestamp
         else:
             raise TypeError(
-                "operator not supported between instances of '{}' and '{}'".format(
-                    type(self), type(other)
-                )
+                f"operator not supported between instances of '{type(self)}' and '{type(other)}'"
             )
 
     def to_json_dict(self) -> dict:

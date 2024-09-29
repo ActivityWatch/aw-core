@@ -6,7 +6,6 @@ import tomlkit
 from deprecation import deprecated
 
 from aw_core import dirs
-from aw_core.__about__ import __version__
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +80,6 @@ def save_config_toml(appname: str, config: str) -> None:
 @deprecated(
     details="Use the load_config_toml function instead",
     deprecated_in="0.5.3",
-    current_version=__version__,
 )
 def load_config(appname, default_config):
     """
@@ -107,7 +105,6 @@ def load_config(appname, default_config):
 @deprecated(
     details="Use the save_config_toml function instead",
     deprecated_in="0.5.3",
-    current_version=__version__,
 )
 def save_config(appname, config):
     config_dir = dirs.get_config_dir(appname)

@@ -6,6 +6,7 @@ import iso8601
 import pytest
 from aw_core.models import Event
 from aw_datastore import get_storage_methods
+from aw_datastore.storages import PeeweeStorage
 
 from . import context  # noqa: F401
 from .utils import param_datastore_objects, param_testing_buckets_cm
@@ -63,8 +64,8 @@ def test_create_bucket(datastore):
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_update_bucket(datastore):
+    bid = "test-" + str(random.randint(0, 1000000))
     try:
-        bid = "test-" + str(random.randint(0, 1000000))
         datastore.create_bucket(
             bucket_id=bid, type="test", client="test", hostname="test", name="test"
         )
@@ -84,7 +85,7 @@ def test_delete_bucket(datastore):
     )
     datastore.delete_bucket(bid)
     assert bid not in datastore.buckets()
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         datastore.delete_bucket(bid)
 
 
@@ -334,7 +335,6 @@ def test_get_event_trimming(bucket_cm):
     """Test that event trimming works correctly (when querying events that intersect with the query range)"""
     # TODO: Trimming should be possible to disable
     # (needed in raw data view, among other places where event editing is permitted)
-    from aw_datastore.storages import PeeweeStorage
 
     with bucket_cm as bucket:
         if not isinstance(bucket.ds.storage_strategy, PeeweeStorage):
@@ -535,7 +535,7 @@ def test_limit(bucket_cm):
     Tests setting the result limit when fetching events
     """
     with bucket_cm as bucket:
-        for i in range(5):
+        for _ in range(5):
             bucket.insert(Event(timestamp=now))
 
         assert 0 == len(bucket.get(limit=0))
@@ -560,7 +560,7 @@ def test_get_metadata(bucket_cm):
         assert "id" in metadata
         assert "name" in metadata
         assert "type" in metadata
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         bucket.metadata()
 
 

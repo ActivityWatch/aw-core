@@ -21,18 +21,14 @@ typecheck:
 typecheck-strict:
 	export MYPYPATH=./stubs; python -m mypy aw_core aw_datastore aw_transform aw_query --strict-optional --check-untyped-defs; echo "Not a failing step"
 
-PYFILES=$(shell find . -type f -name '*.py')
-PYIFILES=$(shell find . -type f -name '*.pyi')
-
 lint:
 	ruff check .
 
 lint-fix:
-	pyupgrade --py37-plus ${PYFILES} && true
 	ruff check --fix .
 
 format:
-	black ${PYFILES} ${PYIFILES}
+	ruff format .
 
 clean:
 	rm -rf build dist

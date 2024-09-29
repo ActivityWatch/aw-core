@@ -28,9 +28,7 @@ class Datastore:
         self.storage_strategy = storage_strategy(testing=testing, **kwargs)
 
     def __repr__(self):
-        return "<Datastore object using {}>".format(
-            self.storage_strategy.__class__.__name__
-        )
+        return f"<Datastore object using {self.storage_strategy.__class__.__name__}>"
 
     def __getitem__(self, bucket_id: str) -> "Bucket":
         # If this bucket doesn't have a initialized object, create it
@@ -41,9 +39,7 @@ class Datastore:
                 self.bucket_instances[bucket_id] = bucket
             else:
                 self.logger.error(
-                    "Cannot create a Bucket object for {} because it doesn't exist in the database".format(
-                        bucket_id
-                    )
+                    f"Cannot create a Bucket object for {bucket_id} because it doesn't exist in the database"
                 )
                 raise KeyError
 
@@ -55,10 +51,11 @@ class Datastore:
         type: str,
         client: str,
         hostname: str,
-        created: datetime = datetime.now(timezone.utc),
+        created: Optional[datetime] = None,
         name: Optional[str] = None,
         data: Optional[dict] = None,
     ) -> "Bucket":
+        created = created or datetime.now(timezone.utc)
         self.logger.info(f"Creating bucket '{bucket_id}'")
         self.storage_strategy.create_bucket(
             bucket_id, type, client, hostname, created.isoformat(), name=name, data=data
@@ -106,8 +103,8 @@ class Bucket:
             milliseconds = 1 + int(endtime.microsecond / 1000)
             second_offset = int(milliseconds / 1000)  # usually 0, rarely 1
             microseconds = (
-                1000 * milliseconds
-            ) % 1000000  # will likely just be 1000 * milliseconds, if it overflows it would become zero
+                (1000 * milliseconds) % 1000000
+            )  # will likely just be 1000 * milliseconds, if it overflows it would become zero
             endtime = endtime.replace(microsecond=microseconds) + timedelta(
                 seconds=second_offset
             )
@@ -153,9 +150,7 @@ class Bucket:
             oldest_event: Optional[Event] = events
             if events.timestamp + events.duration > now:
                 self.logger.warning(
-                    "Event inserted into bucket {} reaches into the future. Current UTC time: {}. Event data: {}".format(
-                        self.bucket_id, str(now), str(events)
-                    )
+                    f"Event inserted into bucket {self.bucket_id} reaches into the future. Current UTC time: {str(now)}. Event data: {str(events)}"
                 )
             inserted = self.ds.storage_strategy.insert_one(self.bucket_id, events)
             # assert inserted
@@ -167,9 +162,7 @@ class Bucket:
             for event in events:
                 if event.timestamp + event.duration > now:
                     self.logger.warning(
-                        "Event inserted into bucket {} reaches into the future. Current UTC time: {}. Event data: {}".format(
-                            self.bucket_id, str(now), str(event)
-                        )
+                        f"Event inserted into bucket {self.bucket_id} reaches into the future. Current UTC time: {str(now)}. Event data: {str(event)}"
                     )
             self.ds.storage_strategy.insert_many(self.bucket_id, events)
         else:

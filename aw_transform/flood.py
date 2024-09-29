@@ -44,17 +44,13 @@ def flood(events: List[Event], pulsetime: float = 5) -> List[Event]:
             e2.timestamp, e2.duration = end, timedelta(0)
             if not warned_about_negative_gap_safe:
                 logger.warning(
-                    "Gap was of negative duration but could be safely merged ({}s). This message will only show once per batch.".format(
-                        gap.total_seconds()
-                    )
+                    f"Gap was of negative duration but could be safely merged ({gap.total_seconds()}s). This message will only show once per batch."
                 )
                 warned_about_negative_gap_safe = True
         elif gap < -negative_gap_trim_thres and not warned_about_negative_gap_unsafe:
             # Events with negative gap but differing data cannot be merged safely
             logger.warning(
-                "Gap was of negative duration and could NOT be safely merged ({}s). This warning will only show once per batch.".format(
-                    gap.total_seconds()
-                )
+                f"Gap was of negative duration and could NOT be safely merged ({gap.total_seconds()}s). This warning will only show once per batch."
             )
             warned_about_negative_gap_unsafe = True
             # logger.warning("Event 1 (id {}): {} {}".format(e1.id, e1.timestamp, e1.duration))

@@ -22,8 +22,8 @@ def deprecated(f):  # pragma: no cover
         if not warned_for:
             warnings.simplefilter("always", DeprecationWarning)  # turn off filter
             warnings.warn(
-                "Call to deprecated function {}, "
-                "this warning will only show once per function.".format(f.__name__),
+                f"Call to deprecated function {f.__name__}, "
+                "this warning will only show once per function.",
                 category=DeprecationWarning,
                 stacklevel=2,
             )

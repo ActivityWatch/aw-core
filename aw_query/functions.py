@@ -1,31 +1,36 @@
-import iso8601
-from typing import Optional, Callable, Dict, Any, List
-from inspect import signature
-from functools import wraps
 from datetime import timedelta
+from functools import wraps
+from inspect import signature
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+)
 
+import iso8601
 from aw_core.models import Event
 from aw_datastore import Datastore
-
 from aw_transform import (
-    filter_period_intersect,
+    Rule,
+    categorize,
+    chunk_events_by_key,
+    concat,
     filter_keyvals,
     filter_keyvals_regex,
-    period_union,
-    union_no_overlap,
-    categorize,
-    tag,
-    Rule,
-    merge_events_by_keys,
-    chunk_events_by_key,
-    sort_by_timestamp,
-    sort_by_duration,
-    sum_durations,
-    concat,
-    split_url_events,
-    simplify_string,
+    filter_period_intersect,
     flood,
     limit_events,
+    merge_events_by_keys,
+    period_union,
+    simplify_string,
+    sort_by_duration,
+    sort_by_timestamp,
+    split_url_events,
+    sum_durations,
+    tag,
+    union_no_overlap,
 )
 
 from .exceptions import QueryFunctionException
@@ -41,9 +46,7 @@ def _verify_bucket_exists(datastore, bucketname):
 def _verify_variable_is_type(variable, t):
     if not isinstance(variable, t):
         raise QueryFunctionException(
-            "Variable '{}' passed to function call is of invalid type. Expected {} but was {}".format(
-                variable, t, type(variable)
-            )
+            f"Variable '{variable}' passed to function call is of invalid type. Expected {t} but was {type(variable)}"
         )
 
 
@@ -72,9 +75,7 @@ def q2_function(transform_func=None):
         sig = signature(f)
         # If function lacks docstring, use docstring from underlying function in aw_transform
         if transform_func and transform_func.__doc__ and not f.__doc__:
-            f.__doc__ = ".. note:: Documentation automatically copied from underlying function `aw_transform.{func_name}`\n\n{func_doc}".format(
-                func_name=transform_func.__name__, func_doc=transform_func.__doc__
-            )
+            f.__doc__ = f".. note:: Documentation automatically copied from underlying function `aw_transform.{transform_func.__name__}`\n\n{transform_func.__doc__}"
 
         @wraps(f)
         def g(datastore: Datastore, namespace: TNamespace, *args, **kwargs):
@@ -138,9 +139,7 @@ def q2_find_bucket(
             else:
                 return bucket
     raise QueryFunctionException(
-        "Unable to find bucket matching '{}' (hostname filter set to '{}')".format(
-            filter_str, hostname
-        )
+        f"Unable to find bucket matching '{filter_str}' (hostname filter set to '{hostname}')"
     )
 
 
@@ -161,7 +160,7 @@ def q2_query_bucket(
     except iso8601.ParseError:
         raise QueryFunctionException(
             "Unable to parse starttime/endtime for query_bucket"
-        )
+        ) from None
     return datastore[bucketname].get(starttime=starttime, endtime=endtime)
 
 

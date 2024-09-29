@@ -64,7 +64,7 @@ class MemoryStorage(AbstractStorage):
             if data:
                 self._metadata[bucket_id]["data"] = data
         else:
-            raise Exception("Bucket did not exist, could not update")
+            raise ValueError("Bucket did not exist, could not update")
 
     def delete_bucket(self, bucket_id: str) -> None:
         if bucket_id in self.db:
@@ -72,7 +72,7 @@ class MemoryStorage(AbstractStorage):
         if bucket_id in self._metadata:
             del self._metadata[bucket_id]
         else:
-            raise Exception("Bucket did not exist, could not delete")
+            raise ValueError("Bucket did not exist, could not delete")
 
     def buckets(self):
         buckets = dict()
@@ -134,7 +134,7 @@ class MemoryStorage(AbstractStorage):
         if bucket_id in self._metadata:
             return self._metadata[bucket_id]
         else:
-            raise Exception("Bucket did not exist, could not get metadata")
+            raise ValueError("Bucket did not exist, could not get metadata")
 
     def insert_one(self, bucket: str, event: Event) -> Event:
         if event.id is not None:

@@ -31,9 +31,7 @@ class TempTestBucket:
         self.ds.delete_bucket(bucket_id=self.bucket_id)
 
     def __repr__(self):
-        return "<TempTestBucket using {}>".format(
-            self.ds.storage_strategy.__class__.__name__
-        )
+        return f"<TempTestBucket using {self.ds.storage_strategy.__class__.__name__}>"
 
 
 _storage_methods = get_storage_methods()

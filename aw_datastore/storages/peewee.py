@@ -215,7 +215,7 @@ class PeeweeStorage(AbstractStorage):
 
             bucket.save()
         else:
-            raise Exception("Bucket did not exist, could not update")
+            raise ValueError("Bucket did not exist, could not update")
 
     def delete_bucket(self, bucket_id: str) -> None:
         if bucket_id in self.bucket_keys:
@@ -227,7 +227,7 @@ class PeeweeStorage(AbstractStorage):
             ).execute()
             self.update_bucket_keys()
         else:
-            raise Exception("Bucket did not exist, could not delete")
+            raise ValueError("Bucket did not exist, could not delete")
 
     def get_metadata(self, bucket_id: str):
         if bucket_id in self.bucket_keys:
@@ -236,7 +236,7 @@ class PeeweeStorage(AbstractStorage):
             ).json()
             return bucket
         else:
-            raise Exception("Bucket did not exist, could not get metadata")
+            raise ValueError("Bucket did not exist, could not get metadata")
 
     def insert_one(self, bucket_id: str, event: Event) -> Event:
         e = EventModel.from_event(self.bucket_keys[bucket_id], event)

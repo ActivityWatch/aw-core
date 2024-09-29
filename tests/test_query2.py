@@ -293,11 +293,9 @@ def test_query2_function_in_function(datastore):
     bid = "test_bucket"
     starttime = iso8601.parse_date("1970-01-01")
     endtime = iso8601.parse_date("1970-01-02")
-    example_query = """
+    example_query = f"""
     RETURN=limit_events(query_bucket("{bid}"), 1);
-    """.format(
-        bid=bid
-    )
+    """
     try:
         # Setup buckets
         bucket1 = datastore.create_bucket(
@@ -375,15 +373,13 @@ def test_query2_basic_query(datastore):
     starttime = iso8601.parse_date("1970")
     endtime = starttime + timedelta(hours=1)
 
-    example_query = """
+    example_query = f"""
     bid1 = "{bid1}";
     bid2 = "{bid2}";
     events = query_bucket(bid1);
     intersect_events = query_bucket(bid2);
     RETURN = filter_period_intersect(events, intersect_events);
-    """.format(
-        bid1=bid1, bid2=bid2
-    )
+    """
 
     try:
         # Setup buckets
@@ -428,16 +424,14 @@ def test_query2_test_merged_keys(datastore):
     starttime = iso8601.parse_date("2080")
     endtime = starttime + timedelta(hours=1)
 
-    example_query = """
+    example_query = f"""
     bid1 = "{bid}";
     events = query_bucket(bid1);
     events = merge_events_by_keys(events, ["label1", "label2"]);
     events = sort_by_duration(events);
     eventcount = query_bucket_eventcount(bid1);
     RETURN = {{"events": events, "eventcount": eventcount}};
-    """.format(
-        bid=bid
-    )
+    """
     try:
         # Setup buckets
         bucket1 = datastore.create_bucket(
@@ -491,13 +485,11 @@ def test_query2_fancy_query(datastore):
     starttime = iso8601.parse_date("1970")
     endtime = starttime + timedelta(hours=1)
 
-    example_query = """
-    bid = find_bucket("{}");
+    example_query = f"""
+    bid = find_bucket("{bid1[:10]}");
     events = query_bucket(bid);
     RETURN = simplify_window_titles(events, "title");
-    """.format(
-        bid1[:10]
-    )
+    """
 
     try:
         # Setup buckets
@@ -527,7 +519,7 @@ def test_query2_query_categorize(datastore):
     endtime = starttime + timedelta(hours=1)
 
     example_query = (
-        r"""
+        rf"""
     events = query_bucket("{bid}");
     events = sort_by_timestamp(events);
     events = categorize(events, [
@@ -537,7 +529,7 @@ def test_query2_query_categorize(datastore):
     events_by_cat = merge_events_by_keys(events, ["$category"]);
     RETURN = {{"events": events, "events_by_cat": events_by_cat}};
     """
-    ).format(bid=bid)
+    )
     try:
         bucket = datastore.create_bucket(
             bucket_id=bid, type="test", client="test", hostname="test", name="asd"

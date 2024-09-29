@@ -1,9 +1,11 @@
 import logging
+from abc import abstractmethod
 from datetime import datetime
 from typing import (
     Any,
     Dict,
     List,
+    Optional,
     Sequence,
     Tuple,
     Type,
@@ -18,15 +20,18 @@ logger = logging.getLogger(__name__)
 
 
 class QToken:
+    @abstractmethod
     def interpret(self, datastore: Datastore, namespace: dict):
         raise NotImplementedError
 
     @staticmethod
+    @abstractmethod
     def parse(string: str, namespace: dict):
         raise NotImplementedError
 
     @staticmethod
-    def check(string: str) -> Tuple[str, str]:
+    @abstractmethod
+    def check(string: str) -> Tuple[Optional[str], str]:
         raise NotImplementedError
 
 
@@ -38,7 +43,7 @@ class QInteger(QToken):
         return self.value
 
     @staticmethod
-    def parse(string: str, namespace: dict = {}) -> QToken:
+    def parse(string: str, namespace: dict) -> QToken:
         return QInteger(int(string))
 
     @staticmethod
@@ -60,9 +65,7 @@ class QVariable(QToken):
     def interpret(self, datastore: Datastore, namespace: dict):
         if self.name not in namespace:
             raise QueryInterpretException(
-                "Tried to reference variable '{}' which is not defined".format(
-                    self.name
-                )
+                f"Tried to reference variable '{self.name}' which is not defined"
             )
         namespace[self.name] = self.value
         return self.value
@@ -95,7 +98,7 @@ class QString(QToken):
         return self.value
 
     @staticmethod
-    def parse(string: str, namespace: dict = {}) -> QToken:
+    def parse(string: str, namespace: dict) -> "QString":
         quotes_type = string[0]
         string = string.replace("\\" + quotes_type, quotes_type)
         string = string[1:-1]
@@ -140,10 +143,8 @@ class QFunction(QToken):
             result = functions[self.name](*call_args)  # type: ignore
         except TypeError:
             raise QueryInterpretException(
-                "Tried to call function {} with invalid amount of arguments".format(
-                    self.name
-                )
-            )
+                f"Tried to call function {self.name} with invalid amount of arguments"
+            ) from None
         return result
 
     @staticmethod
@@ -234,7 +235,7 @@ class QDict(QToken):
             (key_t, key_str), entries_str = _parse_token(entries_str, namespace)
             if key_t != QString:
                 raise QueryParseException("Key in dict is not a str")
-            key = QString.parse(key_str).value  # type: ignore
+            key = QString.parse(key_str, {}).value
             entries_str = entries_str.strip()
             # Remove :
             if entries_str[0] != ":":

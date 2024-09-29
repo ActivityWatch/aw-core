@@ -98,7 +98,8 @@ class SqliteStorage(AbstractStorage):
 
         if new_db_file and not ignore_migration_check:
             logger.info("Created new SQlite db file")
-            from aw_datastore import check_for_migration
+
+            from aw_datastore import check_for_migration  # fmt: skip
 
             check_for_migration(self)
 
@@ -211,7 +212,7 @@ class SqliteStorage(AbstractStorage):
         cursor = self.conn.execute("DELETE FROM buckets WHERE id = ?", [bucket_id])
         self.commit()
         if cursor.rowcount != 1:
-            raise Exception("Bucket did not exist, could not delete")
+            raise ValueError("Bucket did not exist, could not delete")
 
     def get_metadata(self, bucket_id: str):
         c = self.conn.cursor()
@@ -231,7 +232,7 @@ class SqliteStorage(AbstractStorage):
                 "data": json.loads(row[6] or "{}"),
             }
         else:
-            raise Exception("Bucket did not exist, could not get metadata")
+            raise ValueError("Bucket did not exist, could not get metadata")
 
     def insert_one(self, bucket_id: str, event: Event) -> Event:
         c = self.conn.cursor()
