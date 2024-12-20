@@ -9,6 +9,7 @@ homepage = "https://activitywatch.net/"
 repository = "https://github.com/ActivityWatch/aw-core/"
 documentation = "https://docs.activitywatch.net/"
 packages = [
+    { include = "aw_cli" },
     { include = "aw_core" },
     { include = "aw_datastore" },
     { include = "aw_transform" },
@@ -29,6 +30,7 @@ strict-rfc3339 = "^0.7"
 tomlkit = "*"
 deprecation = "*"
 timeslot = "*"
+click = "*"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "*"
