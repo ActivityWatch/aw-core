@@ -345,11 +345,21 @@ def test_url_parse_event():
     result = split_url_events([e3])
     print(result)
     assert result[0].data["$protocol"] == "file"
-    assert result[0].data["$domain"] == ""
+    assert result[0].data["$domain"] == "file"
     assert result[0].data["$path"] == "/home/johan/myfile.txt"
     assert result[0].data["$params"] == ""
     assert result[0].data["$options"] == ""
     assert result[0].data["$identifier"] == ""
+
+    # Test about: URLs
+    e4 = Event(
+        data={"url": "about:blank"},
+        timestamp=now,
+        duration=timedelta(seconds=1),
+    )
+    result = split_url_events([e4])
+    assert result[0].data["$protocol"] == "about"
+    assert result[0].data["$domain"] == "about"
 
 
 def test_union():
