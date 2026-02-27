@@ -401,6 +401,33 @@ def get_return(namespace):
     return namespace["RETURN"]
 
 
+def _split_query_statements(query: str) -> List[str]:
+    """Split query into statements on semicolons, ignoring semicolons inside string literals."""
+    statements = []
+    current = ""
+    in_single_quote = False
+    in_double_quote = False
+    prev_char = None
+
+    for char in query:
+        if char == "'" and prev_char != "\\" and not in_double_quote:
+            in_single_quote = not in_single_quote
+            current += char
+        elif char == '"' and prev_char != "\\" and not in_single_quote:
+            in_double_quote = not in_double_quote
+            current += char
+        elif char == ";" and not in_single_quote and not in_double_quote:
+            statements.append(current)
+            current = ""
+        else:
+            current += char
+        prev_char = char
+
+    if current:
+        statements.append(current)
+    return statements
+
+
 def query(
     name: str, query: str, starttime: datetime, endtime: datetime, datastore: Datastore
 ) -> Any:
@@ -409,7 +436,7 @@ def query(
     namespace["STARTTIME"] = starttime.isoformat()
     namespace["ENDTIME"] = endtime.isoformat()
 
-    query_stmts = query.split(";")
+    query_stmts = _split_query_statements(query)
     for statement in query_stmts:
         statement = statement.strip()
         if statement:

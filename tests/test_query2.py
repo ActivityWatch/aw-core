@@ -19,6 +19,7 @@ from aw_query.query2 import (
     QString,
     QVariable,
     _parse_token,
+    _split_query_statements,
 )
 
 from .utils import param_datastore_objects
@@ -227,6 +228,41 @@ def test_query2_return_value():
     with pytest.raises(QueryParseException):
         example_query = "a=1"
         result = query(qname, example_query, starttime, endtime, ds)
+
+
+def test_query2_semicolon_in_string():
+    """Test that semicolons inside string literals don't break query parsing (issue #145)."""
+    ds = mock_ds
+    qname = "asd"
+    starttime = iso8601.parse_date("1970-01-01")
+    endtime = iso8601.parse_date("1970-01-02")
+
+    # Semicolon in double-quoted string
+    example_query = 'RETURN = "hello;world"'
+    result = query(qname, example_query, starttime, endtime, ds)
+    assert result == "hello;world"
+
+    # Semicolon in single-quoted string
+    example_query = "RETURN = 'hello;world'"
+    result = query(qname, example_query, starttime, endtime, ds)
+    assert result == "hello;world"
+
+    # Multiple statements where one value contains a semicolon in a string
+    example_query = 'a = "foo;bar"; RETURN = a'
+    result = query(qname, example_query, starttime, endtime, ds)
+    assert result == "foo;bar"
+
+
+def test_split_query_statements():
+    """Unit test for _split_query_statements."""
+    # Basic split
+    assert _split_query_statements("a=1;b=2") == ["a=1", "b=2"]
+    # Semicolon inside double quotes should NOT split
+    assert _split_query_statements('a="x;y";b=2') == ['a="x;y"', "b=2"]
+    # Semicolon inside single quotes should NOT split
+    assert _split_query_statements("a='x;y';b=2") == ["a='x;y'", "b=2"]
+    # Trailing semicolon — empty trailing part is omitted
+    assert _split_query_statements("a=1;") == ["a=1"]
 
 
 def test_query2_multiline():
