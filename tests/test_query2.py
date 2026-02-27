@@ -341,9 +341,7 @@ def test_query2_query_functions(datastore):
     eventcount = query_bucket_eventcount(bid);
     asd = nop();
     RETURN = {{"events": events, "eventcount": eventcount}};
-    """.format(
-        bid=bid, bid_escaped=bid.replace("'", "\\'")
-    )
+    """.format(bid=bid, bid_escaped=bid.replace("'", "\\'"))
     try:
         bucket = datastore.create_bucket(
             bucket_id=bid, type="test", client="test", hostname="test", name="asd"
@@ -518,8 +516,7 @@ def test_query2_query_categorize(datastore):
     starttime = iso8601.parse_date("1970")
     endtime = starttime + timedelta(hours=1)
 
-    example_query = (
-        rf"""
+    example_query = rf"""
     events = query_bucket("{bid}");
     events = sort_by_timestamp(events);
     events = categorize(events, [
@@ -529,7 +526,6 @@ def test_query2_query_categorize(datastore):
     events_by_cat = merge_events_by_keys(events, ["$category"]);
     RETURN = {{"events": events, "events_by_cat": events_by_cat}};
     """
-    )
     try:
         bucket = datastore.create_bucket(
             bucket_id=bid, type="test", client="test", hostname="test", name="asd"
