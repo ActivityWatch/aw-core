@@ -146,7 +146,10 @@ class PeeweeStorage(AbstractStorage):
             )
             filepath = os.path.join(data_dir, filename)
         self.db = _db
-        self.db.init(filepath)
+        self.db.init(filepath, pragmas={
+            "journal_mode": "wal",
+            "wal_autocheckpoint": 100,
+        })
         logger.info(f"Using database file: {filepath}")
         self.db.connect()
 
