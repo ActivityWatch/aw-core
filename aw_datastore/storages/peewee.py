@@ -13,7 +13,11 @@ import iso8601
 from aw_core.dirs import get_data_dir
 from aw_core.models import Event
 from playhouse.migrate import SqliteMigrator, migrate
-from playhouse.sqlite_ext import SqliteExtDatabase
+try:
+    from playhouse.sqlite_ext import SqliteExtDatabase
+except ImportError:
+    # peewee 4 is missing SqliteExtDatabase
+    from peewee import SqliteDatabase as SqliteExtDatabase
 
 import peewee
 from peewee import (
