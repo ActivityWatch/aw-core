@@ -88,7 +88,7 @@ class BaseModel(Model):
 class BucketModel(BaseModel):
     key = IntegerField(primary_key=True)
     id = CharField(unique=True)
-    created = DateTimeField(default=datetime.now)
+    created = DateTimeField(default=lambda: datetime.now(timezone.utc))
     name = CharField(null=True)
     type = CharField()
     client = CharField()
@@ -112,7 +112,7 @@ class BucketModel(BaseModel):
 class EventModel(BaseModel):
     id = AutoField()
     bucket = ForeignKeyField(BucketModel, backref="events", index=True)
-    timestamp = DateTimeField(index=True, default=datetime.now)
+    timestamp = DateTimeField(index=True, default=lambda: datetime.now(timezone.utc))
     duration = DecimalField()
     datastr = CharField()
 
