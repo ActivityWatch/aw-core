@@ -9,7 +9,7 @@ import subprocess
 
 import click
 
-from aw_cli.log import find_oldest_log, print_log, LOGLEVELS
+from aw_cli.log import find_latest_log, print_log, LOGLEVELS
 from typing import Optional
 
 
@@ -63,20 +63,20 @@ def logs(
     testing = ctx.parent.params["testing"]
     logdir: Path = Path(get_log_dir(None))
 
-    # find the oldest logfile in each of the subdirectories in the logging directory, and print the last lines in each one.
+    # find the latest logfile in each of the subdirectories in the logging directory, and print the lines in each one.
 
     if module_name:
-        print_oldest_log(logdir / module_name, testing, since, level)
+        print_latest_log(logdir / module_name, testing, since, level)
     else:
         for subdir in sorted(logdir.iterdir()):
             if subdir.is_dir():
-                print_oldest_log(subdir, testing, since, level)
+                print_latest_log(subdir, testing, since, level)
 
 
-def print_oldest_log(path, testing, since, level):
-    path = find_oldest_log(path, testing)
-    if path:
-        print_log(path, since, level)
+def print_latest_log(path, testing, since, level):
+    logfile = find_latest_log(path, testing)
+    if logfile:
+        print_log(logfile, since, level)
     else:
         print(f"No logfile found in {path}")
 
