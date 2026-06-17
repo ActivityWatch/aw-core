@@ -280,8 +280,16 @@ def q2_union_no_overlap(events1: list, events2: list) -> List[Event]:
 
 @q2_function(flood)
 @q2_typecheck
-def q2_flood(events: list) -> List[Event]:
-    return flood(events)
+def q2_flood(events: list, pulsetime: float = 5.0) -> List[Event]:
+    """Fill gaps between events up to pulsetime seconds.
+
+    The default pulsetime of 5s works well for the default 1s poll interval.
+    If you have set a higher polling interval (e.g. 30s), set pulsetime to
+    at least poll_time + 1 to avoid gaps in the activity timeline.
+
+    See ActivityWatch/activitywatch#1177.
+    """
+    return flood(events, pulsetime)
 
 
 """
