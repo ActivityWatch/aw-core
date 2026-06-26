@@ -118,21 +118,20 @@ def merge_subwatcher_fields(
         # Preserve it as a single enriched event from whichever overlapping
         # sub covers the instant, using the same "latest sub wins" rule.
         if base_is_instant:
-            best_sub = overlapping[0][0]
-            best_sub_period = overlapping[0][1]
+            instant_best_sub, instant_best_period = overlapping[0]
             for sub, sub_period in overlapping[1:]:
-                if sub.timestamp > best_sub.timestamp or (
-                    sub.timestamp == best_sub.timestamp
-                    and sub_period.end > best_sub_period.end
+                if sub.timestamp > instant_best_sub.timestamp or (
+                    sub.timestamp == instant_best_sub.timestamp
+                    and sub_period.end > instant_best_period.end
                 ):
-                    best_sub = sub
-                    best_sub_period = sub_period
+                    instant_best_sub = sub
+                    instant_best_period = sub_period
             enriched = deepcopy(base)
             for key in keys:
-                if key in best_sub.data:
+                if key in instant_best_sub.data:
                     if conflict == "base_wins" and key in enriched.data:
                         continue
-                    enriched.data[key] = deepcopy(best_sub.data[key])
+                    enriched.data[key] = deepcopy(instant_best_sub.data[key])
             result.append(enriched)
             continue
 
