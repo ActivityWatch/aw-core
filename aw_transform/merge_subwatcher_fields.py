@@ -1,5 +1,6 @@
 import logging
 from copy import deepcopy
+from datetime import timedelta
 from typing import List, Optional, Tuple
 
 from aw_core.models import Event
@@ -78,25 +79,61 @@ def merge_subwatcher_fields(
     result: List[Event] = []
     for base in base_events:
         base_period = _get_event_period(base)
+        base_is_instant = base_period.duration == timedelta(0)
         overlapping: List[Tuple[Event, Timeslot]] = []
         boundaries = {base_period.start, base_period.end}
 
         for sub in sub_sorted:
             sub_period = _get_event_period(sub)
             # Once sub starts after base ends we can stop
-            if sub_period.start >= base_period.end:
+            if sub_period.start >= base_period.end and not base_is_instant:
                 break
             # Skip sub events that end before base starts
             if sub_period.end <= base_period.start:
                 continue
             ip = base_period.intersection(sub_period)
-            if ip:
+            if not ip:
+                continue
+            if base_is_instant:
+                # An instantaneous base needs whichever sub covers that
+                # instant, even though the intersection itself is zero-length.
+                overlapping.append((sub, sub_period))
+            elif ip.duration > timedelta(0):
+                # Zero-duration intersections on a non-instant base mean a
+                # sub only touched a single boundary point (e.g. instantaneous
+                # sub event). That doesn't represent a slice where the sub was
+                # actually active, so it must not introduce a split or color
+                # any segment.
                 overlapping.append((sub, sub_period))
                 boundaries.add(ip.start)
                 boundaries.add(ip.end)
 
         if not overlapping:
             result.append(deepcopy(base))
+            continue
+
+        # A zero-duration base event has no slice for boundaries to split,
+        # but it would otherwise be silently dropped by the segment loop
+        # below (boundary_points has a single element so the zip is empty).
+        # Preserve it as a single enriched event from whichever overlapping
+        # sub covers the instant, using the same "latest sub wins" rule.
+        if base_is_instant:
+            best_sub = overlapping[0][0]
+            best_sub_period = overlapping[0][1]
+            for sub, sub_period in overlapping[1:]:
+                if sub.timestamp > best_sub.timestamp or (
+                    sub.timestamp == best_sub.timestamp
+                    and sub_period.end > best_sub_period.end
+                ):
+                    best_sub = sub
+                    best_sub_period = sub_period
+            enriched = deepcopy(base)
+            for key in keys:
+                if key in best_sub.data:
+                    if conflict == "base_wins" and key in enriched.data:
+                        continue
+                    enriched.data[key] = deepcopy(best_sub.data[key])
+            result.append(enriched)
             continue
 
         boundary_points = sorted(boundaries)
@@ -107,7 +144,10 @@ def merge_subwatcher_fields(
             best_sub_period: Optional[Timeslot] = None
 
             for sub, sub_period in overlapping:
-                if not segment_period.intersection(sub_period):
+                seg_ip = segment_period.intersection(sub_period)
+                # Skip subs that only touch this segment at a single point;
+                # they don't actually cover any of its duration.
+                if not seg_ip or seg_ip.duration == timedelta(0):
                     continue
 
                 # Later subwatcher events should supersede older overlapping
