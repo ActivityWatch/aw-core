@@ -292,8 +292,8 @@ def q2_union_no_overlap(events1: list, events2: list) -> List[Event]:
 
 @q2_function(flood)
 @q2_typecheck
-def q2_flood(events: list) -> List[Event]:
-    return flood(events)
+def q2_flood(events: list, pulsetime: float = 5) -> List[Event]:
+    return flood(events, pulsetime)
 
 
 """

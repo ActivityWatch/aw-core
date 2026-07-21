@@ -612,3 +612,58 @@ def test_query2_query_categorize(datastore):
         assert result["events_by_cat"][1].duration == timedelta(seconds=2)
     finally:
         datastore.delete_bucket(bid)
+
+
+@pytest.mark.parametrize("datastore", param_datastore_objects())
+def test_query2_flood_with_pulsetime(datastore):
+    """Test that flood() accepts an optional pulsetime argument (fixes WorkReport query bug)."""
+    bid = "test_flood_bucket"
+    qname = "test_flood"
+    starttime = iso8601.parse_date("1970")
+    endtime = starttime + timedelta(hours=1)
+
+    try:
+        bucket = datastore.create_bucket(
+            bucket_id=bid,
+            type="test",
+            client="test",
+            hostname="test",
+            name="flood_test",
+        )
+        # Two events with a 60-second gap — flood with pulsetime=300 should merge them
+        bucket.insert(
+            Event(
+                data={"app": "Firefox"},
+                timestamp=starttime,
+                duration=timedelta(seconds=10),
+            )
+        )
+        bucket.insert(
+            Event(
+                data={"app": "Firefox"},
+                timestamp=starttime + timedelta(seconds=70),
+                duration=timedelta(seconds=10),
+            )
+        )
+
+        # flood with default pulsetime (5s) — gap is 60s, events should NOT merge
+        result_default = query(
+            qname,
+            f'events = query_bucket("{bid}"); events = flood(events); RETURN = events;',
+            starttime,
+            endtime,
+            datastore,
+        )
+        assert len(result_default) == 2
+
+        # flood with pulsetime=300 — gap is 60s < 300s, events SHOULD merge
+        result_pulsetime = query(
+            qname,
+            f'events = query_bucket("{bid}"); events = flood(events, 300); RETURN = events;',
+            starttime,
+            endtime,
+            datastore,
+        )
+        assert len(result_pulsetime) == 1
+    finally:
+        datastore.delete_bucket(bid)
