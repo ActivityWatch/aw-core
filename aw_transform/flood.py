@@ -80,7 +80,33 @@ def flood(events: List[Event], pulsetime: float = 5) -> List[Event]:
                     e2.timestamp = e1.timestamp + e1.duration
                     e2.duration = e2_end - e2.timestamp
 
-    # Filter out remaining zero-duration events
-    events = [e for e in events if e.duration > timedelta(0)]
+    # Pairwise flooding can mutate an event after its previous pair has already
+    # been processed. Normalize the final stream so downstream consumers never
+    # double-count overlapping time. For differing data, the later event wins.
+    normalized: List[Event] = []
+    for event in (e for e in events if e.duration > timedelta(0)):
+        while (
+            normalized
+            and normalized[-1].timestamp + normalized[-1].duration > event.timestamp
+        ):
+            previous = normalized[-1]
 
-    return events
+            if previous.data == event.data:
+                end = max(
+                    previous.timestamp + previous.duration,
+                    event.timestamp + event.duration,
+                )
+                previous.duration = end - previous.timestamp
+                break
+
+            previous.duration = event.timestamp - previous.timestamp
+            if previous.duration <= timedelta(0):
+                normalized.pop()
+                continue
+
+            normalized.append(event)
+            break
+        else:
+            normalized.append(event)
+
+    return normalized
