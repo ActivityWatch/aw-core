@@ -142,3 +142,33 @@ def test_flood_with_custom_pulsetime():
     assert len(flooded_custom) == 2
     total_duration_custom = sum((e.duration for e in flooded_custom), timedelta(0))
     assert total_duration_custom == timedelta(seconds=40)
+
+
+def test_flood_idempotent():
+    """flood() applied repeatedly should produce the same result."""
+    events = [
+        # slight overlap, same data
+        Event(timestamp=now, duration=10, data={"a": 0}),
+        Event(timestamp=now + 9 * td1s, duration=5, data={"a": 0}),
+        # different data, no overlap
+        Event(timestamp=now + 15 * td1s, duration=5, data={"b": 0}),
+    ]
+    flood_first = flood(events, pulsetime=0)
+    flooded = flood_first
+    for _ in range(2):
+        flooded = flood(flooded, pulsetime=0)
+        assert flood_first == flooded
+
+    assert sum((e.duration for e in flooded), timedelta(0)) == 19 * td1s
+
+
+def test_flood_unsafe_gap():
+    """Overlapping events with differing data must not double-count time."""
+    events = [
+        Event(timestamp=now, duration=10, data={"a": 0}),
+        Event(timestamp=now + 9 * td1s, duration=5, data={"b": 0}),
+    ]
+    flooded = flood(events, pulsetime=0)
+
+    # Total duration must not exceed the span covered by the two events
+    assert sum((e.duration for e in flooded), timedelta(0)) == 14 * td1s

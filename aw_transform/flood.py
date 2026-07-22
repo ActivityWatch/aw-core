@@ -21,7 +21,10 @@ def flood(events: List[Event], pulsetime: float = 5) -> List[Event]:
     #        - https://github.com/ActivityWatch/aw-core/pull/73
 
     events = deepcopy(events)
-    events = sorted(events, key=lambda e: e.timestamp)
+    # Sort by (timestamp, duration) so shorter same-timestamp events come first.
+    # This matches aw-server-rust's sort_by_timestamp behavior and ensures
+    # a well-defined processing order when events share the same timestamp.
+    events = sorted(events, key=lambda e: (e.timestamp, e.duration))
 
     # If negative gaps are smaller than this, prune them to become zero
     negative_gap_trim_thres = timedelta(seconds=0.1)
