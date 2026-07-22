@@ -8,15 +8,18 @@ now = datetime.now(tz=timezone.utc)
 td1s = timedelta(seconds=1)
 
 
-def test_flood_forward():
+def test_flood_differing_data_meet_at_gap_midpoint():
     events = [
         Event(timestamp=now, duration=10, data={"a": 0}),
-        Event(timestamp=now + 15 * td1s, duration=5, data={"b": 1}),
+        Event(timestamp=now + 14 * td1s, duration=5, data={"b": 1}),
     ]
+
     flooded = flood(events)
-    assert (flooded[0].timestamp + flooded[0].duration) - flooded[
-        1
-    ].timestamp == timedelta(0)
+
+    assert flooded == [
+        Event(timestamp=now, duration=12, data={"a": 0}),
+        Event(timestamp=now + 12 * td1s, duration=7, data={"b": 1}),
+    ]
 
 
 def test_flood_forward_merge():
@@ -27,17 +30,6 @@ def test_flood_forward_merge():
     flooded = flood(events)
     assert len(flooded) == 1
     assert flooded[0].duration == timedelta(seconds=20)
-
-
-def test_flood_backward():
-    events = [
-        Event(timestamp=now, duration=5, data={"a": 0}),
-        Event(timestamp=now + 10 * td1s, duration=10, data={"b": 1}),
-    ]
-    flooded = flood(events)
-    assert (flooded[0].timestamp + flooded[0].duration) - flooded[
-        1
-    ].timestamp == timedelta(0)
 
 
 def test_flood_backward_merge():
@@ -97,8 +89,8 @@ def test_flood_normalization_preserves_non_overlapping_tail():
 
     assert flooded == [
         Event(timestamp=now, duration=5, data={"title": "first"}),
-        Event(timestamp=now + 5 * td1s, duration=7, data={"title": "second"}),
-        events[2],
+        Event(timestamp=now + 5 * td1s, duration=4.5, data={"title": "second"}),
+        Event(timestamp=now + 9.5 * td1s, duration=3.5, data={"title": "third"}),
     ]
 
 
@@ -137,11 +129,12 @@ def test_flood_with_custom_pulsetime():
     total_duration_default = sum((e.duration for e in flooded_default), timedelta(0))
     assert total_duration_default == timedelta(seconds=10)
 
-    # pulsetime=31: gap (30s) <= pulsetime, so event 1 extends to meet event 2
+    # pulsetime=31: gap (30s) <= pulsetime, so both events extend to midpoint
     flooded_custom = flood(events, pulsetime=31)
-    assert len(flooded_custom) == 2
-    total_duration_custom = sum((e.duration for e in flooded_custom), timedelta(0))
-    assert total_duration_custom == timedelta(seconds=40)
+    assert flooded_custom == [
+        Event(timestamp=now, duration=20, data={"a": 0}),
+        Event(timestamp=now + 20 * td1s, duration=20, data={"b": 1}),
+    ]
 
 
 def test_flood_idempotent():

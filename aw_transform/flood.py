@@ -9,11 +9,20 @@ logger = logging.getLogger(__name__)
 
 
 def flood(events: List[Event], pulsetime: float = 5) -> List[Event]:
-    """
-    Takes a list of events and "floods" any empty space between events by extending one of the surrounding events to cover the empty space.
+    """Fill short gaps between events and merge nearby equal-data events.
 
-    For more details on flooding, see this issue:
-     - https://github.com/ActivityWatch/activitywatch/issues/124
+    Events are ordered by timestamp and duration. Gaps no larger than
+    ``pulsetime`` are filled. Equal-data neighbours merge across the gap; when
+    their data differs, both events extend to the midpoint. Splitting an
+    uncertain interval evenly is independent of the surrounding event lengths
+    and matches the Rust implementation.
+
+    Overlapping equal-data events merge. For overlapping differing-data events,
+    final normalization gives the later event precedence so the result never
+    double-counts time.
+
+    See https://github.com/ActivityWatch/activitywatch/issues/124 for the data
+    collection uncertainty that flooding is intended to handle.
     """
     # Originally written in aw-research: https://github.com/ActivityWatch/aw-analysis/blob/7da1f2cd8552f866f643501de633d74cdecab168/aw_analysis/flood.py
     # NOTE: This algorithm has a lot of smaller details that need to be
@@ -61,27 +70,24 @@ def flood(events: List[Event], pulsetime: float = 5) -> List[Event]:
         elif -negative_gap_trim_thres < gap <= timedelta(seconds=pulsetime):
             e2_end = e2.timestamp + e2.duration
 
-            # Prioritize flooding from the longer event
-            if e1.duration >= e2.duration:
-                if e1.data == e2.data:
-                    # Extend e1 to the end of e2
-                    # Set duration of e2 to zero (mark to delete)
+            if e1.data == e2.data:
+                # Preserve the longer neighbour's extent while merging across
+                # the gap, matching the existing semantics for equal data.
+                if e1.duration >= e2.duration:
                     e1.duration = e2_end - e1.timestamp
                     e2.timestamp = e2_end
                     e2.duration = timedelta(0)
                 else:
-                    # Extend e1 to the start of e2
-                    e1.duration = e2.timestamp - e1.timestamp
-            else:
-                if e1.data == e2.data:
-                    # Extend e2 to the start of e1, discard e1
                     e2.timestamp = e1.timestamp
                     e2.duration = e2_end - e2.timestamp
                     e1.duration = timedelta(0)
-                else:
-                    # Extend e2 backwards to end of e1
-                    e2.timestamp = e1.timestamp + e1.duration
-                    e2.duration = e2_end - e2.timestamp
+            else:
+                # The gap is an interval of uncertainty: without evidence that
+                # either neighbour owns more of it, split it at the midpoint.
+                midpoint = e1.timestamp + e1.duration + gap / 2
+                e1.duration = midpoint - e1.timestamp
+                e2.timestamp = midpoint
+                e2.duration = e2_end - midpoint
 
     # Pairwise flooding can mutate an event after its previous pair has already
     # been processed. Normalize the final stream so downstream consumers never
