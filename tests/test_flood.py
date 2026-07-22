@@ -78,3 +78,23 @@ def test_flood_negative_small_gap_differing_data():
     flooded = flood(events)
     duration = sum((e.duration for e in flooded), timedelta(0))
     assert duration == timedelta(seconds=100 + 99.99)
+
+
+def test_flood_with_custom_pulsetime():
+    # Events with a 30s gap between them (simulating 30s poll_time)
+    events = [
+        Event(timestamp=now, duration=5, data={"a": 0}),
+        Event(timestamp=now + 35 * td1s, duration=5, data={"b": 1}),
+    ]
+
+    # Default pulsetime=5: gap (30s) > pulsetime, so no flooding
+    flooded_default = flood(events)
+    assert len(flooded_default) == 2
+    total_duration_default = sum((e.duration for e in flooded_default), timedelta(0))
+    assert total_duration_default == timedelta(seconds=10)
+
+    # pulsetime=31: gap (30s) <= pulsetime, so event 1 extends to meet event 2
+    flooded_custom = flood(events, pulsetime=31)
+    assert len(flooded_custom) == 2
+    total_duration_custom = sum((e.duration for e in flooded_custom), timedelta(0))
+    assert total_duration_custom == timedelta(seconds=40)
