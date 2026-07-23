@@ -13,6 +13,7 @@ import iso8601
 from aw_core.dirs import get_data_dir
 from aw_core.models import Event
 from playhouse.migrate import SqliteMigrator, migrate
+
 try:
     from playhouse.sqlite_ext import SqliteExtDatabase
 except ImportError:
@@ -60,6 +61,29 @@ def auto_migrate(path: str) -> None:
         datastr_field = CharField(default="{}")
         with db.atomic():
             migrate(migrator.add_column("bucketmodel", "datastr", datastr_field))
+
+    # Replace the single-column event indexes with a composite index.
+    # Every event query filters on bucket_id and orders by timestamp (or
+    # narrows to a timestamp range), so the composite index serves the seek,
+    # the range and the ORDER BY in one pass. With only single-column indexes
+    # SQLite reads all of a bucket's rows and sorts them in a temp B-tree,
+    # even for the LIMIT 1 last-event query issued on every heartbeat merge.
+    # Dropping the old indexes also makes inserts cheaper.
+    indexes = {row[1] for row in db.execute_sql("PRAGMA index_list(eventmodel)")}
+    if "eventmodel_bucket_id_timestamp" not in indexes:
+        logger.info(
+            "Migrating event indexes, this can take a few minutes on large databases..."
+        )
+        # Drops run before the create so the pages they free are reused to
+        # build the new index within the same transaction; creating first
+        # would permanently grow the database file by the new index's size.
+        with db.atomic():
+            db.execute_sql("DROP INDEX IF EXISTS eventmodel_bucket_id")
+            db.execute_sql("DROP INDEX IF EXISTS eventmodel_timestamp")
+            db.execute_sql(
+                "CREATE INDEX eventmodel_bucket_id_timestamp"
+                " ON eventmodel (bucket_id, timestamp)"
+            )
 
     db.close()
 
@@ -110,9 +134,12 @@ class BucketModel(BaseModel):
 
 
 class EventModel(BaseModel):
+    # Events are covered by the composite (bucket_id, timestamp) index created
+    # in auto_migrate(); it is kept out of the model so create_table doesn't
+    # build it before auto_migrate has dropped the old single-column indexes.
     id = AutoField()
-    bucket = ForeignKeyField(BucketModel, backref="events", index=True)
-    timestamp = DateTimeField(index=True, default=lambda: datetime.now(timezone.utc))
+    bucket = ForeignKeyField(BucketModel, backref="events", index=False)
+    timestamp = DateTimeField(default=lambda: datetime.now(timezone.utc))
     duration = DecimalField()
     datastr = CharField()
 
@@ -150,9 +177,12 @@ class PeeweeStorage(AbstractStorage):
             )
             filepath = os.path.join(data_dir, filename)
         self.db = _db
-        self.db.init(filepath, pragmas={
-            "journal_mode": "wal",
-        })
+        self.db.init(
+            filepath,
+            pragmas={
+                "journal_mode": "wal",
+            },
+        )
         logger.info(f"Using database file: {filepath}")
         self.db.connect()
 
