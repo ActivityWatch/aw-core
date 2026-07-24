@@ -39,7 +39,7 @@ def print_log(
     print(f"  (Filtered {lines_printed}/{len(lines)} lines)")
 
 
-def find_oldest_log(path: Path, testing=False) -> Path:
+def find_latest_log(path: Path, testing=False) -> Path:
     if not path.is_dir():
         return
 
