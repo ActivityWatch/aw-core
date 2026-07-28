@@ -1,9 +1,12 @@
+import logging
 from typing import Pattern, List, Iterable, Tuple, Dict, Optional, Any
 from functools import reduce
 import re
 
 from aw_core import Event
 
+
+logger = logging.getLogger(__name__)
 
 Tag = str
 Category = List[str]
@@ -20,13 +23,24 @@ class Rule:
 
         # NOTE: Also checks that the regex isn't an empty string (which would erroneously match everything)
         regex_str = rules.get("regex", None)
-        self.regex = (
-            re.compile(
-                regex_str, (re.IGNORECASE if self.ignore_case else 0) | re.UNICODE
-            )
-            if regex_str
-            else None
-        )
+        if regex_str:
+            try:
+                self.regex = re.compile(
+                    regex_str,
+                    (re.IGNORECASE if self.ignore_case else 0) | re.UNICODE,
+                )
+            except re.error as e:
+                # An invalid user-supplied pattern should not crash categorization
+                # for the entire query. Log it and disable this rule (match nothing).
+                logger.warning(
+                    "Invalid regex pattern %r in category/tag rule (%s); "
+                    "this rule will match nothing.",
+                    regex_str,
+                    e,
+                )
+                self.regex = None
+        else:
+            self.regex = None
 
     def match(self, e: Event) -> bool:
         if self.select_keys:
