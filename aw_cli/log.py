@@ -39,20 +39,19 @@ def print_log(
     print(f"  (Filtered {lines_printed}/{len(lines)} lines)")
 
 
-def find_oldest_log(path: Path, testing=False) -> Path:
-    if not path.is_dir():
-        return
+def find_oldest_log(path: Path) -> Optional[Path]:
+    """Return the most-recently-modified log file under *path*.
 
-    logfiles = [
-        f
-        for f in path.iterdir()
-        if f.is_file()
-        and f.name.endswith(".log")
-        and ("testing" in f.name if testing else "testing" not in f.name)
-    ]
+    Since aw-core #149 each profile runs in its own platform directory
+    (``activitywatch-<profile>``), so no filename-based profile filtering is
+    needed here — every ``.log`` file in *path* belongs to the active profile.
+    """
+    if not path.is_dir():
+        return None
+
+    logfiles = [f for f in path.iterdir() if f.is_file() and f.name.endswith(".log")]
     if not logfiles:
-        return
+        return None
 
     logfiles.sort(key=lambda f: f.stat().st_mtime)
-    logfile = logfiles[-1]
-    return logfile
+    return logfiles[-1]
