@@ -34,8 +34,7 @@ def main(profile: Optional[str] = None, testing: bool = False):
     active = _resolve_profile(profile, testing)
     if active:
         os.environ["AW_PROFILE"] = active
-    else:
-        os.environ.pop("AW_PROFILE", None)
+    # If no explicit flag, preserve any inherited AW_PROFILE from the environment.
 
 
 @main.command()
