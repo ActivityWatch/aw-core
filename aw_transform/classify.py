@@ -46,7 +46,10 @@ def categorize(
 ) -> List[Event]:
     cache: Dict[str, Category] = {}
     for e in events:
-        key = json.dumps(e.data, sort_keys=True)
+        try:
+            key = json.dumps(e.data, sort_keys=True)
+        except TypeError:
+            key = str(id(e.data))
         if key not in cache:
             cache[key] = _pick_category(
                 [_cls for _cls, rule in classes if rule.match(e)]
@@ -65,7 +68,10 @@ def _categorize_one(e: Event, classes: List[Tuple[Category, Rule]]) -> Event:
 def tag(events: List[Event], classes: List[Tuple[Tag, Rule]]) -> List[Event]:
     cache: Dict[str, List[Tag]] = {}
     for e in events:
-        key = json.dumps(e.data, sort_keys=True)
+        try:
+            key = json.dumps(e.data, sort_keys=True)
+        except TypeError:
+            key = str(id(e.data))
         if key not in cache:
             cache[key] = [_cls for _cls, rule in classes if rule.match(e)]
         e.data["$tags"] = list(cache[key])
