@@ -1,3 +1,4 @@
+import json
 from typing import Pattern, List, Iterable, Tuple, Dict, Optional, Any
 from functools import reduce
 import re
@@ -43,7 +44,18 @@ class Rule:
 def categorize(
     events: List[Event], classes: List[Tuple[Category, Rule]]
 ) -> List[Event]:
-    return [_categorize_one(e, classes) for e in events]
+    cache: Dict[str, Category] = {}
+    for e in events:
+        try:
+            key = json.dumps(e.data, sort_keys=True)
+        except TypeError:
+            key = str(id(e.data))
+        if key not in cache:
+            cache[key] = _pick_category(
+                [_cls for _cls, rule in classes if rule.match(e)]
+            )
+        e.data["$category"] = list(cache[key])
+    return events
 
 
 def _categorize_one(e: Event, classes: List[Tuple[Category, Rule]]) -> Event:
@@ -54,7 +66,16 @@ def _categorize_one(e: Event, classes: List[Tuple[Category, Rule]]) -> Event:
 
 
 def tag(events: List[Event], classes: List[Tuple[Tag, Rule]]) -> List[Event]:
-    return [_tag_one(e, classes) for e in events]
+    cache: Dict[str, List[Tag]] = {}
+    for e in events:
+        try:
+            key = json.dumps(e.data, sort_keys=True)
+        except TypeError:
+            key = str(id(e.data))
+        if key not in cache:
+            cache[key] = [_cls for _cls, rule in classes if rule.match(e)]
+        e.data["$tags"] = list(cache[key])
+    return events
 
 
 def _tag_one(e: Event, classes: List[Tuple[Tag, Rule]]) -> Event:

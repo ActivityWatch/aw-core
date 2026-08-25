@@ -418,6 +418,36 @@ def test_categorize():
     assert events[3].data["$category"] == ["Uncategorized"]
 
 
+def test_categorize_cache_correctness():
+    """Cache reuses category for identical data; distinct data gets its own category."""
+    now = datetime.now(timezone.utc)
+
+    classes = [
+        (["Browser"], Rule({"regex": "Firefox"})),
+        (["Editor"], Rule({"regex": "vim"})),
+    ]
+    firefox_data = {"app": "Firefox", "title": "Home"}
+    vim_data = {"app": "vim", "title": "classify.py"}
+
+    # 50 Firefox events, 1 vim event, 50 more Firefox events
+    events = (
+        [Event(timestamp=now, duration=0, data=dict(firefox_data)) for _ in range(50)]
+        + [Event(timestamp=now, duration=0, data=dict(vim_data))]
+        + [Event(timestamp=now, duration=0, data=dict(firefox_data)) for _ in range(50)]
+    )
+    result = categorize(events, classes)
+
+    for e in result[:50]:
+        assert e.data["$category"] == ["Browser"]
+    assert result[50].data["$category"] == ["Editor"]
+    for e in result[51:]:
+        assert e.data["$category"] == ["Browser"]
+
+    # Mutating one event's category must not affect others sharing the same data fingerprint
+    result[0].data["$category"].append("MUTATED")
+    assert result[1].data["$category"] == ["Browser"]
+
+
 def test_tags():
     now = datetime.now(timezone.utc)
 
