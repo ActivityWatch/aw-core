@@ -5,7 +5,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Iterable, List, Optional
 
-from aw_core.dirs import get_data_dir
+from aw_core.dirs import get_data_dir, legacy_testing_suffix
 from aw_core.models import Event
 
 from .abstract import AbstractStorage
@@ -77,7 +77,7 @@ class SqliteStorage(AbstractStorage):
         # Ignore the migration check if custom filepath is set
         ignore_migration_check = filepath is not None
 
-        ds_name = self.sid + ("-testing" if testing else "")
+        ds_name = self.sid + legacy_testing_suffix(testing)
         if not filepath:
             data_dir = get_data_dir("aw-server")
             filename = ds_name + f".v{LATEST_VERSION}" + ".db"

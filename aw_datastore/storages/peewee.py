@@ -10,7 +10,7 @@ from typing import (
 )
 
 import iso8601
-from aw_core.dirs import get_data_dir
+from aw_core.dirs import get_data_dir, legacy_testing_suffix
 from aw_core.models import Event
 from playhouse.migrate import SqliteMigrator, migrate
 
@@ -171,7 +171,7 @@ class PeeweeStorage(AbstractStorage):
         if not filepath:
             filename = (
                 "peewee-sqlite"
-                + ("-testing" if testing else "")
+                + legacy_testing_suffix(testing)
                 + f".v{LATEST_VERSION}"
                 + ".db"
             )

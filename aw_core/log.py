@@ -63,12 +63,16 @@ def _get_latest_log_files(name, testing=False) -> List[str]:  # pragma: no cover
     """
     log_dir = dirs.get_log_dir(name)
     files = filter(lambda filename: name in filename, os.listdir(log_dir))
-    files = filter(
-        lambda filename: "testing" in filename
-        if testing
-        else "testing" not in filename,
-        files,
-    )
+    # Isolated testing roots already separate logs by directory; the
+    # filename filter is only needed in the shared-root legacy layout.
+    isolated_testing = testing and not dirs.legacy_testing_suffix(testing)
+    if not isolated_testing:
+        files = filter(
+            lambda filename: (
+                "testing" in filename if testing else "testing" not in filename
+            ),
+            files,
+        )
     return [os.path.join(log_dir, filename) for filename in sorted(files, reverse=True)]
 
 
@@ -100,7 +104,10 @@ def _create_file_handler(
     # $LOG_DIR/aw-server_testing_2017-01-05T00:21:39.log
     file_ext = ".log.json" if log_json else ".log"
     now_str = str(datetime.now().replace(microsecond=0).isoformat()).replace(":", "-")
-    log_name = name + "_" + ("testing_" if testing else "") + now_str + file_ext
+    testing_prefix = (
+        "testing_" if testing and dirs.legacy_testing_suffix(testing) else ""
+    )
+    log_name = name + "_" + testing_prefix + now_str + file_ext
     log_file_path = os.path.join(log_dir, log_name)
 
     # Create rotating logfile handler, max 10MB per file, 3 files max
