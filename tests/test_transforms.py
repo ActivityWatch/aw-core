@@ -506,6 +506,16 @@ def test_categorize_negative_priority_still_beats_uncategorized():
     assert events[0].data["$category"] == ["Low"]
 
 
+def test_categorize_priority_below_i64_min_still_beats_uncategorized():
+    # Python ints are unbounded; a signed-64-bit fallback sentinel would
+    # incorrectly keep Uncategorized for values below -(2**63).
+    events = categorize(
+        [_event()],
+        [(["Low"], Rule({"regex": "test", "priority": -(2**63) - 1}))],
+    )
+    assert events[0].data["$category"] == ["Low"]
+
+
 def test_categorize_empty_category_keeps_uncategorized():
     events = categorize(
         [_event()],

@@ -8,10 +8,6 @@ from aw_core import Event
 Tag = str
 Category = List[str]
 
-# Sentinel so any real match — including a large negative explicit priority —
-# still beats the Uncategorized fallback.
-_UNCATEGORIZED_RANK = -(2**63)
-
 
 def _parse_optional_priority(rules: Dict[str, Any]) -> Optional[int]:
     if "priority" in rules:
@@ -112,12 +108,15 @@ def _effective_rank(category: Category, rule: Rule) -> int:
 
 def _pick_category(matches: Iterable[Tuple[Category, Rule]]) -> Category:
     category: Category = ["Uncategorized"]
-    rank = _UNCATEGORIZED_RANK
+    rank: Optional[int] = None
     for cat, rule in matches:
         if not cat:
             continue
         item_rank = _effective_rank(cat, rule)
-        if item_rank >= rank:
+        # None means no match yet, so any non-empty category wins — including
+        # an explicit priority below a signed 64-bit floor. Equal ranks keep
+        # the later match (same contract as the old depth-only `>=`).
+        if rank is None or item_rank >= rank:
             category = cat
             rank = item_rank
     return category
