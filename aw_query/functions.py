@@ -333,12 +333,18 @@ def q2_nop():
 @q2_function(categorize)
 @q2_typecheck
 def q2_categorize(events: list, classes: list):
-    classes = [(_cls, Rule(rule_dict)) for _cls, rule_dict in classes]
+    try:
+        classes = [(_cls, Rule(rule_dict)) for _cls, rule_dict in classes]
+    except ValueError as exc:
+        raise QueryFunctionException(str(exc)) from None
     return categorize(events, classes)
 
 
 @q2_function(tag)
 @q2_typecheck
 def q2_tag(events: list, classes: list):
-    classes = [(_cls, Rule(rule_dict)) for _cls, rule_dict in classes]
+    try:
+        classes = [(_cls, Rule(rule_dict)) for _cls, rule_dict in classes]
+    except ValueError as exc:
+        raise QueryFunctionException(str(exc)) from None
     return tag(events, classes)
