@@ -132,6 +132,34 @@ def test_peewee_startup_recovers_xor_corrupt_db(tmp_path):
             _db.close()
 
 
+def test_python_fallback_without_sqlite_cli(tmp_path, monkeypatch):
+    path = str(tmp_path / "peewee-sqlite.v2.db")
+    _seed_peewee_db(path, n_events=30)
+    _xor_corrupt(path)
+    monkeypatch.setattr(
+        "aw_datastore.storages.sqlite_recover._sqlite_bin", lambda: None
+    )
+    sidecar = maybe_recover_malformed_sqlite(path)
+    assert sidecar
+    assert os.path.exists(sidecar)
+    assert is_sqlite_healthy(path)
+    if not _db.is_closed():
+        _db.close()
+    store = PeeweeStorage(testing=True, filepath=path)
+    try:
+        buckets = store.buckets()
+        assert buckets
+        bucket_id = (
+            "aw-watcher-window"
+            if "aw-watcher-window" in buckets
+            else next(iter(buckets))
+        )
+        assert store.get_eventcount(bucket_id) == 30
+    finally:
+        if not _db.is_closed():
+            _db.close()
+
+
 def test_auto_recover_disabled_raises(tmp_path, monkeypatch):
     path = str(tmp_path / "peewee-sqlite.v2.db")
     _seed_peewee_db(path, n_events=5)

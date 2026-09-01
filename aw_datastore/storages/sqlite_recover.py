@@ -9,7 +9,8 @@ This module tries, in order:
 
 1. ``sqlite3 .recover`` when dbpage is available
 2. ``sqlite3 .bail off .dump`` with ``ROLLBACK`` rewritten to ``COMMIT``
-3. Reconstruct any ``eventmodel.bucket_id`` rows missing from ``bucketmodel``
+3. Pure-Python schema + row copy (Windows CI has no sqlite3 CLI)
+4. Reconstruct any ``eventmodel.bucket_id`` rows missing from ``bucketmodel``
 
 The original file is copied aside as ``<path>.corrupt-<UTC>`` before replacement.
 Disable with ``AW_SQLITE_AUTO_RECOVER=0``.
@@ -93,7 +94,7 @@ def maybe_recover_malformed_sqlite(path: str) -> str | None:
         _restore_sidecars(path, sidecar)
         if isinstance(exc, SqliteRecoverError):
             raise SqliteRecoverError(
-                f"Failed to recover {path} (original preserved at {sidecar}).\n"
+                f"Failed to recover {path} (original preserved at {sidecar}): {exc}\n"
                 + _manual_instructions(sidecar)
             ) from exc
         raise SqliteRecoverError(
@@ -147,11 +148,21 @@ def _has_dbpage(sqlite_bin: str) -> bool:
 
 def _try_recover(src: str, dest: str) -> bool:
     sqlite_bin = _sqlite_bin()
-    if sqlite_bin is None:
-        raise SqliteRecoverError("sqlite3 CLI not found on PATH; cannot auto-recover.")
-    if _has_dbpage(sqlite_bin) and _recover_with_dbpage(sqlite_bin, src, dest):
+    if sqlite_bin is not None:
+        if _has_dbpage(sqlite_bin) and _recover_with_dbpage(sqlite_bin, src, dest):
+            return True
+        try:
+            if _recover_with_dump(sqlite_bin, src, dest):
+                return True
+        except SqliteRecoverError as exc:
+            logger.info("CLI dump recover failed, trying Python fallback: %s", exc)
+            _remove_if_exists(dest)
+    if _recover_with_python(src, dest):
         return True
-    return _recover_with_dump(sqlite_bin, src, dest)
+    raise SqliteRecoverError(
+        "sqlite3 CLI recover/dump failed or is missing, and the Python "
+        "row-copy fallback produced no database"
+    )
 
 
 def _recover_with_dbpage(sqlite_bin: str, src: str, dest: str) -> bool:
@@ -233,6 +244,128 @@ def _recover_with_dump(sqlite_bin: str, src: str, dest: str) -> bool:
             (dump.stderr or "").strip()[:200],
         )
     return os.path.exists(dest) and os.path.getsize(dest) > 0
+
+
+def _ident(name: str) -> str:
+    return '"' + str(name).replace('"', '""') + '"'
+
+
+def _open_ro(path: str) -> sqlite3.Connection:
+    return sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+
+
+def _recover_with_python(src: str, dest: str) -> bool:
+    """Copy schema + surviving rows without the sqlite3 CLI.
+
+    Used on Windows CI (no sqlite3.exe) and as a last resort when CLI recover
+    fails. A poisoned connection is reopened after each DatabaseError.
+    """
+    _remove_if_exists(dest)
+    src_con = _open_ro(src)
+    dest_con = sqlite3.connect(dest)
+    try:
+        try:
+            tables = src_con.execute(
+                "SELECT name, sql FROM sqlite_master "
+                "WHERE type='table' AND name NOT LIKE 'sqlite_%' AND sql IS NOT NULL"
+            ).fetchall()
+            indexes = src_con.execute(
+                "SELECT sql FROM sqlite_master WHERE type='index' AND sql IS NOT NULL"
+            ).fetchall()
+        except sqlite3.Error as exc:
+            logger.info("Python recover cannot read sqlite_master: %s", exc)
+            dest_con.close()
+            _remove_if_exists(dest)
+            return False
+        if not tables:
+            dest_con.close()
+            _remove_if_exists(dest)
+            return False
+        for _name, sql in tables:
+            dest_con.execute(sql)
+        dest_con.commit()
+        src_con.close()
+        src_con = None
+        copied = 0
+        for name, _sql in tables:
+            copied += _copy_table_rows(src, dest_con, name)
+        for (sql,) in indexes:
+            try:
+                dest_con.execute(sql)
+            except sqlite3.Error:
+                continue
+        dest_con.commit()
+        logger.info("Python recover copied %s row(s) from %s", copied, src)
+        return os.path.exists(dest) and os.path.getsize(dest) > 0
+    except sqlite3.Error as exc:
+        logger.info("Python recover failed: %s", exc)
+        dest_con.close()
+        _remove_if_exists(dest)
+        return False
+    finally:
+        if src_con is not None:
+            src_con.close()
+        try:
+            dest_con.close()
+        except sqlite3.Error:
+            pass
+
+
+def _copy_table_rows(src: str, dest_con: sqlite3.Connection, table: str) -> int:
+    ident = _ident(table)
+    src_con = _open_ro(src)
+    copied = 0
+    try:
+        cols = [row[1] for row in src_con.execute(f"PRAGMA table_info({ident})")]
+        if not cols:
+            return 0
+        col_list = ", ".join(_ident(c) for c in cols)
+        placeholders = ", ".join("?" for _ in cols)
+        insert_sql = (
+            f"INSERT OR IGNORE INTO {ident} ({col_list}) VALUES ({placeholders})"
+        )
+        pk_cols = [
+            row[1] for row in src_con.execute(f"PRAGMA table_info({ident})") if row[5]
+        ]
+        try:
+            rows = src_con.execute(f"SELECT {col_list} FROM {ident}").fetchall()
+            dest_con.executemany(insert_sql, rows)
+            dest_con.commit()
+            return len(rows)
+        except sqlite3.Error:
+            src_con.close()
+            src_con = _open_ro(src)
+        if not pk_cols:
+            return 0
+        pk = pk_cols[0]
+        pk_ident = _ident(pk)
+        try:
+            ids = [row[0] for row in src_con.execute(f"SELECT {pk_ident} FROM {ident}")]
+        except sqlite3.Error:
+            src_con.close()
+            src_con = _open_ro(src)
+            # Integer primary keys are the peewee/eventmodel case.
+            try:
+                mx = src_con.execute(f"SELECT max({pk_ident}) FROM {ident}").fetchone()
+                ids = list(range(1, int(mx[0]) + 1)) if mx and mx[0] else []
+            except sqlite3.Error:
+                return 0
+        for key in ids:
+            try:
+                row = src_con.execute(
+                    f"SELECT {col_list} FROM {ident} WHERE {pk_ident}=?",
+                    (key,),
+                ).fetchone()
+                if row:
+                    dest_con.execute(insert_sql, row)
+                    copied += 1
+            except sqlite3.Error:
+                src_con.close()
+                src_con = _open_ro(src)
+        dest_con.commit()
+        return copied
+    finally:
+        src_con.close()
 
 
 def _reconstruct_missing_buckets(path: str) -> int:
