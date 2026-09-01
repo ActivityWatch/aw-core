@@ -263,6 +263,7 @@ def _recover_with_python(src: str, dest: str) -> bool:
     _remove_if_exists(dest)
     src_con = _open_ro(src)
     dest_con = sqlite3.connect(dest)
+    src_closed = False
     try:
         try:
             tables = src_con.execute(
@@ -274,18 +275,16 @@ def _recover_with_python(src: str, dest: str) -> bool:
             ).fetchall()
         except sqlite3.Error as exc:
             logger.info("Python recover cannot read sqlite_master: %s", exc)
-            dest_con.close()
             _remove_if_exists(dest)
             return False
         if not tables:
-            dest_con.close()
             _remove_if_exists(dest)
             return False
         for _name, sql in tables:
             dest_con.execute(sql)
         dest_con.commit()
         src_con.close()
-        src_con = None
+        src_closed = True
         copied = 0
         for name, _sql in tables:
             copied += _copy_table_rows(src, dest_con, name)
@@ -299,11 +298,10 @@ def _recover_with_python(src: str, dest: str) -> bool:
         return os.path.exists(dest) and os.path.getsize(dest) > 0
     except sqlite3.Error as exc:
         logger.info("Python recover failed: %s", exc)
-        dest_con.close()
         _remove_if_exists(dest)
         return False
     finally:
-        if src_con is not None:
+        if not src_closed:
             src_con.close()
         try:
             dest_con.close()
