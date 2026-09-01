@@ -30,6 +30,12 @@ def _checkpoint_and_close(path: str) -> None:
             os.remove(extra)
 
 
+def _corrupt_sidecars(path: str):
+    """Sidecar DB copies only — WAL/SHM use the same prefix on Windows."""
+    skip = ("-wal", "-shm", "-journal")
+    return [p for p in glob.glob(path + ".corrupt-*") if not p.endswith(skip)]
+
+
 def _xor_corrupt(path: str, offset: int = 4096, length: int = 200) -> None:
     data = bytearray(open(path, "rb").read())
     end = min(offset + length, len(data))
@@ -99,7 +105,7 @@ def test_maybe_recover_noop_on_healthy_db(tmp_path):
     con.commit()
     con.close()
     assert maybe_recover_malformed_sqlite(path) is None
-    assert glob.glob(path + ".corrupt-*") == []
+    assert _corrupt_sidecars(path) == []
 
 
 def test_peewee_startup_recovers_xor_corrupt_db(tmp_path):
@@ -113,7 +119,7 @@ def test_peewee_startup_recovers_xor_corrupt_db(tmp_path):
         _db.close()
     store = PeeweeStorage(testing=True, filepath=path)
     try:
-        sidecars = glob.glob(path + ".corrupt-*")
+        sidecars = _corrupt_sidecars(path)
         assert len(sidecars) == 1
         assert os.path.exists(sidecars[0])
         assert is_sqlite_healthy(path)
@@ -170,7 +176,7 @@ def test_auto_recover_disabled_raises(tmp_path, monkeypatch):
     monkeypatch.setenv(AUTO_RECOVER_ENV, "0")
     with pytest.raises(SqliteRecoverError, match="Auto-recovery disabled"):
         maybe_recover_malformed_sqlite(path)
-    assert glob.glob(path + ".corrupt-*") == []
+    assert _corrupt_sidecars(path) == []
 
 
 def _eventmodel_only_db(path: str, bucket_key: int = 7, n_events: int = 2) -> None:
