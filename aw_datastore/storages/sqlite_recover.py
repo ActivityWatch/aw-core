@@ -533,7 +533,7 @@ def _prepare_recovery_file(src: str, dest: str) -> None:
         # fail closed, before any activity data is written. Windows has no
         # fchmod and does not preserve POSIX permission bits.
         if os.name != "nt":
-            os.fchmod(fd, mode)
+            os.fchmod(fd, mode)  # type: ignore[attr-defined]
     finally:
         os.close(fd)
 
