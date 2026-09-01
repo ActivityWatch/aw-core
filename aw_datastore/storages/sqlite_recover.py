@@ -22,6 +22,7 @@ import logging
 import os
 import shutil
 import sqlite3
+import stat
 import subprocess
 from datetime import datetime, timezone
 
@@ -88,6 +89,7 @@ def maybe_recover_malformed_sqlite(path: str) -> str | None:
         _reconstruct_missing_buckets(tmp_dest)
         if not is_sqlite_healthy(tmp_dest):
             raise SqliteRecoverError("recovered file still fails PRAGMA quick_check")
+        _assert_recovered_schema(tmp_dest)
         _replace_live_db(path, tmp_dest)
     except Exception as exc:
         _remove_if_exists(tmp_dest)
@@ -366,15 +368,49 @@ def _copy_table_rows(src: str, dest_con: sqlite3.Connection, table: str) -> int:
         src_con.close()
 
 
+_BUCKETMODEL_DDL = (
+    'CREATE TABLE "bucketmodel" ('
+    '"key" INTEGER NOT NULL PRIMARY KEY, '
+    '"id" VARCHAR(255) NOT NULL, '
+    '"created" DATETIME NOT NULL, '
+    '"name" VARCHAR(255), '
+    '"type" VARCHAR(255) NOT NULL, '
+    '"client" VARCHAR(255) NOT NULL, '
+    '"hostname" VARCHAR(255) NOT NULL, '
+    '"datastr" VARCHAR(255))'
+)
+_BUCKETMODEL_ID_INDEX_DDL = (
+    'CREATE UNIQUE INDEX IF NOT EXISTS "bucketmodel_id" ON "bucketmodel" ("id")'
+)
+
+
+def _table_names(con: sqlite3.Connection) -> set[str]:
+    return {
+        row[0]
+        for row in con.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    }
+
+
+def _ensure_bucketmodel(con: sqlite3.Connection) -> None:
+    """Create the peewee bucket catalog if a dump salvaged events but not buckets."""
+    con.execute(_BUCKETMODEL_DDL)
+    con.execute(_BUCKETMODEL_ID_INDEX_DDL)
+
+
 def _reconstruct_missing_buckets(path: str) -> int:
     con = sqlite3.connect(path)
     try:
-        tables = {
-            row[0]
-            for row in con.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        }
-        if "eventmodel" not in tables or "bucketmodel" not in tables:
+        tables = _table_names(con)
+        if "eventmodel" not in tables:
             return 0
+        if "bucketmodel" not in tables:
+            _ensure_bucketmodel(con)
+            con.commit()
+            logger.warning(
+                "Recovered file %s had eventmodel but no bucketmodel; "
+                "created an empty bucket catalog before reconstructing keys",
+                path,
+            )
         missing = con.execute(
             """
             SELECT DISTINCT e.bucket_id
@@ -412,6 +448,38 @@ def _reconstruct_missing_buckets(path: str) -> int:
                 path,
             )
         return n
+    finally:
+        con.close()
+
+
+def _assert_recovered_schema(path: str) -> None:
+    """Refuse to install a recovered file whose salvaged events would be unreachable.
+
+    ``PRAGMA quick_check`` only validates pages. A dump can keep ``eventmodel``
+    and omit ``bucketmodel``; peewee would then create an empty catalog and
+    hide the recovered events.
+    """
+    con = sqlite3.connect(path)
+    try:
+        tables = _table_names(con)
+        if "eventmodel" not in tables:
+            return
+        if "bucketmodel" not in tables:
+            raise SqliteRecoverError("recovered file has eventmodel but no bucketmodel")
+        missing = con.execute(
+            """
+            SELECT DISTINCT e.bucket_id
+            FROM eventmodel e
+            LEFT JOIN bucketmodel b ON b."key" = e.bucket_id
+            WHERE b."key" IS NULL AND e.bucket_id IS NOT NULL
+            """
+        ).fetchall()
+        if missing:
+            raise SqliteRecoverError(
+                "recovered file has events whose buckets could not be reconstructed"
+            )
+    except sqlite3.Error as exc:
+        raise SqliteRecoverError(f"recovered file schema check failed: {exc}") from exc
     finally:
         con.close()
 
@@ -454,10 +522,20 @@ def _copy_aside(path: str) -> str:
     return sidecar
 
 
+def _preserve_mode(src: str, dest: str) -> None:
+    """Copy permission bits so replacement does not widen access under umask."""
+    try:
+        mode = stat.S_IMODE(os.stat(src).st_mode)
+        os.chmod(dest, mode)
+    except OSError as exc:
+        logger.info("Could not copy mode from %s to %s: %s", src, dest, exc)
+
+
 def _replace_live_db(path: str, recovered: str) -> None:
     # Drop WAL/SHM first so SQLite cannot apply the old log to the new file.
     for suffix in ("-wal", "-shm", "-journal"):
         _remove_if_exists(path + suffix)
+    _preserve_mode(path, recovered)
     os.replace(recovered, path)
 
 

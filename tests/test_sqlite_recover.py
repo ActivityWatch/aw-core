@@ -1,6 +1,7 @@
 import glob
 import os
 import sqlite3
+import stat
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -9,6 +10,8 @@ from aw_datastore.storages.peewee import PeeweeStorage, _db
 from aw_datastore.storages.sqlite_recover import (
     AUTO_RECOVER_ENV,
     SqliteRecoverError,
+    _assert_recovered_schema,
+    _reconstruct_missing_buckets,
     is_sqlite_healthy,
     maybe_recover_malformed_sqlite,
     sanitize_dump_sql,
@@ -168,3 +171,74 @@ def test_auto_recover_disabled_raises(tmp_path, monkeypatch):
     with pytest.raises(SqliteRecoverError, match="Auto-recovery disabled"):
         maybe_recover_malformed_sqlite(path)
     assert glob.glob(path + ".corrupt-*") == []
+
+
+def _eventmodel_only_db(path: str, bucket_key: int = 7, n_events: int = 2) -> None:
+    con = sqlite3.connect(path)
+    con.execute(
+        'CREATE TABLE "eventmodel" ('
+        '"id" INTEGER NOT NULL PRIMARY KEY, '
+        '"bucket_id" INTEGER NOT NULL, '
+        '"timestamp" DATETIME NOT NULL, '
+        '"duration" DECIMAL(10, 5) NOT NULL, '
+        '"datastr" VARCHAR(255) NOT NULL)'
+    )
+    for i in range(n_events):
+        con.execute(
+            "INSERT INTO eventmodel (id, bucket_id, timestamp, duration, datastr) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (i + 1, bucket_key, f"2020-01-01 00:00:0{i}+00:00", 1, "{}"),
+        )
+    con.commit()
+    con.close()
+
+
+def test_reconstruct_creates_bucketmodel_when_missing(tmp_path):
+    path = str(tmp_path / "partial.db")
+    _eventmodel_only_db(path, bucket_key=7, n_events=2)
+    assert _reconstruct_missing_buckets(path) == 1
+    con = sqlite3.connect(path)
+    try:
+        tables = {
+            row[0]
+            for row in con.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        assert "bucketmodel" in tables
+        row = con.execute('SELECT "key", id, type, client FROM bucketmodel').fetchone()
+        assert row[0] == 7
+        assert row[1] == "recovered-7"
+        assert row[2] == "unknown"
+        assert row[3] == "sqlite-recover"
+        assert con.execute("SELECT count(*) FROM eventmodel").fetchone()[0] == 2
+        missing = con.execute(
+            """
+            SELECT count(*) FROM eventmodel e
+            LEFT JOIN bucketmodel b ON b."key" = e.bucket_id
+            WHERE b."key" IS NULL
+            """
+        ).fetchone()[0]
+        assert missing == 0
+    finally:
+        con.close()
+    _assert_recovered_schema(path)
+
+
+def test_assert_recovered_schema_rejects_events_without_buckets(tmp_path):
+    path = str(tmp_path / "partial.db")
+    _eventmodel_only_db(path)
+    with pytest.raises(SqliteRecoverError, match="no bucketmodel"):
+        _assert_recovered_schema(path)
+
+
+@pytest.mark.skipif(
+    os.name == "nt", reason="POSIX permission bits are not preserved on Windows"
+)
+def test_recovery_preserves_restrictive_mode(tmp_path):
+    path = str(tmp_path / "peewee-sqlite.v2.db")
+    _seed_peewee_db(path, n_events=5)
+    os.chmod(path, 0o600)
+    _xor_corrupt(path)
+    sidecar = maybe_recover_malformed_sqlite(path)
+    assert sidecar
+    assert is_sqlite_healthy(path)
+    assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
