@@ -79,6 +79,7 @@ def maybe_recover_malformed_sqlite(path: str) -> str | None:
     tmp_dest = path + ".recovered-tmp"
     _remove_if_exists(tmp_dest)
     try:
+        _prepare_recovery_file(path, tmp_dest)
         recovered = _try_recover(sidecar, tmp_dest)
         if (
             not recovered
@@ -158,7 +159,7 @@ def _try_recover(src: str, dest: str) -> bool:
                 return True
         except SqliteRecoverError as exc:
             logger.info("CLI dump recover failed, trying Python fallback: %s", exc)
-            _remove_if_exists(dest)
+            _truncate(dest)
     if _recover_with_python(src, dest):
         return True
     raise SqliteRecoverError(
@@ -199,11 +200,11 @@ def _recover_with_dbpage(sqlite_bin: str, src: str, dest: str) -> bool:
             dump.returncode,
             (dump_err or "").strip()[:300],
         )
-        _remove_if_exists(dest)
+        _truncate(dest)
         return False
     if load.returncode != 0:
         logger.info("sqlite3 .recover load failed: %s", (load_err or "").strip()[:300])
-        _remove_if_exists(dest)
+        _truncate(dest)
         return False
     return os.path.exists(dest) and os.path.getsize(dest) > 0
 
@@ -262,7 +263,7 @@ def _recover_with_python(src: str, dest: str) -> bool:
     Used on Windows CI (no sqlite3.exe) and as a last resort when CLI recover
     fails. A poisoned connection is reopened after each DatabaseError.
     """
-    _remove_if_exists(dest)
+    _truncate(dest)
     src_con = _open_ro(src)
     dest_con = sqlite3.connect(dest)
     src_closed = False
@@ -277,10 +278,10 @@ def _recover_with_python(src: str, dest: str) -> bool:
             ).fetchall()
         except sqlite3.Error as exc:
             logger.info("Python recover cannot read sqlite_master: %s", exc)
-            _remove_if_exists(dest)
+            _truncate(dest)
             return False
         if not tables:
-            _remove_if_exists(dest)
+            _truncate(dest)
             return False
         for _name, sql in tables:
             dest_con.execute(sql)
@@ -300,7 +301,7 @@ def _recover_with_python(src: str, dest: str) -> bool:
         return os.path.exists(dest) and os.path.getsize(dest) > 0
     except sqlite3.Error as exc:
         logger.info("Python recover failed: %s", exc)
-        _remove_if_exists(dest)
+        _truncate(dest)
         return False
     finally:
         if not src_closed:
@@ -522,20 +523,23 @@ def _copy_aside(path: str) -> str:
     return sidecar
 
 
-def _preserve_mode(src: str, dest: str) -> None:
-    """Copy permission bits so replacement does not widen access under umask."""
+def _prepare_recovery_file(src: str, dest: str) -> None:
+    """Create an empty recovery file with the live database's permissions."""
+    mode = stat.S_IMODE(os.stat(src).st_mode)
+    fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
     try:
-        mode = stat.S_IMODE(os.stat(src).st_mode)
-        os.chmod(dest, mode)
-    except OSError as exc:
-        logger.info("Could not copy mode from %s to %s: %s", src, dest, exc)
+        # The process umask may have removed bits requested above. Applying the
+        # exact original mode before recovery starts also makes chmod failures
+        # fail closed, before any activity data is written.
+        os.fchmod(fd, mode)
+    finally:
+        os.close(fd)
 
 
 def _replace_live_db(path: str, recovered: str) -> None:
     # Drop WAL/SHM first so SQLite cannot apply the old log to the new file.
     for suffix in ("-wal", "-shm", "-journal"):
         _remove_if_exists(path + suffix)
-    _preserve_mode(path, recovered)
     os.replace(recovered, path)
 
 
@@ -546,6 +550,11 @@ def _restore_sidecars(path: str, sidecar: str) -> None:
         dest = path + suffix
         if os.path.exists(src) and not os.path.exists(dest):
             shutil.copy2(src, dest)
+
+
+def _truncate(path: str) -> None:
+    with open(path, "wb"):
+        pass
 
 
 def _remove_if_exists(path: str) -> None:

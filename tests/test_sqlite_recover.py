@@ -11,6 +11,7 @@ from aw_datastore.storages.sqlite_recover import (
     AUTO_RECOVER_ENV,
     SqliteRecoverError,
     _assert_recovered_schema,
+    _prepare_recovery_file,
     _reconstruct_missing_buckets,
     is_sqlite_healthy,
     maybe_recover_malformed_sqlite,
@@ -234,6 +235,41 @@ def test_assert_recovered_schema_rejects_events_without_buckets(tmp_path):
     _eventmodel_only_db(path)
     with pytest.raises(SqliteRecoverError, match="no bucketmodel"):
         _assert_recovered_schema(path)
+
+
+@pytest.mark.skipif(
+    os.name == "nt", reason="POSIX permission bits are not preserved on Windows"
+)
+def test_prepare_recovery_file_is_restrictive_before_data_is_written(tmp_path):
+    source = str(tmp_path / "source.db")
+    recovered = str(tmp_path / "recovered.db")
+    open(source, "wb").close()
+    os.chmod(source, 0o600)
+    old_umask = os.umask(0)
+    try:
+        _prepare_recovery_file(source, recovered)
+    finally:
+        os.umask(old_umask)
+    assert os.path.getsize(recovered) == 0
+    assert stat.S_IMODE(os.stat(recovered).st_mode) == 0o600
+
+
+@pytest.mark.skipif(
+    os.name == "nt", reason="POSIX permission bits are not preserved on Windows"
+)
+def test_prepare_recovery_file_fails_closed_on_fchmod_error(tmp_path, monkeypatch):
+    source = str(tmp_path / "source.db")
+    recovered = str(tmp_path / "recovered.db")
+    open(source, "wb").close()
+    os.chmod(source, 0o600)
+
+    def fail_fchmod(_fd, _mode):
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(os, "fchmod", fail_fchmod)
+    with pytest.raises(PermissionError, match="denied"):
+        _prepare_recovery_file(source, recovered)
+    assert os.path.getsize(recovered) == 0
 
 
 @pytest.mark.skipif(
