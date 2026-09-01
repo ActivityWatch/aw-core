@@ -528,10 +528,12 @@ def _prepare_recovery_file(src: str, dest: str) -> None:
     mode = stat.S_IMODE(os.stat(src).st_mode)
     fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
     try:
-        # The process umask may have removed bits requested above. Applying the
-        # exact original mode before recovery starts also makes chmod failures
-        # fail closed, before any activity data is written.
-        os.fchmod(fd, mode)
+        # POSIX umask may have removed bits requested above. Applying the exact
+        # original mode before recovery starts also makes permission failures
+        # fail closed, before any activity data is written. Windows has no
+        # fchmod and does not preserve POSIX permission bits.
+        if os.name != "nt":
+            os.fchmod(fd, mode)
     finally:
         os.close(fd)
 
