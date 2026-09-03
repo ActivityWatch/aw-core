@@ -418,6 +418,121 @@ def test_categorize():
     assert events[3].data["$category"] == ["Uncategorized"]
 
 
+def _event(value: str = "just a test") -> Event:
+    return Event(timestamp=datetime.now(timezone.utc), duration=0, data={"key": value})
+
+
+def test_categorize_depth_wins_without_priority():
+    events = categorize(
+        [_event()],
+        [
+            (["A"], Rule({"regex": "test"})),
+            (["B", "B1"], Rule({"regex": "test"})),
+        ],
+    )
+    assert events[0].data["$category"] == ["B", "B1"]
+
+
+def test_categorize_explicit_priority_overrides_depth():
+    # Default for B1 is depth 2 → 20; 25 beats it.
+    events = categorize(
+        [_event()],
+        [
+            (["A"], Rule({"regex": "test", "priority": 25})),
+            (["B", "B1"], Rule({"regex": "test"})),
+        ],
+    )
+    assert events[0].data["$category"] == ["A"]
+
+
+def test_categorize_weight_alias():
+    events = categorize(
+        [_event()],
+        [
+            (["A"], Rule({"regex": "test", "weight": 25})),
+            (["B", "B1"], Rule({"regex": "test"})),
+        ],
+    )
+    assert events[0].data["$category"] == ["A"]
+
+
+def test_categorize_inter_level_priority():
+    between = categorize(
+        [_event()],
+        [
+            (["A"], Rule({"regex": "test"})),
+            (["A2"], Rule({"regex": "test", "priority": 15})),
+        ],
+    )
+    assert between[0].data["$category"] == ["A2"]
+
+    still_loses_to_deeper = categorize(
+        [_event()],
+        [
+            (["A2"], Rule({"regex": "test", "priority": 15})),
+            (["B", "B1"], Rule({"regex": "test"})),
+        ],
+    )
+    assert still_loses_to_deeper[0].data["$category"] == ["B", "B1"]
+
+
+def test_categorize_lower_priority_loses_to_default_depth():
+    events = categorize(
+        [_event()],
+        [
+            (["A"], Rule({"regex": "test"})),
+            (["B", "B1"], Rule({"regex": "test", "priority": 0})),
+        ],
+    )
+    assert events[0].data["$category"] == ["A"]
+
+
+def test_categorize_equal_priority_keeps_later_match():
+    events = categorize(
+        [_event()],
+        [
+            (["First"], Rule({"regex": "test", "priority": 5})),
+            (["Second"], Rule({"regex": "test", "priority": 5})),
+        ],
+    )
+    assert events[0].data["$category"] == ["Second"]
+
+
+def test_categorize_negative_priority_still_beats_uncategorized():
+    events = categorize(
+        [_event()],
+        [(["Low"], Rule({"regex": "test", "priority": -100}))],
+    )
+    assert events[0].data["$category"] == ["Low"]
+
+
+def test_categorize_priority_below_i64_min_still_beats_uncategorized():
+    # Python ints are unbounded; a signed-64-bit fallback sentinel would
+    # incorrectly keep Uncategorized for values below -(2**63).
+    events = categorize(
+        [_event()],
+        [(["Low"], Rule({"regex": "test", "priority": -(2**63) - 1}))],
+    )
+    assert events[0].data["$category"] == ["Low"]
+
+
+def test_categorize_empty_category_keeps_uncategorized():
+    events = categorize(
+        [_event()],
+        [([], Rule({"regex": "test"}))],
+    )
+    assert events[0].data["$category"] == ["Uncategorized"]
+
+
+def test_rule_invalid_priority():
+    with pytest.raises(ValueError, match="integer"):
+        Rule({"regex": "test", "priority": 1.5})
+    with pytest.raises(ValueError, match="integer"):
+        Rule({"regex": "test", "priority": "high"})
+    with pytest.raises(ValueError, match="integer"):
+        Rule({"regex": "test", "priority": True})
+
+
 def test_categorize_cache_correctness():
     """Cache reuses category for identical data; distinct data gets its own category."""
     now = datetime.now(timezone.utc)

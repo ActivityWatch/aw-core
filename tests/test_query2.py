@@ -338,6 +338,19 @@ def test_query2_merge_subwatcher_fields_invalid_conflict():
         query(qname, example_query, starttime, endtime, ds)
 
 
+def test_query2_categorize_invalid_priority():
+    ds = mock_ds
+    qname = "asd"
+    starttime = iso8601.parse_date("1970-01-01")
+    endtime = iso8601.parse_date("1970-01-02")
+    example_query = """
+        events = [];
+        RETURN = categorize(events, [[["test"], {"regex": "test", "priority": "high"}]]);
+    """
+    with pytest.raises(QueryFunctionException, match="integer"):
+        query(qname, example_query, starttime, endtime, ds)
+
+
 @pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query2_function_in_function(datastore):
     qname = "asd"
@@ -610,6 +623,39 @@ def test_query2_query_categorize(datastore):
         assert result["events_by_cat"][0].data["$category"] == ["test"]
         assert result["events_by_cat"][1].data["$category"] == ["test", "subtest"]
         assert result["events_by_cat"][1].duration == timedelta(seconds=2)
+    finally:
+        datastore.delete_bucket(bid)
+
+
+@pytest.mark.parametrize("datastore", param_datastore_objects())
+def test_query2_query_categorize_priority(datastore):
+    bid = "test_bucket_priority"
+    qname = "test"
+    starttime = iso8601.parse_date("1970")
+    endtime = starttime + timedelta(hours=1)
+
+    example_query = rf"""
+    events = query_bucket("{bid}");
+    events = categorize(events, [
+                [["A"], {{"regex": "test", "priority": 25}}],
+                [["B", "B1"], {{"regex": "test"}}]
+            ]);
+    RETURN = events;
+    """
+    try:
+        bucket = datastore.create_bucket(
+            bucket_id=bid, type="test", client="test", hostname="test", name="asd"
+        )
+        bucket.insert(
+            Event(
+                data={"label": "test"},
+                timestamp=starttime,
+                duration=timedelta(seconds=1),
+            )
+        )
+        result = query(qname, example_query, starttime, endtime, datastore)
+        assert len(result) == 1
+        assert result[0].data["$category"] == ["A"]
     finally:
         datastore.delete_bucket(bid)
 
