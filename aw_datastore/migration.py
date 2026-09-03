@@ -2,7 +2,7 @@ import logging
 import os
 from typing import List, Optional
 
-from aw_core.dirs import get_data_dir
+from aw_core.dirs import get_data_dir, legacy_testing_suffix
 
 from .storages import AbstractStorage
 
@@ -31,7 +31,7 @@ def check_for_migration(datastore: AbstractStorage):
 
     if datastore.sid == "sqlite":
         peewee_type = "peewee-sqlite"
-        peewee_name = peewee_type + ("-testing" if datastore.testing else "")
+        peewee_name = peewee_type + legacy_testing_suffix(datastore.testing)
         # Migrate from peewee v2
         peewee_db_v2 = detect_db_files(data_dir, peewee_name, 2)
         if len(peewee_db_v2) > 0:
