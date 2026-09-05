@@ -828,3 +828,69 @@ def test_merge_subwatcher_fields_invalid_conflict():
 
     with pytest.raises(ValueError, match="conflict must be"):
         merge_subwatcher_fields(base, sub, ["project"], conflict="invalid")
+
+
+def test_merge_subwatcher_fields_zero_duration_base_event_preserved():
+    """A zero-duration base event with overlapping sub must not be silently
+    dropped. It should be kept as a single zero-duration event enriched with
+    the active sub's fields."""
+    now = datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
+    base = [Event(timestamp=now, duration=timedelta(0), data={"app": "vim"})]
+    sub = [
+        Event(
+            timestamp=now - timedelta(seconds=5),
+            duration=timedelta(seconds=10),
+            data={"project": "P"},
+        )
+    ]
+
+    result = merge_subwatcher_fields(base, sub, ["project"])
+
+    assert len(result) == 1
+    assert result[0].timestamp == now
+    assert result[0].duration == timedelta(0)
+    assert result[0].data == {"app": "vim", "project": "P"}
+
+
+def test_merge_subwatcher_fields_zero_duration_base_event_no_overlap_preserved():
+    """A zero-duration base event without any overlapping sub must still be
+    returned untouched (already worked via fast path, locked in by this test)."""
+    now = datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
+    base = [Event(timestamp=now, duration=timedelta(0), data={"app": "vim"})]
+    sub = [
+        Event(
+            timestamp=now + timedelta(minutes=5),
+            duration=timedelta(seconds=10),
+            data={"project": "P"},
+        )
+    ]
+
+    result = merge_subwatcher_fields(base, sub, ["project"])
+
+    assert len(result) == 1
+    assert result[0].timestamp == now
+    assert result[0].duration == timedelta(0)
+    assert result[0].data == {"app": "vim"}
+
+
+def test_merge_subwatcher_fields_zero_duration_sub_does_not_color_base():
+    """An instantaneous (zero-duration) sub event whose timestamp falls inside
+    a base event must not split or color the base. The sub was active for
+    zero time, so there is no slice of the base to enrich."""
+    now = datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
+    base = [Event(timestamp=now, duration=timedelta(seconds=10), data={"app": "vim"})]
+    sub = [
+        Event(
+            timestamp=now + timedelta(seconds=3),
+            duration=timedelta(0),
+            data={"project": "P"},
+        )
+    ]
+
+    result = merge_subwatcher_fields(base, sub, ["project"])
+
+    # Base should pass through unchanged: no split, no color.
+    assert len(result) == 1
+    assert result[0].timestamp == now
+    assert result[0].duration == timedelta(seconds=10)
+    assert result[0].data == {"app": "vim"}
