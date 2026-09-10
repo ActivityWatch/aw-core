@@ -828,3 +828,145 @@ def test_merge_subwatcher_fields_invalid_conflict():
 
     with pytest.raises(ValueError, match="conflict must be"):
         merge_subwatcher_fields(base, sub, ["project"], conflict="invalid")
+
+
+# ---------------------------------------------------------------------------
+# regex_fields rule tests
+# ---------------------------------------------------------------------------
+
+
+def _make_event(data: dict) -> Event:
+    from datetime import timedelta
+
+    return Event(
+        timestamp=datetime(2024, 1, 1, 12, tzinfo=timezone.utc),
+        duration=timedelta(seconds=1),
+        data=data,
+    )
+
+
+def test_regex_fields_and_semantics():
+    """All named fields must match for the rule to fire."""
+    rdp_match = _make_event({"app": "mstsc.exe", "title": "office.example.com"})
+    rdp_no_title = _make_event({"app": "mstsc.exe", "title": "other.example.com"})
+    winbox = _make_event({"app": "winbox.exe", "title": "office.example.com"})
+
+    rule = Rule(
+        {
+            "type": "regex_fields",
+            "fields": {"app": r"mstsc\.exe", "title": r"office\.example\.com"},
+        }
+    )
+    assert rule.match(rdp_match), "both fields matching must match"
+    assert not rule.match(rdp_no_title), "title miss must not match"
+    assert not rule.match(winbox), "wrong app must not match"
+
+
+def test_regex_fields_whole_field_anchoring():
+    """Pattern 'mstsc' (no wildcards) must not match 'mstsc.exe'."""
+    e = _make_event({"app": "mstsc.exe", "title": "office.example.com"})
+    rule = Rule(
+        {
+            "type": "regex_fields",
+            "fields": {"app": "mstsc", "title": r"office\.example\.com"},
+        }
+    )
+    assert not rule.match(e), "partial pattern must not match full field value"
+
+
+def test_regex_fields_ignore_case():
+    e_upper = _make_event({"app": "MSTSC.EXE", "title": "Office.Example.Com"})
+    rule_case = Rule(
+        {
+            "type": "regex_fields",
+            "fields": {"app": r"mstsc\.exe", "title": r"office\.example\.com"},
+        }
+    )
+    rule_nocase = Rule(
+        {
+            "type": "regex_fields",
+            "fields": {"app": r"mstsc\.exe", "title": r"office\.example\.com"},
+            "ignore_case": True,
+        }
+    )
+    assert not rule_case.match(e_upper)
+    assert rule_nocase.match(e_upper)
+
+
+def test_regex_fields_missing_field_no_match():
+    """Missing required field must cause rule to not match."""
+    e = _make_event({"app": "mstsc.exe"})  # no 'title'
+    rule = Rule(
+        {
+            "type": "regex_fields",
+            "fields": {"app": r"mstsc\.exe", "title": r".*"},
+        }
+    )
+    assert not rule.match(e)
+
+
+def test_regex_fields_embedded_newline():
+    """Whole-field anchoring: 'first' must not match 'first\\nsecond'."""
+    e = _make_event({"title": "first\nsecond"})
+    rule_partial = Rule({"type": "regex_fields", "fields": {"title": "first"}})
+    assert not rule_partial.match(e)
+
+    # Note: literal r"first\nsecond" does NOT match the actual embedded newline;
+    # the user must use [\s\S] or the actual newline character for cross-line patterns.
+    assert not Rule(
+        {"type": "regex_fields", "fields": {"title": r"first\nsecond"}}
+    ).match(e), "literal \\n pattern must not match an actual embedded newline"
+
+    rule_dotall = Rule(
+        {"type": "regex_fields", "fields": {"title": r"first[\s\S]*second"}}
+    )
+    assert rule_dotall.match(e), r"[\s\S]* should match across embedded newline"
+
+
+def test_regex_fields_rejects_legacy_regex_member():
+    """Stale 'regex' member on a regex_fields rule must raise ValueError."""
+    import pytest
+
+    with pytest.raises(ValueError, match="'regex' member"):
+        Rule({"type": "regex_fields", "fields": {"app": "mstsc"}, "regex": "office"})
+
+
+def test_regex_fields_rejects_select_keys():
+    import pytest
+
+    with pytest.raises(ValueError, match="select_keys"):
+        Rule(
+            {"type": "regex_fields", "fields": {"app": "mstsc"}, "select_keys": ["app"]}
+        )
+
+
+def test_regex_fields_empty_fields_raises():
+    import pytest
+
+    with pytest.raises(ValueError):
+        Rule({"type": "regex_fields", "fields": {}})
+
+
+def test_regex_fields_categorize_integration():
+    """Integration: regex_fields rules work inside categorize()."""
+    rdp = _make_event({"app": "mstsc.exe", "title": "office.example.com"})
+    winbox = _make_event({"app": "winbox.exe", "title": "office.example.com"})
+    other = _make_event({"app": "firefox.exe", "title": "office.example.com"})
+
+    classes = [
+        (["RDP"], Rule({"type": "regex_fields", "fields": {"app": r"mstsc\.exe"}})),
+        (["Winbox"], Rule({"type": "regex_fields", "fields": {"app": r"winbox\.exe"}})),
+    ]
+    events = categorize([rdp, winbox, other], classes)
+    assert events[0].data["$category"] == ["RDP"]
+    assert events[1].data["$category"] == ["Winbox"]
+    assert events[2].data["$category"] == ["Uncategorized"]
+
+
+def test_legacy_regex_rule_still_works():
+    """Existing 'regex' rules must be unaffected by this change."""
+    e = _make_event({"app": "terminal", "title": "just a test"})
+    rule = Rule({"regex": "test"})
+    assert rule.match(e)
+    rule_no_match = Rule({"regex": "nonono"})
+    assert not rule_no_match.match(e)
