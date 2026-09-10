@@ -906,21 +906,26 @@ def test_regex_fields_missing_field_no_match():
 
 
 def test_regex_fields_embedded_newline():
-    """Whole-field anchoring: 'first' must not match 'first\\nsecond'."""
+    """Whole-field anchoring with embedded newline in the field value."""
     e = _make_event({"title": "first\nsecond"})
-    rule_partial = Rule({"type": "regex_fields", "fields": {"title": "first"}})
-    assert not rule_partial.match(e)
 
-    # Note: literal r"first\nsecond" does NOT match the actual embedded newline;
-    # the user must use [\s\S] or the actual newline character for cross-line patterns.
-    assert not Rule(
-        {"type": "regex_fields", "fields": {"title": r"first\nsecond"}}
-    ).match(e), "literal \\n pattern must not match an actual embedded newline"
+    # "first" alone does not match "first\nsecond" (whole-field).
+    assert not Rule({"type": "regex_fields", "fields": {"title": "first"}}).match(e)
 
-    rule_dotall = Rule(
+    # r"first\nsecond" uses \n as a regex newline metacharacter, so it matches.
+    assert Rule({"type": "regex_fields", "fields": {"title": r"first\nsecond"}}).match(
+        e
+    ), r"\n regex metacharacter must match an actual embedded newline"
+
+    # [\s\S]* spans lines and also matches.
+    assert Rule(
         {"type": "regex_fields", "fields": {"title": r"first[\s\S]*second"}}
-    )
-    assert rule_dotall.match(e), r"[\s\S]* should match across embedded newline"
+    ).match(e), r"[\s\S]* should match across embedded newline"
+
+    # A dot-only pattern without re.DOTALL does NOT span the newline.
+    assert not Rule(
+        {"type": "regex_fields", "fields": {"title": "first.second"}}
+    ).match(e), "bare dot must not cross embedded newline"
 
 
 def test_regex_fields_rejects_legacy_regex_member():
