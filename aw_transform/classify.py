@@ -47,6 +47,8 @@ class Rule:
 
     def __init__(self, rules: Dict[str, Any]) -> None:
         self._rule_type = rules.get("type", "regex")
+        if self._rule_type not in ("regex", "regex_fields"):
+            raise ValueError(f"unsupported rule type: {self._rule_type!r}")
         self.ignore_case = rules.get("ignore_case", False)
         self.priority = _parse_optional_priority(rules)
         flags = (re.IGNORECASE if self.ignore_case else 0) | re.UNICODE
@@ -78,7 +80,12 @@ class Rule:
                     raise ValueError(
                         f"regex_fields: pattern for field '{field}' must be a non-empty string"
                     )
-                self._field_patterns[field] = re.compile(pattern, flags)
+                try:
+                    self._field_patterns[field] = re.compile(pattern, flags)
+                except re.error as exc:
+                    raise ValueError(
+                        f"regex_fields: invalid pattern for field '{field}': {exc}"
+                    ) from exc
             # Legacy attributes unused for this variant.
             self.regex = None
             self.select_keys = None

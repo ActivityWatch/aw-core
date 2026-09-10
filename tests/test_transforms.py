@@ -928,6 +928,16 @@ def test_regex_fields_embedded_newline():
     ).match(e), "bare dot must not cross embedded newline"
 
 
+def test_regex_fields_rejects_unknown_rule_type():
+    with pytest.raises(ValueError, match="unsupported rule type"):
+        Rule({"type": "regex_field", "regex": "office"})
+
+
+def test_regex_fields_invalid_pattern_raises_value_error():
+    with pytest.raises(ValueError, match="invalid pattern for field 'app'"):
+        Rule({"type": "regex_fields", "fields": {"app": "["}})
+
+
 def test_regex_fields_rejects_legacy_regex_member():
     """Stale 'regex' member on a regex_fields rule must raise ValueError."""
     import pytest
