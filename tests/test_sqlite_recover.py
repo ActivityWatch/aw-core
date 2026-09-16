@@ -2,6 +2,7 @@ import glob
 import os
 import sqlite3
 import stat
+import subprocess
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -117,13 +118,15 @@ def test_sanitize_dump_sql_rewrites_rollback_and_drops_corruption_markers():
         "CREATE TABLE t(a);\n"
         "/****** CORRUPTION ERROR *******/\n"
         "INSERT INTO t VALUES(1);\n"
+        "INSERT INTO t VALUES('title with CORRUPTION ERROR in data');\n"
         "ROLLBACK; -- due to errors\n"
     )
     out = sanitize_dump_sql(sql)
-    assert "CORRUPTION ERROR" not in out
+    assert "/****** CORRUPTION ERROR *******/" not in out
     assert "ROLLBACK;" not in out
     assert "COMMIT;" in out
     assert "INSERT INTO t VALUES(1);" in out
+    assert "INSERT INTO t VALUES('title with CORRUPTION ERROR in data');" in out
 
 
 def test_is_sqlite_healthy_missing_and_ok(tmp_path):
@@ -358,3 +361,41 @@ def test_reconstruct_missing_buckets_tolerates_unreadable_bucketmodel(tmp_path):
     con.commit()
     con.close()
     assert sqlite_recover._reconstruct_missing_buckets(db) == 0
+
+
+class _TimeoutThenReap:
+    """First communicate() times out; later ones must be given a timeout."""
+
+    def __init__(self):
+        self.stdout = type("S", (), {"close": lambda self: None})()
+        self.returncode = -9
+        self.calls = 0
+
+    def communicate(self, timeout=None):
+        self.calls += 1
+        if self.calls == 1:
+            raise subprocess.TimeoutExpired(cmd="sqlite3", timeout=timeout)
+        if timeout is None:
+            raise AssertionError("post-kill communicate() must be bounded")
+        return ("", "")
+
+    def kill(self):
+        pass
+
+
+def test_recover_with_dbpage_timeout_does_not_hang(monkeypatch):
+    """A .recover timeout must not call unbounded communicate() after kill()."""
+    from aw_datastore.storages import sqlite_recover
+
+    dump = _TimeoutThenReap()
+    load = _TimeoutThenReap()
+    n = {"i": 0}
+
+    def fake_popen(*_args, **_kwargs):
+        n["i"] += 1
+        return dump if n["i"] == 1 else load
+
+    monkeypatch.setattr(sqlite_recover.subprocess, "Popen", fake_popen)
+    assert sqlite_recover._recover_with_dbpage("sqlite3", "src", "dest") is False
+    assert dump.calls >= 1
+    assert load.calls >= 1

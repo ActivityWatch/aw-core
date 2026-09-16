@@ -119,7 +119,11 @@ def sanitize_dump_sql(sql: str) -> str:
     """Turn a ``.dump`` of a corrupt DB into SQL that can be loaded."""
     lines: list[str] = []
     for line in sql.splitlines():
-        if "CORRUPTION ERROR" in line:
+        stripped = line.lstrip()
+        # sqlite3 .dump inserts `/****** CORRUPTION ERROR *******/` comments
+        # on bad pages. Drop those comments only — a payload containing the
+        # same words (window title, JSON) must still load.
+        if stripped.startswith("/*") and "CORRUPTION ERROR" in line:
             continue
         if line.startswith("ROLLBACK;"):
             lines.append("COMMIT;")
@@ -190,8 +194,13 @@ def _recover_with_dbpage(sqlite_bin: str, src: str, dest: str) -> bool:
     except subprocess.TimeoutExpired:
         dump.kill()
         load.kill()
-        dump.communicate()
-        load.communicate()
+        # Bounded reaps only: unbounded communicate() here can hang
+        # PeeweeStorage.__init__ if a child ignores SIGPIPE with a full pipe.
+        for proc in (dump, load):
+            try:
+                proc.communicate(timeout=10)
+            except (subprocess.TimeoutExpired, OSError):
+                pass
         logger.warning("sqlite3 .recover timed out")
         return False
     if dump.returncode != 0:
@@ -605,7 +614,8 @@ def _manual_instructions(path: str) -> str:
         "SQLite database is malformed. Preserve the file and recover with:\n"
         f"  sqlite3 {path} '.recover' | sqlite3 recovered.db\n"
         "If .recover fails with 'no such table: sqlite_dbpage', use:\n"
-        f"  sqlite3 {path} '.bail off' '.dump' | sed '/CORRUPTION ERROR/d; s/^ROLLBACK;/COMMIT;/'"
+        f"  sqlite3 {path} '.bail off' '.dump'"
+        r" | sed '/^\/\*.*CORRUPTION ERROR/d; s/^ROLLBACK;/COMMIT;/'"
         " | sqlite3 recovered.db\n"
         "Then replace the original database with recovered.db."
     )
