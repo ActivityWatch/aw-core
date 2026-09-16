@@ -283,13 +283,20 @@ def _recover_with_python(src: str, dest: str) -> bool:
         if not tables:
             _truncate(dest)
             return False
+        created: list[str] = []
         for _name, sql in tables:
-            dest_con.execute(sql)
+            try:
+                dest_con.execute(sql)
+                created.append(_name)
+            except sqlite3.Error as exc:
+                logger.info(
+                    "Python recover: skipping uncreatable table %s: %s", _name, exc
+                )
         dest_con.commit()
         src_con.close()
         src_closed = True
         copied = 0
-        for name, _sql in tables:
+        for name in created:
             copied += _copy_table_rows(src, dest_con, name)
         for (sql,) in indexes:
             try:
@@ -412,14 +419,23 @@ def _reconstruct_missing_buckets(path: str) -> int:
                 "created an empty bucket catalog before reconstructing keys",
                 path,
             )
-        missing = con.execute(
-            """
-            SELECT DISTINCT e.bucket_id
-            FROM eventmodel e
-            LEFT JOIN bucketmodel b ON b."key" = e.bucket_id
-            WHERE b."key" IS NULL AND e.bucket_id IS NOT NULL
-            """
-        ).fetchall()
+        try:
+            missing = con.execute(
+                """
+                SELECT DISTINCT e.bucket_id
+                FROM eventmodel e
+                LEFT JOIN bucketmodel b ON b."key" = e.bucket_id
+                WHERE b."key" IS NULL AND e.bucket_id IS NOT NULL
+                """
+            ).fetchall()
+        except sqlite3.Error as exc:
+            logger.warning(
+                "Could not reconstruct missing buckets in %s "
+                "(unreadable bucketmodel/eventmodel); keeping recovered events: %s",
+                path,
+                exc,
+            )
+            return 0
         now = datetime.now(timezone.utc).isoformat()
         n = 0
         for (key,) in missing:

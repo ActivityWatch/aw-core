@@ -322,3 +322,39 @@ def test_recovery_preserves_restrictive_mode(tmp_path):
     assert sidecar
     assert is_sqlite_healthy(path)
     assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
+
+
+def test_recover_with_python_skips_uncreatable_tables(tmp_path):
+    """A table whose DDL fails on the destination must not abort the recovery."""
+    from aw_datastore.storages import sqlite_recover
+
+    src = str(tmp_path / "src.db")
+    dest = str(tmp_path / "dest.db")
+    con = sqlite3.connect(src)
+    con.create_collation("weird", lambda a, b: (a > b) - (a < b))
+    con.execute("CREATE TABLE good (id INTEGER PRIMARY KEY, v TEXT)")
+    con.execute("INSERT INTO good VALUES (1, 'a')")
+    # DDL text persists into sqlite_master with COLLATE weird, which no
+    # destination connection can create without the collation registered.
+    con.execute("CREATE TABLE bad (v TEXT COLLATE weird)")
+    con.commit()
+    con.close()
+    assert sqlite_recover._recover_with_python(src, dest)
+    dcon = sqlite3.connect(dest)
+    assert dcon.execute("SELECT count(*) FROM good").fetchone()[0] == 1
+    dcon.close()
+
+
+def test_reconstruct_missing_buckets_tolerates_unreadable_bucketmodel(tmp_path):
+    """An unreadable bucketmodel must not discard the recovered events file."""
+    from aw_datastore.storages import sqlite_recover
+
+    db = str(tmp_path / "rec.db")
+    con = sqlite3.connect(db)
+    con.execute("CREATE TABLE eventmodel (bucket_id INTEGER)")
+    # bucketmodel exists but lacks the "key" column the LEFT JOIN needs.
+    con.execute("CREATE TABLE bucketmodel (id TEXT)")
+    con.execute("INSERT INTO eventmodel VALUES (1)")
+    con.commit()
+    con.close()
+    assert sqlite_recover._reconstruct_missing_buckets(db) == 0
