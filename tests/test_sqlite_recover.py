@@ -11,6 +11,8 @@ from aw_datastore.storages.sqlite_recover import (
     AUTO_RECOVER_ENV,
     SqliteRecoverError,
     _assert_recovered_schema,
+    _copy_aside,
+    _counts,
     _prepare_recovery_file,
     _reconstruct_missing_buckets,
     is_sqlite_healthy,
@@ -70,6 +72,42 @@ def _seed_peewee_db(path: str, n_events: int = 30) -> None:
     store.insert_many("aw-watcher-window", events)
     assert store.get_eventcount("aw-watcher-window") == n_events
     _checkpoint_and_close(path)
+
+
+def test_copy_aside_does_not_overwrite_a_previous_sidecar(tmp_path, monkeypatch):
+    """Same-second recovery must keep the first original, not clobber it."""
+    import aw_datastore.storages.sqlite_recover as recover
+
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+
+    monkeypatch.setattr(recover, "datetime", FrozenDateTime)
+    path = str(tmp_path / "peewee-sqlite.v2.db")
+    with open(path, "wb") as fh:
+        fh.write(b"v1")
+    first = _copy_aside(path)
+    with open(path, "wb") as fh:
+        fh.write(b"v2")
+    second = _copy_aside(path)
+    assert first != second
+    with open(first, "rb") as fh:
+        assert fh.read() == b"v1"
+    with open(second, "rb") as fh:
+        assert fh.read() == b"v2"
+
+
+def test_counts_oserror_does_not_raise(tmp_path, monkeypatch):
+    path = str(tmp_path / "x.db")
+    with open(path, "wb") as fh:
+        fh.write(b"x")
+
+    def boom(*_args, **_kwargs):
+        raise OSError("locked")
+
+    monkeypatch.setattr("aw_datastore.storages.sqlite_recover.sqlite3.connect", boom)
+    assert _counts(path) == ("n/a", "n/a")
 
 
 def test_sanitize_dump_sql_rewrites_rollback_and_drops_corruption_markers():

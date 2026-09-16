@@ -508,13 +508,31 @@ def _counts(path: str) -> tuple[str, str]:
             return str(events), str(buckets)
         finally:
             con.close()
-    except sqlite3.Error:
+    except (OSError, sqlite3.Error):
         return "n/a", "n/a"
 
 
+def _unique_path(prefix: str) -> str:
+    """Return ``prefix`` or ``prefix-N`` that does not already exist.
+
+    Uses ``O_EXCL`` so two recoveries in the same timestamp cannot clobber
+    each other's sidecar (and the original corrupt file it holds).
+    """
+    n = 0
+    while True:
+        candidate = prefix if n == 0 else f"{prefix}-{n}"
+        try:
+            fd = os.open(candidate, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            n += 1
+            continue
+        os.close(fd)
+        return candidate
+
+
 def _copy_aside(path: str) -> str:
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    sidecar = f"{path}.corrupt-{ts}"
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    sidecar = _unique_path(f"{path}.corrupt-{ts}")
     shutil.copy2(path, sidecar)
     for suffix in ("-wal", "-shm", "-journal"):
         extra = path + suffix
