@@ -32,6 +32,7 @@ from peewee import (
 )
 
 from .abstract import AbstractStorage
+from .sqlite_recover import maybe_recover_malformed_sqlite
 
 logger = logging.getLogger(__name__)
 
@@ -176,6 +177,7 @@ class PeeweeStorage(AbstractStorage):
                 + ".db"
             )
             filepath = os.path.join(data_dir, filename)
+        maybe_recover_malformed_sqlite(filepath)
         self.db = _db
         self.db.init(
             filepath,
