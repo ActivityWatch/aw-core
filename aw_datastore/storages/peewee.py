@@ -121,11 +121,12 @@ class BucketModel(BaseModel):
     datastr = CharField(null=True)  # JSON-encoded object
 
     def json(self):
+        created = self.created
+        if isinstance(created, str):
+            created = iso8601.parse_date(created)
         return {
             "id": self.id,
-            "created": iso8601.parse_date(self.created)
-            .astimezone(timezone.utc)
-            .isoformat(),
+            "created": created.astimezone(timezone.utc).isoformat(),
             "name": self.name,
             "type": self.type,
             "client": self.client,
