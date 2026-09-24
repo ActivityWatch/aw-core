@@ -209,7 +209,18 @@ class PeeweeStorage(AbstractStorage):
         return {bucket.id: bucket.json() for bucket in BucketModel.select()}
 
     def has_bucket(self, bucket_id: str) -> bool:
-        return bucket_id in self.bucket_keys
+        key = (
+            BucketModel.select(BucketModel.key)
+            .where(BucketModel.id == bucket_id)
+            .scalar()
+        )
+        if key is None:
+            self.bucket_keys.pop(bucket_id, None)
+            return False
+        # A cold lookup may discover a bucket created by another connection.
+        # Update the key used by subsequent event reads as well as existence.
+        self.bucket_keys[bucket_id] = key
+        return True
 
     def buckets_with_last_updated(self) -> Dict[str, Dict[str, Any]]:
         # The correlated seek uses (bucket_id, timestamp), including empty buckets.

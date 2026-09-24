@@ -1,6 +1,7 @@
 """Storage performance contracts, using only disposable databases."""
 
 from datetime import datetime, timedelta, timezone
+import sqlite3
 from unittest.mock import Mock
 
 import pytest
@@ -131,3 +132,25 @@ def test_disk_iterator_does_not_materialize_get_events(store, monkeypatch):
     iterator.close()
     # A subsequent write succeeds after an early close.
     bucket.insert(event(100))
+
+
+def test_peewee_cold_lookup_refreshes_externally_created_bucket_key(store):
+    storage = store.storage_strategy
+    if storage.sid != "peewee":
+        return
+    with sqlite3.connect(storage.db.database) as other:
+        other.execute(
+            "INSERT INTO bucketmodel (id, type, client, hostname, created, datastr) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            ("external", "test", "test", "test", "2024-01-01T00:00:00+00:00", "{}"),
+        )
+    assert "external" not in storage.bucket_keys
+    bucket = store["external"]
+    assert bucket.get() == []
+    assert bucket.metadata()["id"] == "external"
+    with sqlite3.connect(storage.db.database) as other:
+        other.execute("DELETE FROM bucketmodel WHERE id = ?", ("external",))
+    store.bucket_instances.clear()
+    with pytest.raises(KeyError):
+        store["external"]
+    assert "external" not in storage.bucket_keys
