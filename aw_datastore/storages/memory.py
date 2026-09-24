@@ -80,6 +80,14 @@ class MemoryStorage(AbstractStorage):
             buckets[bucket_id] = self.get_metadata(bucket_id)
         return buckets
 
+    def has_bucket(self, bucket_id: str) -> bool:
+        return bucket_id in self.db
+
+    def iter_events(self, bucket_id):
+        # Only sort references; copy each event when it is consumed.
+        for event in sorted(self.db[bucket_id], key=lambda e: e.timestamp)[::-1]:
+            yield copy.deepcopy(event)
+
     def get_event(
         self,
         bucket_id: str,
@@ -132,7 +140,7 @@ class MemoryStorage(AbstractStorage):
 
     def get_metadata(self, bucket_id: str):
         if bucket_id in self._metadata:
-            return self._metadata[bucket_id]
+            return copy.deepcopy(self._metadata[bucket_id])
         else:
             raise ValueError("Bucket did not exist, could not get metadata")
 
@@ -180,6 +188,8 @@ class MemoryStorage(AbstractStorage):
             event = copy.copy(event)
             event.id = event_id
             self.db[bucket_id][idx] = event
+            return True
+        return False
 
     def replace_last(self, bucket_id, event):
         # NOTE: This does not actually get the most recent event, only the last inserted

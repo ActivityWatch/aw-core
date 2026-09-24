@@ -34,7 +34,7 @@ class Datastore:
         # If this bucket doesn't have a initialized object, create it
         if bucket_id not in self.bucket_instances:
             # If the bucket exists in the database, create an object representation of it
-            if bucket_id in self.buckets():
+            if self.has_bucket(bucket_id):
                 bucket = Bucket(self, bucket_id)
                 self.bucket_instances[bucket_id] = bucket
             else:
@@ -72,7 +72,12 @@ class Datastore:
             del self.bucket_instances[bucket_id]
         return self.storage_strategy.delete_bucket(bucket_id)
 
-    def buckets(self):
+    def has_bucket(self, bucket_id: str) -> bool:
+        return self.storage_strategy.has_bucket(bucket_id)
+
+    def buckets(self, include_last_updated: bool = False):
+        if include_last_updated:
+            return self.storage_strategy.buckets_with_last_updated()
         return self.storage_strategy.buckets()
 
 
@@ -84,6 +89,9 @@ class Bucket:
 
     def metadata(self) -> dict:
         return self.ds.storage_strategy.get_metadata(self.bucket_id)
+
+    def iter_events(self):
+        return self.ds.storage_strategy.iter_events(self.bucket_id)
 
     def get(
         self,

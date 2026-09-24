@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, Iterator, List, Optional
 
 from aw_core.models import Event
 
@@ -20,6 +20,27 @@ class AbstractStorage(metaclass=ABCMeta):
     @abstractmethod
     def buckets(self) -> Dict[str, dict]:
         raise NotImplementedError
+
+    def has_bucket(self, bucket_id: str) -> bool:
+        return bucket_id in self.buckets()
+
+    def buckets_with_last_updated(self) -> Dict[str, dict]:
+        buckets = self.buckets()
+        for bucket_id, metadata in buckets.items():
+            events = self.get_events(bucket_id, 1)
+            if events:
+                metadata["last_updated"] = (
+                    events[0].timestamp + events[0].duration
+                ).isoformat()
+        return buckets
+
+    def iter_events(self, bucket_id: str) -> Iterator[Event]:
+        """Iterate a bucket in the same order as an unbounded get_events call.
+
+        Disk backends override this to avoid materializing all events. Callers
+        must close the iterator if they stop consuming it early.
+        """
+        yield from self.get_events(bucket_id, -1)
 
     @abstractmethod
     def create_bucket(

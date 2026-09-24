@@ -149,6 +149,55 @@ class SqliteStorage(AbstractStorage):
             }
         return buckets
 
+    def has_bucket(self, bucket_id: str) -> bool:
+        return (
+            self.conn.execute(
+                "SELECT 1 FROM buckets WHERE id = ?", (bucket_id,)
+            ).fetchone()
+            is not None
+        )
+
+    def buckets_with_last_updated(self):
+        # Match get_events' ordering by endtime for this backend.
+        rows = self.conn.execute(
+            "SELECT b.id, b.name, b.type, b.client, b.hostname, b.created, "
+            "b.datastr, e.endtime FROM buckets b LEFT JOIN events e ON e.id = "
+            "(SELECT id FROM events WHERE bucketrow = b.rowid "
+            "AND endtime >= 0 AND starttime <= ? ORDER BY endtime DESC LIMIT 1)",
+            (MAX_TIMESTAMP,),
+        )
+        try:
+            buckets = {}
+            for row in rows:
+                metadata = dict(
+                    zip(
+                        ("id", "name", "type", "client", "hostname", "created"), row[:6]
+                    )
+                )
+                metadata["data"] = json.loads(row[6] or "{}")
+                if row[7] is not None:
+                    metadata["last_updated"] = datetime.fromtimestamp(
+                        row[7] / 1000000, timezone.utc
+                    ).isoformat()
+                buckets[row[0]] = metadata
+            return buckets
+        finally:
+            rows.close()
+
+    def iter_events(self, bucket_id):
+        self.commit()
+        cursor = self.conn.execute(
+            "SELECT id, starttime, endtime, datastr FROM events "
+            "WHERE bucketrow = (SELECT rowid FROM buckets WHERE id = ?) "
+            "AND endtime >= 0 AND starttime <= ? ORDER BY endtime DESC",
+            (bucket_id, MAX_TIMESTAMP),
+        )
+        try:
+            for row in cursor:
+                yield _rows_to_events([row])[0]
+        finally:
+            cursor.close()
+
     def create_bucket(
         self,
         bucket_id: str,
@@ -301,14 +350,18 @@ class SqliteStorage(AbstractStorage):
         endtime = starttime + (event.duration.total_seconds() * 1000000)
         datastr = json.dumps(event.data)
         query = """UPDATE events
-                     SET bucketrow = (SELECT rowid FROM buckets WHERE id = ?),
-                         starttime = ?,
+                     SET starttime = ?,
                          endtime = ?,
                          datastr = ?
-                     WHERE id = ?"""
-        self.conn.execute(query, [bucket_id, starttime, endtime, datastr, event_id])
+                     WHERE id = ? AND bucketrow =
+                         (SELECT rowid FROM buckets WHERE id = ?)"""
+        cursor = self.conn.execute(
+            query, [starttime, endtime, datastr, event_id, bucket_id]
+        )
         self.conditional_commit(1)
-        return True
+        if cursor.rowcount:
+            event.id = event_id
+        return bool(cursor.rowcount)
 
     def get_event(
         self,
