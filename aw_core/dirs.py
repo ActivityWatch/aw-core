@@ -149,6 +149,10 @@ def _ensure_returned_path_exists(f: GetDirFunc) -> GetDirFunc:
     return wrapper
 
 
+# All dirs go through platformdirs, which honors XDG_* on Linux and ignores it
+# on macOS/Windows (as does the `dirs` crate used by aw-server-rust). Every
+# component must resolve identical paths, so do not special-case XDG_* here
+# (see ActivityWatch/aw-client#119); in tests, patch platformdirs instead.
 @_ensure_returned_path_exists
 def get_data_dir(module_name: Optional[str] = None) -> str:
     data_dir = platformdirs.user_data_dir(_get_appname())
