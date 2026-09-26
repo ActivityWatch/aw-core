@@ -352,6 +352,47 @@ def test_query2_categorize_invalid_priority():
 
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
+def test_query2_transforms_dont_modify_other_variables(datastore):
+    """Query variables have value semantics, like in aw-server-rust"""
+    starttime = iso8601.parse_date("1970-01-01")
+    endtime = iso8601.parse_date("1970-01-02")
+    with TempTestBucket(datastore) as bucket:
+        bucket.insert(
+            Event(
+                data={"app": "Slack", "url": "https://x.org/a"},
+                timestamp=starttime,
+                duration=timedelta(seconds=10),
+            )
+        )
+        bid = bucket.bucket_id
+        rule = '{"type": "regex", "regex": "Slack"}'
+        for transform in [
+            f'categorize(events, [[["Comms"], {rule}]])',
+            f'tag(events, [["Comms", {rule}]])',
+            "split_url_events(events)",
+        ]:
+            q = f"""
+                events = query_bucket("{bid}");
+                other = events;
+                events = {transform};
+                RETURN = other;
+            """
+            result = query("test", q, starttime, endtime, datastore)
+            assert result[0]["data"] == {"app": "Slack", "url": "https://x.org/a"}
+
+        # aw-client's always_active_pattern: period_union must not clear the
+        # data of the window events it was given
+        q = f"""
+            events = query_bucket("{bid}");
+            slack = filter_keyvals_regex(events, "app", "Slack");
+            not_afk = period_union([], slack);
+            RETURN = filter_period_intersect(events, not_afk);
+        """
+        result = query("test", q, starttime, endtime, datastore)
+        assert result[0]["data"]["app"] == "Slack"
+
+
+@pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query2_function_in_function(datastore):
     qname = "asd"
     bid = "test_bucket"

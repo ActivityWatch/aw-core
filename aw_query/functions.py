@@ -64,6 +64,20 @@ TQueryFunction = Callable[..., Any]
 functions: Dict[str, TQueryFunction] = {}
 
 
+def _copy_events(events: List[Event]) -> List[Event]:
+    """Copies of events for transforms that set keys in ``data`` in place.
+
+    Query variables share event objects (``b = a;``, or a filter returning the
+    same objects), so modifying them in place would change other variables
+    too. aw-server-rust has value semantics. Only ``data`` is copied, one level
+    deep, which is all these transforms modify.
+    """
+    return [
+        Event(id=e.id, timestamp=e.timestamp, duration=e.duration, data=dict(e.data))
+        for e in events
+    ]
+
+
 def q2_function(transform_func=None):
     """
     Decorator used to register query functions.
@@ -304,7 +318,7 @@ def q2_flood(events: list, pulsetime: float = 5) -> List[Event]:
 @q2_function(split_url_events)
 @q2_typecheck
 def q2_split_url_events(events: list) -> List[Event]:
-    return split_url_events(events)
+    return split_url_events(_copy_events(events))
 
 
 @q2_function(simplify_string)
@@ -337,7 +351,7 @@ def q2_categorize(events: list, classes: list):
         classes = [(_cls, Rule(rule_dict)) for _cls, rule_dict in classes]
     except ValueError as exc:
         raise QueryFunctionException(str(exc)) from None
-    return categorize(events, classes)
+    return categorize(_copy_events(events), classes)
 
 
 @q2_function(tag)
@@ -347,4 +361,4 @@ def q2_tag(events: list, classes: list):
         classes = [(_cls, Rule(rule_dict)) for _cls, rule_dict in classes]
     except ValueError as exc:
         raise QueryFunctionException(str(exc)) from None
-    return tag(events, classes)
+    return tag(_copy_events(events), classes)
