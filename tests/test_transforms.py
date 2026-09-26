@@ -181,15 +181,17 @@ def test_filter_period_intersect_overlapping_filters():
         (6 * td1s, 2 * td1s),
     ]
 
-    # A filter event contained in an earlier one adds nothing
-    filter_with = [
-        Event(timestamp=now, duration=6 * td1s),
-        Event(timestamp=now + 2 * td1s, duration=2 * td1s),
-    ]
-    filtered_events = filter_period_intersect(to_filter, filter_with)
-    assert [(e.timestamp - now, e.duration) for e in filtered_events] == [
-        (0 * td1s, 6 * td1s),
-    ]
+    # A filter event contained in an earlier one adds nothing, also when they
+    # end at the same time
+    for start, duration in [(2, 2), (2, 4)]:
+        filter_with = [
+            Event(timestamp=now, duration=6 * td1s),
+            Event(timestamp=now + start * td1s, duration=duration * td1s),
+        ]
+        filtered_events = filter_period_intersect(to_filter, filter_with)
+        assert [(e.timestamp - now, e.duration) for e in filtered_events] == [
+            (0 * td1s, 6 * td1s),
+        ]
 
 
 def test_filter_period_intersect_zero_duration():
