@@ -393,7 +393,16 @@ class PeeweeStorage(AbstractStorage):
         q = (
             EventModel.select()
             .where(EventModel.bucket == self.bucket_keys[bucket_id])
-            .order_by(EventModel.timestamp.desc())
+            # Tie-break equal timestamps like aw-server-rust
+            # (starttime DESC, endtime ASC, id ASC) so the order is deterministic
+            # and the same on both servers (aw-core#163).
+            # SQLite only sorts within runs of equal timestamps here, the index
+            # still serves the range scan and the primary order.
+            .order_by(
+                EventModel.timestamp.desc(),
+                EventModel.duration.asc(),
+                EventModel.id.asc(),
+            )
             .limit(limit)
         )
 

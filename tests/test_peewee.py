@@ -57,10 +57,13 @@ def test_query_plan_uses_composite_index():
         # get_events with a time range
         "SELECT * FROM eventmodel WHERE bucket_id = 1"
         " AND timestamp >= '2026-01-01' AND timestamp <= '2026-01-02'"
-        " ORDER BY timestamp DESC LIMIT 100",
+        " ORDER BY timestamp DESC, duration ASC, id ASC LIMIT 100",
     ]
     for query in queries:
         rows = db.execute_sql(f"EXPLAIN QUERY PLAN {query}").fetchall()
         plan = "\n".join(str(row) for row in rows)
         assert "eventmodel_bucket_id_timestamp" in plan, plan
-        assert "TEMP B-TREE" not in plan, plan
+        # The tie-breakers of get_events may be sorted within runs of equal
+        # timestamps ("USE TEMP B-TREE FOR LAST 2 TERMS OF ORDER BY"), but the
+        # whole result must never be sorted in a temp B-tree.
+        assert "TEMP B-TREE FOR ORDER BY" not in plan, plan

@@ -6,7 +6,7 @@ import iso8601
 import pytest
 from aw_core.models import Event
 from aw_datastore import get_storage_methods
-from aw_datastore.storages import PeeweeStorage
+from aw_datastore.storages import PeeweeStorage, SqliteStorage
 
 from . import context  # noqa: F401
 from .utils import param_datastore_objects, param_testing_buckets_cm
@@ -302,6 +302,34 @@ def test_get_datefilter_simple(bucket_cm):
             endtime=now + 3.01 * td1s,
         )
         assert 1 == len(fetched_events)
+
+
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
+def test_get_ordered_equal_timestamps(bucket_cm):
+    """
+    Events with equal timestamps are returned in the same order as aw-server-rust
+    (timestamp DESC, duration ASC, insertion order), see aw-core#163.
+    """
+    with bucket_cm as bucket:
+        if isinstance(bucket.ds.storage_strategy, SqliteStorage):
+            # The experimental sqlite storage orders by endtime and its indexes
+            # can't serve the timestamp order without a full sort.
+            pytest.skip("Equal-timestamp order not implemented for SqliteStorage")
+        ts = iso8601.parse_date("2026-01-01T10:00:00Z")
+        # Exact repro from the issue, in insertion order
+        bucket.insert(Event(timestamp=ts, duration=5, data={"app": "x"}))
+        bucket.insert(Event(timestamp=ts, duration=10, data={"app": "y"}))
+        # Equal duration too: insertion order decides
+        bucket.insert(Event(timestamp=ts, duration=10, data={"app": "z"}))
+        bucket.insert(Event(timestamp=ts - td1s, duration=1, data={"app": "older"}))
+        bucket.insert(Event(timestamp=ts + td1s, duration=1, data={"app": "newer"}))
+
+        fetched = bucket.get()
+        assert [e.data["app"] for e in fetched] == ["newer", "x", "y", "z", "older"]
+
+        # limit picks the same events as aw-server-rust
+        fetched = bucket.get(limit=2)
+        assert [e.data["app"] for e in fetched] == ["newer", "x"]
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
