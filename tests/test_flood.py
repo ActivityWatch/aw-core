@@ -32,6 +32,64 @@ def test_flood_forward_merge():
     assert flooded[0].duration == timedelta(seconds=20)
 
 
+def test_flood_adjacent_same_data_merge():
+    """Adjacent events (gap of zero) with the same data are merged, like in aw-server-rust."""
+    events = [
+        Event(timestamp=now, duration=10, data={"a": 0}),
+        Event(timestamp=now + 10 * td1s, duration=10, data={"a": 0}),
+    ]
+    assert flood(events) == [Event(timestamp=now, duration=20, data={"a": 0})]
+
+
+def test_flood_merges_chains():
+    """Chains of equal-data events merge into one event in a single pass."""
+    adjacent = [
+        Event(timestamp=now + i * 10 * td1s, duration=10, data={"a": 0})
+        for i in range(3)
+    ]
+    assert flood(adjacent) == [Event(timestamp=now, duration=30, data={"a": 0})]
+
+    gaps = [
+        Event(timestamp=now, duration=10, data={"a": 0}),
+        Event(timestamp=now + 12 * td1s, duration=1, data={"a": 0}),
+        Event(timestamp=now + 14 * td1s, duration=1, data={"a": 0}),
+    ]
+    flooded = flood(gaps)
+    assert flooded == [Event(timestamp=now, duration=15, data={"a": 0})]
+    assert flood(flooded) == flooded
+
+
+def test_flood_touching_chains():
+    """Touching chains merge only neighbours with equal data."""
+
+    def chain(*datas):
+        return [
+            Event(timestamp=now + i * 10 * td1s, duration=10, data=data)
+            for i, data in enumerate(datas)
+        ]
+
+    a, b, c = {"a": 0}, {"b": 0}, {"c": 0}
+    # Differing neighbours are kept as they are
+    assert flood(chain(a, b, a)) == chain(a, b, a)
+    assert flood(chain(a, b, c)) == chain(a, b, c)
+    # Equal neighbours merge into one event
+    assert flood(chain(a, a, a)) == [Event(timestamp=now, duration=30, data=a)]
+    # Mixed: only the equal run merges
+    assert flood(chain(a, a, b, a)) == [
+        Event(timestamp=now, duration=20, data=a),
+        Event(timestamp=now + 20 * td1s, duration=10, data=b),
+        Event(timestamp=now + 30 * td1s, duration=10, data=a),
+    ]
+
+
+def test_flood_adjacent_differing_data_unchanged():
+    events = [
+        Event(timestamp=now, duration=10, data={"a": 0}),
+        Event(timestamp=now + 10 * td1s, duration=10, data={"b": 0}),
+    ]
+    assert flood(events) == events
+
+
 def test_flood_backward_merge():
     events = [
         Event(timestamp=now, duration=5),
