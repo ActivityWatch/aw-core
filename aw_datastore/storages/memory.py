@@ -84,8 +84,10 @@ class MemoryStorage(AbstractStorage):
         return bucket_id in self.db
 
     def iter_events(self, bucket_id):
-        # Only sort references; copy each event when it is consumed.
-        for event in sorted(self.db[bucket_id], key=lambda e: e.timestamp)[::-1]:
+        # Only sort references; copy each event when it is consumed. Same
+        # order as get_events: newest first, then shortest, then insertion.
+        events = sorted(self.db[bucket_id], key=lambda e: e.duration)
+        for event in sorted(events, key=lambda e: e.timestamp, reverse=True):
             yield copy.deepcopy(event)
 
     def get_event(

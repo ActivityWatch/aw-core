@@ -251,7 +251,8 @@ class PeeweeStorage(AbstractStorage):
     def iter_events(self, bucket_id):
         cursor = self.db.execute_sql(
             "SELECT id, timestamp, duration, datastr FROM eventmodel "
-            "WHERE bucket_id = ? ORDER BY timestamp DESC",
+            # Same order as get_events (aw-core#163), so exports match queries
+            "WHERE bucket_id = ? ORDER BY timestamp DESC, duration ASC, id ASC",
             (self.bucket_keys[bucket_id],),
         )
         try:
