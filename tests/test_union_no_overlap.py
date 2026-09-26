@@ -49,7 +49,8 @@ def assert_union_invariants(
     events1: List[Event], events2: List[Event], result: List[Event]
 ) -> None:
     """Sorted output, no overlap between events with a duration, every events1
-    event preserved, and coverage equal to the union of both inputs' coverage."""
+    event preserved, zero-duration events2 events kept exactly when no events1
+    event covers them, and coverage equal to the union of both inputs' coverage."""
     assert all(a.timestamp <= b.timestamp for a, b in zip(result, result[1:])), (
         "result not sorted"
     )
@@ -60,6 +61,13 @@ def assert_union_invariants(
     ), "result has overlapping events"
     for e in events1:
         assert e in result, "events1 event missing from result"
+    points = [e for e in result if e.duration == timedelta(0) and e not in events1]
+    expected_points = [
+        e
+        for e in events2
+        if e.duration == timedelta(0) and not covers(events1, e.timestamp)
+    ]
+    assert points == expected_points, "wrong events2 points kept"
     # Coverage is constant between consecutive boundaries, so one point per gap is exact.
     bounds = sorted(
         {
