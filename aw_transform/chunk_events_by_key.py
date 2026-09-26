@@ -8,6 +8,13 @@ from aw_core.models import Event
 logger = logging.getLogger(__name__)
 
 
+CHUNK_DEPRECATION = (
+    "chunk_events_by_key is deprecated and will be removed. There is no drop-in "
+    "replacement: merge_events_by_keys merges all events with the same value "
+    "(also across gaps) and doesn't produce subevents."
+)
+
+
 def chunk_events_by_key(
     events: List[Event], key: str, pulsetime: float = 5.0
 ) -> List[Event]:
@@ -16,15 +23,12 @@ def chunk_events_by_key(
     original events in the :code:`subevents` key of the new event.
 
     .. deprecated::
-        Use :func:`merge_events_by_keys` instead. Nothing first-party uses this,
-        aw-server-rust never supported ``subevents``, and it will be removed
-        (ActivityWatch/activitywatch#1466).
+        Will be removed (ActivityWatch/activitywatch#1466). There is no
+        drop-in replacement: aw-server-rust never supported ``subevents``, and
+        :func:`merge_events_by_keys` merges all events with the same value,
+        also across gaps, instead of adjacent runs.
     """
-    warnings.warn(
-        "chunk_events_by_key is deprecated, use merge_events_by_keys instead",
-        DeprecationWarning,
-        stacklevel=2,
-    )
+    warnings.warn(CHUNK_DEPRECATION, DeprecationWarning, stacklevel=2)
     chunked_events: List[Event] = []
     for event in events:
         if key not in event.data:
