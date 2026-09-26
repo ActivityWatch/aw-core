@@ -41,6 +41,24 @@ def test_flood_adjacent_same_data_merge():
     assert flood(events) == [Event(timestamp=now, duration=20, data={"a": 0})]
 
 
+def test_flood_merges_chains():
+    """Chains of equal-data events merge into one event in a single pass."""
+    adjacent = [
+        Event(timestamp=now + i * 10 * td1s, duration=10, data={"a": 0})
+        for i in range(3)
+    ]
+    assert flood(adjacent) == [Event(timestamp=now, duration=30, data={"a": 0})]
+
+    gaps = [
+        Event(timestamp=now, duration=10, data={"a": 0}),
+        Event(timestamp=now + 12 * td1s, duration=1, data={"a": 0}),
+        Event(timestamp=now + 14 * td1s, duration=1, data={"a": 0}),
+    ]
+    flooded = flood(gaps)
+    assert flooded == [Event(timestamp=now, duration=15, data={"a": 0})]
+    assert flood(flooded) == flooded
+
+
 def test_flood_adjacent_differing_data_unchanged():
     events = [
         Event(timestamp=now, duration=10, data={"a": 0}),

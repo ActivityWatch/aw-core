@@ -88,13 +88,22 @@ def flood(events: List[Event], pulsetime: float = 5) -> List[Event]:
 
     # Pairwise flooding can mutate an event after its previous pair has already
     # been processed. Normalize the final stream so downstream consumers never
-    # double-count overlapping time. For differing data, the later event wins.
+    # double-count overlapping time, and adjacent equal-data events are merged.
+    # For differing data, the later event wins.
+    #
+    # Touching (not only overlapping) equal-data events are merged since the
+    # pairwise pass leaves a merged-away event as a zero-duration placeholder at
+    # the end of the merged event, so a chain of equal-data events can come out
+    # as adjacent pieces.
+    def _needs_merge(previous: Event, event: Event) -> bool:
+        previous_end = previous.timestamp + previous.duration
+        return previous_end > event.timestamp or (
+            previous_end == event.timestamp and previous.data == event.data
+        )
+
     normalized: List[Event] = []
     for event in (e for e in events if e.duration > timedelta(0)):
-        while (
-            normalized
-            and normalized[-1].timestamp + normalized[-1].duration > event.timestamp
-        ):
+        while normalized and _needs_merge(normalized[-1], event):
             previous = normalized[-1]
 
             if previous.data == event.data:
