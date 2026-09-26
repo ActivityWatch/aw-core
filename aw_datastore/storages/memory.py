@@ -97,8 +97,10 @@ class MemoryStorage(AbstractStorage):
     ) -> List[Event]:
         events = self.db[bucket]
 
-        # Sort by timestamp
-        events = sorted(events, key=lambda k: k["timestamp"])[::-1]
+        # Sort by timestamp (newest first), tie-breaking like aw-server-rust:
+        # shortest first, then insertion order (sorted() is stable)
+        events = sorted(events, key=lambda e: e.duration)
+        events = sorted(events, key=lambda e: e.timestamp, reverse=True)
 
         # Filter by date
         if starttime:

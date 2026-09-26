@@ -305,6 +305,30 @@ def test_get_datefilter_simple(bucket_cm):
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
+def test_get_ordered_equal_timestamps(bucket_cm):
+    """
+    Events with equal timestamps are returned in the same order as aw-server-rust
+    (timestamp DESC, duration ASC, insertion order), see aw-core#163.
+    """
+    with bucket_cm as bucket:
+        ts = iso8601.parse_date("2026-01-01T10:00:00Z")
+        # Exact repro from the issue, in insertion order
+        bucket.insert(Event(timestamp=ts, duration=5, data={"app": "x"}))
+        bucket.insert(Event(timestamp=ts, duration=10, data={"app": "y"}))
+        # Equal duration too: insertion order decides
+        bucket.insert(Event(timestamp=ts, duration=10, data={"app": "z"}))
+        bucket.insert(Event(timestamp=ts - td1s, duration=1, data={"app": "older"}))
+        bucket.insert(Event(timestamp=ts + td1s, duration=1, data={"app": "newer"}))
+
+        fetched = bucket.get()
+        assert [e.data["app"] for e in fetched] == ["newer", "x", "y", "z", "older"]
+
+        # limit picks the same events as aw-server-rust
+        fetched = bucket.get(limit=2)
+        assert [e.data["app"] for e in fetched] == ["newer", "x"]
+
+
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_get_event_by_id(bucket_cm):
     """Test that we can retrieve single events by their IDs"""
     with bucket_cm as bucket:
