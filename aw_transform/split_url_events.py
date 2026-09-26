@@ -22,7 +22,7 @@ _QUERY_ENCODE = set(" \"#<>'")  # "'" only for special schemes, which is all we 
 
 
 def _percent_encode(text: str, encode_set: set) -> str:
-    out = []
+    out: List[str] = []
     for char in text:
         if ord(char) < 0x21 or ord(char) > 0x7E or char in encode_set:
             out.extend(f"%{byte:02X}" for byte in char.encode("utf-8"))
@@ -77,14 +77,16 @@ def _parse_ipv4(host: str) -> Optional[str]:
         parts.pop()
     last = parts[-1]
     ends_in_number = last.isdigit() or (
-        last[:2].lower() == "0x" and all(c in "0123456789abcdefABCDEF" for c in last[2:])
+        last[:2].lower() == "0x"
+        and all(c in "0123456789abcdefABCDEF" for c in last[2:])
     )
     if not ends_in_number:
         return ""
     if len(parts) > 4 or "" in parts:
         return None
-    numbers = [_ipv4_number(p) for p in parts]
-    if any(n is None for n in numbers) or any(n > 255 for n in numbers[:-1]):
+    parsed = [_ipv4_number(p) for p in parts]
+    numbers = [n for n in parsed if n is not None]
+    if len(numbers) != len(parsed) or any(n > 255 for n in numbers[:-1]):
         return None
     if numbers[-1] >= 256 ** (5 - len(numbers)):
         return None

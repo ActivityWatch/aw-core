@@ -375,6 +375,16 @@ def test_merge_events_by_keys_keeps_first_payload():
     assert len(merge_events_by_keys(nums, ["n"])) == 2
 
 
+def test_merge_events_by_keys_non_json_values_dont_collide():
+    """A non-JSON value doesn't merge with a string that looks the same"""
+    now = datetime.now(timezone.utc)
+    events = [
+        Event(timestamp=now, duration=1, data={"k": datetime(2020, 1, 1)}),
+        Event(timestamp=now, duration=1, data={"k": "2020-01-01 00:00:00"}),
+    ]
+    assert len(merge_events_by_keys(events, ["k"])) == 2
+
+
 def test_chunk_events_by_key():
     now = datetime.now(timezone.utc)
     events = []
@@ -451,6 +461,50 @@ def test_url_parse_event():
         assert _split(url) == {"url": url}
     e = Event(data={"url": 5}, timestamp=datetime.now(timezone.utc), duration=1)
     assert split_url_events([e])[0].data == {"url": 5}
+
+
+def test_url_parse_event_like_url_standard():
+    """Special-scheme URLs are parsed like aw-server-rust's WHATWG parser"""
+
+    def fields(url):
+        d = _split(url)
+        return (d["$domain"], d["$path"], d["$params"]) if "$domain" in d else None
+
+    # Any number of slashes (or backslashes) before the authority
+    assert fields("http:example.com") == ("example.com", "/", "")
+    assert fields("http:/example.com/a") == ("example.com", "/a", "")
+    assert fields("http:///x") == ("x", "/", "")
+    assert fields("http:\\\\x.org\\a") == ("x.org", "/a", "")
+    # Invalid ports and hosts leave the event unchanged
+    for url in [
+        "https://example.com:not-a-port/a",
+        "https://example.com:65536/a",
+        "http://a b.com/",
+        "https://x.org%2Fevil/",
+        "http://1.2.3.4.5/",
+        "http://1..2/",
+    ]:
+        assert fields(url) is None, url
+    assert fields("https://example.com:65535/a") == ("example.com", "/a", "")
+    # Host normalization: punycode, IPv4 forms, compressed IPv6
+    assert fields("https://bücher.de/") == ("xn--bcher-kva.de", "/", "")
+    assert fields("http://0x7f.1/") == ("127.0.0.1", "/", "")
+    assert fields("https://[::ffff:1.2.3.4]/") == ("[::ffff:102:304]", "/", "")
+    # Path and query: dot segments resolved, percent-encoded
+    assert fields("https://x.org/a/./b/../c") == ("x.org", "/a/c", "")
+    assert fields("https://x.org/a/%2e%2E/b") == ("x.org", "/b", "")
+    assert fields("https://x.org/a b?q=a b&r=ä#f g") == (
+        "x.org",
+        "/a%20b",
+        "q=a%20b&r=%C3%A4",
+    )
+    # Other fields of the event are kept, like in aw-server-rust
+    e = Event(
+        data={"url": "https://x.org/", "$options": "old"},
+        timestamp=datetime.now(timezone.utc),
+        duration=1,
+    )
+    assert split_url_events([e])[0].data["$options"] == "old"
 
 
 def test_union():

@@ -1,11 +1,20 @@
 import copy
 import json
 import logging
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from aw_core.models import Event
 
 logger = logging.getLogger(__name__)
+
+
+def _non_json_key(value: Any) -> Dict[str, str]:
+    # Event data from the datastore is always JSON, like in aw-server-rust.
+    # Other values (only possible through the Python API) are tagged with their
+    # type, so e.g. a datetime can't merge with a string that looks the same.
+    return {
+        "$non-json": f"{type(value).__module__}.{type(value).__qualname__}:{value!r}"
+    }
 
 
 def merge_events_by_keys(events: List[Event], keys: List[str]) -> List[Event]:
@@ -29,7 +38,7 @@ def merge_events_by_keys(events: List[Event], keys: List[str]) -> List[Event]:
             continue
         # Group by the JSON values, like aw-server-rust (so 1 and 1.0 differ,
         # and list values such as categories work).
-        composite_key = json.dumps(values, sort_keys=True, default=str)
+        composite_key = json.dumps(values, sort_keys=True, default=_non_json_key)
         merged = merged_events.get(composite_key)
         if merged is None:
             merged_events[composite_key] = Event(
