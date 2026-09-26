@@ -32,6 +32,23 @@ def test_flood_forward_merge():
     assert flooded[0].duration == timedelta(seconds=20)
 
 
+def test_flood_adjacent_same_data_merge():
+    """Adjacent events (gap of zero) with the same data are merged, like in aw-server-rust."""
+    events = [
+        Event(timestamp=now, duration=10, data={"a": 0}),
+        Event(timestamp=now + 10 * td1s, duration=10, data={"a": 0}),
+    ]
+    assert flood(events) == [Event(timestamp=now, duration=20, data={"a": 0})]
+
+
+def test_flood_adjacent_differing_data_unchanged():
+    events = [
+        Event(timestamp=now, duration=10, data={"a": 0}),
+        Event(timestamp=now + 10 * td1s, duration=10, data={"b": 0}),
+    ]
+    assert flood(events) == events
+
+
 def test_flood_backward_merge():
     events = [
         Event(timestamp=now, duration=5),

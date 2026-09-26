@@ -44,9 +44,6 @@ def flood(events: List[Event], pulsetime: float = 5) -> List[Event]:
     for e1, e2 in zip(events[:-1], events[1:]):
         gap = e2.timestamp - (e1.timestamp + e1.duration)
 
-        if not gap:
-            continue
-
         # Sanity check in case events overlap
         if gap < timedelta(0) and e1.data == e2.data:
             # Events with negative gap but same data can safely be merged
