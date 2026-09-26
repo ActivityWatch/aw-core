@@ -208,6 +208,63 @@ class PeeweeStorage(AbstractStorage):
     def buckets(self) -> Dict[str, Dict[str, Any]]:
         return {bucket.id: bucket.json() for bucket in BucketModel.select()}
 
+    def has_bucket(self, bucket_id: str) -> bool:
+        key = (
+            BucketModel.select(BucketModel.key)
+            .where(BucketModel.id == bucket_id)
+            .scalar()
+        )
+        if key is None:
+            self.bucket_keys.pop(bucket_id, None)
+            return False
+        # A cold lookup may discover a bucket created by another connection.
+        # Update the key used by subsequent event reads as well as existence.
+        self.bucket_keys[bucket_id] = key
+        return True
+
+    def buckets_with_last_updated(self) -> Dict[str, Dict[str, Any]]:
+        # The correlated seek uses (bucket_id, timestamp), including empty buckets.
+        latest = (
+            EventModel.select(EventModel.id)
+            .where(EventModel.bucket == BucketModel.key)
+            .order_by(EventModel.timestamp.desc())
+            .limit(1)
+        )
+        query = BucketModel.select(
+            BucketModel,
+            EventModel.timestamp.alias("last_timestamp"),
+            EventModel.duration.alias("last_duration"),
+        ).join(EventModel, peewee.JOIN.LEFT_OUTER, on=(EventModel.id == latest))
+        buckets = {}
+        for row in query.objects().iterator():
+            metadata = row.json()
+            if row.last_timestamp is not None:
+                event = Event(
+                    timestamp=row.last_timestamp, duration=float(row.last_duration)
+                )
+                metadata["last_updated"] = (
+                    event.timestamp + event.duration
+                ).isoformat()
+            buckets[row.id] = metadata
+        return buckets
+
+    def iter_events(self, bucket_id):
+        cursor = self.db.execute_sql(
+            "SELECT id, timestamp, duration, datastr FROM eventmodel "
+            "WHERE bucket_id = ? ORDER BY timestamp DESC",
+            (self.bucket_keys[bucket_id],),
+        )
+        try:
+            for event_id, timestamp, duration, datastr in cursor:
+                yield Event(
+                    id=event_id,
+                    timestamp=timestamp,
+                    duration=float(duration),
+                    data=json.loads(datastr),
+                )
+        finally:
+            cursor.close()
+
     def create_bucket(
         self,
         bucket_id: str,
@@ -347,13 +404,19 @@ class PeeweeStorage(AbstractStorage):
         )
 
     def replace(self, bucket_id, event_id, event):
-        e = self._get_event(bucket_id, event_id)
-        e.timestamp = event.timestamp
-        e.duration = event.duration.total_seconds()
-        e.datastr = json.dumps(event.data)
-        e.save()
-        event.id = e.id
-        return event
+        updated = (
+            EventModel.update(
+                timestamp=event.timestamp,
+                duration=event.duration.total_seconds(),
+                datastr=json.dumps(event.data),
+            )
+            .where(EventModel.id == event_id)
+            .where(EventModel.bucket == self.bucket_keys[bucket_id])
+            .execute()
+        )
+        if updated:
+            event.id = event_id
+        return bool(updated)
 
     def get_event(
         self,

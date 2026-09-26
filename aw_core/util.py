@@ -19,6 +19,6 @@ def assert_version(required_version: Tuple[int, ...] = (3, 5)):  # pragma: no co
             (
                 "Python version {} not supported, you need to upgrade your Python"
                 + " version to at least {}."
-            ).format(required_version)
+            ).format(actual_version, required_version)
         )
     logger.debug(f"Python version: {_version_info_tuple()}")
