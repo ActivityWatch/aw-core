@@ -1,6 +1,6 @@
 import logging
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 
 import iso8601
 import pytest
@@ -356,6 +356,83 @@ def test_get_event_trimming(bucket_cm):
         assert 2 == len(fetched_events)
         total_duration = sum((e.duration for e in fetched_events), timedelta())
         assert td1d == timedelta(seconds=round(total_duration.total_seconds()))
+
+
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
+def test_get_event_trimming_exact_end(bucket_cm):
+    """Events are trimmed at the exact end of the period, not 1 ms after it (aw-core#162)"""
+    with bucket_cm as bucket:
+        if not isinstance(bucket.ds.storage_strategy, PeeweeStorage):
+            pytest.skip("Trimming not supported for datastore")
+
+        start = iso8601.parse_date("2026-01-01T10:00:00Z")
+        bucket.insert(Event(timestamp=start, duration=timedelta(seconds=60)))
+
+        # Exact repro from the issue: period ends 30 s into a 60 s event
+        fetched = bucket.get(
+            -1,
+            starttime=iso8601.parse_date("2026-01-01T09:00:00Z"),
+            endtime=iso8601.parse_date("2026-01-01T10:00:30Z"),
+        )
+        assert len(fetched) == 1
+        assert fetched[0].duration == timedelta(seconds=30)
+
+        # Sub-millisecond endtimes are still rounded up to the next millisecond
+        fetched = bucket.get(-1, endtime=start + timedelta(seconds=30, microseconds=1))
+        assert fetched[0].duration == timedelta(seconds=30, milliseconds=1)
+
+        # ...including when that rolls over into the next second
+        fetched = bucket.get(
+            -1, endtime=start + timedelta(seconds=30, microseconds=999_500)
+        )
+        assert fetched[0].duration == timedelta(seconds=31)
+
+
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
+def test_get_datefilter_end_exact(bucket_cm):
+    """An event starting 1 ms after endtime is not included (aw-core#162)"""
+    with bucket_cm as bucket:
+        end = iso8601.parse_date("2026-01-01T10:00:30Z")
+        bucket.insert(Event(timestamp=end, duration=1, data={"at": "end"}))
+        bucket.insert(
+            Event(
+                timestamp=end + timedelta(milliseconds=1),
+                duration=1,
+                data={"at": "after"},
+            )
+        )
+        fetched = bucket.get(-1, endtime=end)
+        assert [e.data["at"] for e in fetched] == ["end"]
+
+
+class _FoldTZ(tzinfo):
+    """Minimal PEP 495 zone: every wall time is ambiguous, fold=0 is UTC-4, fold=1 is UTC-5.
+
+    Stands in for zoneinfo (not available on Python 3.8) for a repeated DST hour.
+    """
+
+    def utcoffset(self, dt):
+        return timedelta(hours=-5 if dt.fold else -4)
+
+    def dst(self, dt):
+        return timedelta(hours=0 if dt.fold else 1)
+
+    def tzname(self, dt):
+        return "EST" if dt.fold else "EDT"
+
+
+def test_get_endtime_rounding_keeps_instant():
+    """Rounding a sub-millisecond endtime doesn't move it by a DST fold"""
+    from aw_datastore import Datastore
+
+    ds = Datastore(get_storage_methods()["memory"], testing=True)
+    bucket = ds.create_bucket("test", "test", "test", "test")
+    utc_end = iso8601.parse_date("2025-11-02T06:30:00.0004Z")
+    # Second occurrence of 01:30 local time (fold=1, UTC-5) == 06:30 UTC
+    local_end = datetime(2025, 11, 2, 1, 30, 0, 400, tzinfo=_FoldTZ(), fold=1)
+    assert local_end.astimezone(timezone.utc) == utc_end
+    bucket.insert(Event(timestamp=utc_end - timedelta(minutes=10), duration=1))
+    assert len(bucket.get(-1, endtime=local_end)) == 1
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
