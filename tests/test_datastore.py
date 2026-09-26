@@ -389,6 +389,38 @@ def test_get_event_trimming_exact_end(bucket_cm):
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
+def test_get_datefilter_end_exact(bucket_cm):
+    """An event starting 1 ms after endtime is not included (aw-core#162)"""
+    with bucket_cm as bucket:
+        end = iso8601.parse_date("2026-01-01T10:00:30Z")
+        bucket.insert(Event(timestamp=end, duration=1, data={"at": "end"}))
+        bucket.insert(
+            Event(
+                timestamp=end + timedelta(milliseconds=1),
+                duration=1,
+                data={"at": "after"},
+            )
+        )
+        fetched = bucket.get(-1, endtime=end)
+        assert [e.data["at"] for e in fetched] == ["end"]
+
+
+def test_get_endtime_rounding_keeps_instant():
+    """Rounding a sub-millisecond endtime doesn't move it by a DST fold"""
+    zoneinfo = pytest.importorskip("zoneinfo")
+    from aw_datastore import Datastore
+
+    ds = Datastore(get_storage_methods()["memory"], testing=True)
+    bucket = ds.create_bucket("test", "test", "test", "test")
+    utc_end = iso8601.parse_date("2025-11-02T06:30:00.0004Z")
+    # 01:30 on 2025-11-02 happens twice in New York, fold=1 is the second (EST)
+    ny_end = utc_end.astimezone(zoneinfo.ZoneInfo("America/New_York"))
+    assert ny_end.fold == 1
+    bucket.insert(Event(timestamp=utc_end - timedelta(minutes=10), duration=1))
+    assert len(bucket.get(-1, endtime=ny_end)) == 1
+
+
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_get_datefilter_start(bucket_cm):
     """
     Tests the datetimefilter when fetching events

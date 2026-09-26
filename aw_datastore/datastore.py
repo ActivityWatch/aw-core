@@ -102,11 +102,14 @@ class Bucket:
             # when there are sub-millisecond digits: an endtime that is already a
             # whole millisecond must stay as-is, or events get clipped 1 ms past
             # the end of the requested period (aw-core#162).
-            # timedelta addition handles the overflow into the next second.
-            milliseconds = -(-endtime.microsecond // 1000)  # ceil division
-            endtime = endtime.replace(microsecond=0) + timedelta(
-                milliseconds=milliseconds
-            )
+            sub_ms = endtime.microsecond % 1000
+            if sub_ms:
+                # Round in UTC: wall-clock arithmetic on an aware datetime
+                # drops `fold` and can shift an ambiguous DST time by an hour.
+                if endtime.tzinfo is not None:
+                    endtime = endtime.astimezone(timezone.utc)
+                # timedelta addition handles the overflow into the next second
+                endtime += timedelta(microseconds=1000 - sub_ms)
 
         return self.ds.storage_strategy.get_events(
             self.bucket_id, limit, starttime, endtime
