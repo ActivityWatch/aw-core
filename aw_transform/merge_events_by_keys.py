@@ -1,40 +1,42 @@
+import copy
+import json
 import logging
-from typing import List, Dict, Tuple
+from typing import Dict, List
 
 from aw_core.models import Event
 
 logger = logging.getLogger(__name__)
 
 
-def merge_events_by_keys(events, keys) -> List[Event]:
+def merge_events_by_keys(events: List[Event], keys: List[str]) -> List[Event]:
     """
-    Sums the duration of all events which share a value for a key and returns a new event for each value.
+    Merges all events that share the same values for all of ``keys``, whether
+    they are adjacent or not, summing their durations.
 
-    .. note: The result will be a list of events without timestamp since they are merged.
+    Each merged event keeps the timestamp and the whole ``data`` of the first
+    event in its group (not only the merge keys), so fields that are the same
+    across the group, like ``$category`` for ``["app", "title"]``, stay
+    available. Events missing any of the keys are dropped, and an empty key list
+    returns no events. This matches aw-server-rust (ActivityWatch/activitywatch#1466).
     """
-    # Call recursively until all keys are consumed
-    if len(keys) < 1:
-        return events
-    merged_events: Dict[Tuple, Event] = {}
+    if not keys:
+        return []
+    merged_events: Dict[str, Event] = {}
     for event in events:
-        composite_key: Tuple = ()
-        for key in keys:
-            if key in event.data:
-                val = event["data"][key]
-                # Needed for when the value is a list, such as for categories
-                if isinstance(val, list):
-                    val = tuple(val)
-                composite_key = composite_key + (val,)
-        if composite_key not in merged_events:
+        try:
+            values = [event.data[key] for key in keys]
+        except KeyError:
+            continue
+        # Group by the JSON values, like aw-server-rust (so 1 and 1.0 differ,
+        # and list values such as categories work).
+        composite_key = json.dumps(values, sort_keys=True, default=str)
+        merged = merged_events.get(composite_key)
+        if merged is None:
             merged_events[composite_key] = Event(
-                timestamp=event.timestamp, duration=event.duration, data={}
+                timestamp=event.timestamp,
+                duration=event.duration,
+                data=copy.deepcopy(event.data),
             )
-            for key in keys:
-                if key in event.data:
-                    merged_events[composite_key].data[key] = event.data[key]
         else:
-            merged_events[composite_key].duration += event.duration
-    result = []
-    for key in merged_events:
-        result.append(Event(**merged_events[key]))
-    return result
+            merged.duration += event.duration
+    return list(merged_events.values())

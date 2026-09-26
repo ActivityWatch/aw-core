@@ -296,11 +296,11 @@ def test_merge_events_by_keys_1():
     events = events + [e1] * 10
     events = events + [e2] * 5
 
-    # Check that an empty key list has no effect
-    assert merge_events_by_keys(events, []) == events
+    # An empty key list merges nothing into nothing, like aw-server-rust
+    assert merge_events_by_keys(events, []) == []
 
-    # Check that trying to merge on unavailable key has no effect
-    assert len(merge_events_by_keys(events, ["unknown"])) == 1
+    # Events missing a key are dropped
+    assert merge_events_by_keys(events, ["unknown"]) == []
 
     result = merge_events_by_keys(events, ["label"])
     result = sort_by_duration(result)
@@ -336,6 +336,45 @@ def test_merge_events_by_keys_2():
     assert result[2].duration == timedelta(seconds=8)
 
 
+def test_merge_events_by_keys_keeps_first_payload():
+    """Like aw-server-rust: the first event's data is kept, missing keys are dropped"""
+    now = datetime.now(timezone.utc)
+    events = [
+        Event(
+            timestamp=now,
+            duration=10,
+            data={"app": "x", "title": "t1", "$category": ["Work"]},
+        ),
+        Event(
+            timestamp=now + timedelta(seconds=10),
+            duration=5,
+            data={"app": "x", "title": "t2", "$category": ["Work"]},
+        ),
+        Event(
+            timestamp=now + timedelta(seconds=20), duration=7, data={"title": "no app"}
+        ),
+    ]
+    result = merge_events_by_keys(events, ["app"])
+    assert len(result) == 1
+    assert result[0].data == {"app": "x", "title": "t1", "$category": ["Work"]}
+    assert result[0].timestamp == events[0].timestamp
+    assert result[0].duration == timedelta(seconds=15)
+    assert result[0].id is None
+
+    # The merged event doesn't share mutable data with the input
+    result[0].data["$category"].append("MUTATED")
+    assert events[0].data["$category"] == ["Work"]
+
+    # List values (like categories) can be merge keys, and 1 and 1.0 differ
+    by_cat = merge_events_by_keys(events, ["$category"])
+    assert [e.duration for e in by_cat] == [timedelta(seconds=15)]
+    nums = [
+        Event(timestamp=now, duration=1, data={"n": 1}),
+        Event(timestamp=now, duration=1, data={"n": 1.0}),
+    ]
+    assert len(merge_events_by_keys(nums, ["n"])) == 2
+
+
 def test_chunk_events_by_key():
     now = datetime.now(timezone.utc)
     events = []
@@ -346,7 +385,8 @@ def test_chunk_events_by_key():
     e2 = Event(data=e2_data, timestamp=now, duration=timedelta(seconds=1))
     e3 = Event(data=e3_data, timestamp=now, duration=timedelta(seconds=1))
     events = [e1, e2, e3]
-    result = chunk_events_by_key(events, "label1")
+    with pytest.warns(DeprecationWarning):
+        result = chunk_events_by_key(events, "label1")
     print(len(result))
     pprint(result)
     assert len(result) == 2
@@ -365,59 +405,52 @@ def test_chunk_events_by_key():
     assert result[1].data["subevents"][0] == e3
 
 
+def _split(url):
+    e = Event(data={"url": url}, timestamp=datetime.now(timezone.utc), duration=1)
+    return split_url_events([e])[0].data
+
+
 def test_url_parse_event():
-    now = datetime.now(timezone.utc)
-    e = Event(
-        data={"url": "http://asd.com/test/?a=1"},
-        timestamp=now,
-        duration=timedelta(seconds=1),
-    )
-    result = split_url_events([e])
-    print(result)
-    assert result[0].data["$protocol"] == "http"
-    assert result[0].data["$domain"] == "asd.com"
-    assert result[0].data["$path"] == "/test/"
-    assert result[0].data["$params"] == ""
-    assert result[0].data["$options"] == "a=1"
-    assert result[0].data["$identifier"] == ""
+    """Same fields and values as aw-server-rust (ActivityWatch/activitywatch#1466)"""
+    assert _split("http://asd.com/test/?a=1") == {
+        "url": "http://asd.com/test/?a=1",
+        "$protocol": "http",
+        "$domain": "asd.com",
+        "$path": "/test/",
+        "$params": "a=1",
+    }
 
-    e2 = Event(
-        data={"url": "https://www.asd.asd.com/test/test2/meh;meh2?asd=2&asdf=3#id"},
-        timestamp=now,
-        duration=timedelta(seconds=1),
-    )
-    result = split_url_events([e2])
-    print(result)
-    assert result[0].data["$protocol"] == "https"
-    assert result[0].data["$domain"] == "asd.asd.com"
-    assert result[0].data["$path"] == "/test/test2/meh"
-    assert result[0].data["$params"] == "meh2"
-    assert result[0].data["$options"] == "asd=2&asdf=3"
-    assert result[0].data["$identifier"] == "id"
+    data = _split("https://www.asd.asd.com/test/test2/meh;meh2?asd=2&asdf=3#id")
+    assert data["$domain"] == "asd.asd.com"
+    assert data["$path"] == "/test/test2/meh;meh2"
+    assert data["$params"] == "asd=2&asdf=3"
+    assert "$options" not in data and "$identifier" not in data
 
-    e3 = Event(
-        data={"url": "file:///home/johan/myfile.txt"},
-        timestamp=now,
-        duration=timedelta(seconds=1),
-    )
-    result = split_url_events([e3])
-    print(result)
-    assert result[0].data["$protocol"] == "file"
-    assert result[0].data["$domain"] == "file"
-    assert result[0].data["$path"] == "/home/johan/myfile.txt"
-    assert result[0].data["$params"] == ""
-    assert result[0].data["$options"] == ""
-    assert result[0].data["$identifier"] == ""
+    # The port and userinfo aren't part of the domain
+    data = _split("https://user:pw@x.org:8080/a;p?b=c#d")
+    assert (data["$domain"], data["$path"], data["$params"]) == ("x.org", "/a;p", "b=c")
+    assert _split("http://[::1]:5600/api")["$domain"] == "[::1]"
+    assert _split("HTTPS://WWW.Example.COM")["$domain"] == "example.com"
 
-    # Test about: URLs
-    e4 = Event(
-        data={"url": "about:blank"},
-        timestamp=now,
-        duration=timedelta(seconds=1),
+    # Special schemes always have a path
+    assert _split("https://x.org")["$path"] == "/"
+
+    # No host: the scheme is the domain
+    data = _split("file:///home/johan/myfile.txt")
+    assert (data["$protocol"], data["$domain"]) == ("file", "file")
+    assert data["$path"] == "/home/johan/myfile.txt"
+    data = _split("about:blank")
+    assert (data["$protocol"], data["$domain"], data["$path"]) == (
+        "about",
+        "about",
+        "blank",
     )
-    result = split_url_events([e4])
-    assert result[0].data["$protocol"] == "about"
-    assert result[0].data["$domain"] == "about"
+
+    # Not an absolute URL, or not a string: left unchanged
+    for url in ["not a url", "/relative/path", "http://"]:
+        assert _split(url) == {"url": url}
+    e = Event(data={"url": 5}, timestamp=datetime.now(timezone.utc), duration=1)
+    assert split_url_events([e])[0].data == {"url": 5}
 
 
 def test_union():
@@ -632,8 +665,17 @@ def test_tags():
     ]
     events = tag(events, classes)
 
-    assert len(events[0].data["$tags"]) == 2
-    assert len(events[1].data["$tags"]) == 0
+    # Two rules with the same tag give it once
+    assert events[0].data["$tags"] == ["Test"]
+    assert events[1].data["$tags"] == []
+
+    # Sorted, not in rule order (like aw-server-rust)
+    classes = [
+        ("Work", Rule({"regex": "Terminal"})),
+        ("Comms", Rule({"regex": "Inbox"})),
+    ]
+    e = Event(timestamp=now, duration=0, data={"app": "Terminal", "title": "Inbox"})
+    assert tag([e], classes)[0].data["$tags"] == ["Comms", "Work"]
 
 
 def test_union_no_overlap():
@@ -847,7 +889,8 @@ def test_merge_subwatcher_fields_multiple_subsegments_preserve_duration():
 
     assert by_project["alpha"] == 2 * td15m
     assert by_project["beta"] == td15m
-    assert by_project[None] == td15m
+    # merge_events_by_keys drops events without the key, so check those directly
+    assert sum_durations([e for e in result if "project" not in e.data]) == td15m
     assert by_app["vim"] == td1h
     assert sum_durations(result) == td1h
 

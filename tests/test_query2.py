@@ -351,6 +351,24 @@ def test_query2_categorize_invalid_priority():
         query(qname, example_query, starttime, endtime, ds)
 
 
+def test_query2_tag_requires_string_names():
+    """Category-style list names are rejected, like in aw-server-rust (#1466)"""
+    ds = mock_ds
+    starttime = iso8601.parse_date("1970-01-01")
+    endtime = iso8601.parse_date("1970-01-02")
+    example_query = """
+        events = [];
+        RETURN = tag(events, [[["Work"], {"type": "regex", "regex": "Code"}]]);
+    """
+    with pytest.raises(QueryFunctionException, match="string"):
+        query("asd", example_query, starttime, endtime, ds)
+    ok_query = """
+        events = [];
+        RETURN = tag(events, [["Work", {"type": "regex", "regex": "Code"}]]);
+    """
+    assert query("asd", ok_query, starttime, endtime, ds) == []
+
+
 @pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query2_transforms_dont_modify_other_variables(datastore):
     """Query variables have value semantics, like in aw-server-rust"""
