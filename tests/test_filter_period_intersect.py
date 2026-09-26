@@ -1,8 +1,9 @@
 """Boundary cases for filter_period_intersect.
 
-Filter events are half-open intervals [start, end): a point at a filter's
-end isn't covered by it. These pin the behaviour that aw-server-rust matches
-(checked by the parity suite in ActivityWatch/activitywatch).
+A filter covers [start, end), so a point at a filter's end isn't covered by it
+and yields its own zero-duration piece. Zero-duration pieces at the event's
+bounds are kept. aw-server-rust (with ActivityWatch/aw-server-rust#749) gives
+the same results; the parity suite in ActivityWatch/activitywatch checks it.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -33,7 +34,14 @@ def test_zero_duration_filter_at_end_of_another_filter():
 
 
 def test_zero_duration_filter_at_end_of_event():
-    # 10 s is outside the event's [0, 10), so the zero filter there adds nothing
+    # A lone zero-duration filter at the event's end yields a zero-duration
+    # piece there, like one at the start.
+    assert _spans(filter_period_intersect([_e(0, 10)], [_e(10, 0)])) == [(10, 0)]
+    assert _spans(filter_period_intersect([_e(0, 10)], [_e(0, 0)])) == [(0, 0)]
+    # After a filter that covers the whole event it doesn't: the walk has
+    # already moved past the event. Unlike the (0,6),(6,0) case above, this
+    # depends on walk order (the same in aw-server-rust); it only affects a
+    # zero-duration piece, never durations.
     result = filter_period_intersect([_e(0, 10)], [_e(0, 10), _e(10, 0)])
     assert _spans(result) == [(0, 10)]
 
