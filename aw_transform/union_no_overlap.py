@@ -6,8 +6,6 @@ from copy import deepcopy
 from typing import List, Tuple, Optional
 from datetime import datetime, timedelta, timezone
 
-from timeslot import Timeslot
-
 from aw_core import Event
 
 
@@ -38,6 +36,8 @@ def test_split_event():
 def union_no_overlap(events1: List[Event], events2: List[Event]) -> List[Event]:
     """Merges two eventlists and removes overlap, the first eventlist will have precedence
 
+    Both lists are expected to be sorted by timestamp and free of internal overlap.
+
     Example:
       events1  | xxx    xx     xxx     |
       events1  |  ----     ------   -- |
@@ -46,40 +46,71 @@ def union_no_overlap(events1: List[Event], events2: List[Event]) -> List[Event]:
     events1 = deepcopy(events1)
     events2 = deepcopy(events2)
 
-    # I looked a lot at aw_transform.union when I wrote this
-    events_union = []
+    # Same algorithm as aw-server-rust (ActivityWatch/aw-server-rust#674, #744).
+    # Positions are compared directly rather than via interval intersection,
+    # which is false for zero-duration events: a zero-duration e1 inside e2 must
+    # still split e2, or e2 is emitted whole and overlaps later e1 events.
+    events_union: List[Event] = []
     e1_i = 0
-    e2_i = 0
-    while e1_i < len(events1) and e2_i < len(events2):
+    e2_i = 1
+    pending: Optional[Event] = events2[0] if events2 else None
+
+    def next_e2() -> Optional[Event]:
+        nonlocal e2_i
+        if e2_i < len(events2):
+            e2_i += 1
+            return events2[e2_i - 1]
+        return None
+
+    def take_points_before(t: datetime) -> List[Event]:
+        # Zero-duration events2 events may sit inside an earlier events2 event.
+        # When that event's start moves forward to `t`, points before `t` must
+        # be handled now, or they would be emitted after it, out of order.
+        nonlocal e2_i
+        start = e2_i
+        while (
+            e2_i < len(events2)
+            and events2[e2_i].duration == timedelta(0)
+            and events2[e2_i].timestamp < t
+        ):
+            e2_i += 1
+        return events2[start:e2_i]
+
+    while e1_i < len(events1) and pending is not None:
         e1 = events1[e1_i]
-        e2 = events2[e2_i]
-        e1_p = Timeslot(e1.timestamp, e1.timestamp + e1.duration)
-        e2_p = Timeslot(e2.timestamp, e2.timestamp + e2.duration)
+        e2 = pending
+        e1_end = e1.timestamp + e1.duration
+        e2_end = e2.timestamp + e2.duration
 
-        if e1_p.intersects(e2_p):
-            if e1.timestamp <= e2.timestamp:
-                events_union.append(e1)
-                e1_i += 1
-
-                # If e2 continues after e1, we need to split up the event so we only get the part that comes after
-                _, e2_next = _split_event(e2, e1.timestamp + e1.duration)
-                if e2_next:
-                    events2[e2_i] = e2_next
-                else:
-                    e2_i += 1
+        if e2.timestamp < e1.timestamp:
+            # e2 starts first: emit the part before e1, keep the rest pending.
+            prefix, remainder = _split_event(e2, e1.timestamp)
+            events_union.append(prefix)
+            if remainder:
+                # Points before e1 lie inside the emitted prefix.
+                events_union += take_points_before(e1.timestamp)
+                pending = remainder
             else:
-                e2_next, e2_next2 = _split_event(e2, e1.timestamp)
-                events_union.append(e2_next)
-                e2_i += 1
-                if e2_next2:
-                    events2.insert(e2_i, e2_next2)
+                pending = next_e2()
+        elif e2.timestamp < e1_end:
+            # e1 starts first (or together) and covers the start of e2.
+            if e2_end <= e1_end:
+                # e2 is fully covered. Keep e1, it may cover more events.
+                pending = next_e2()
+                continue
+            e2.timestamp = e1_end
+            e2.duration = e2_end - e1_end
+            # Points before e1_end are covered by e1 and dropped.
+            take_points_before(e1_end)
+            events_union.append(e1)
+            e1_i += 1
         else:
-            if e1.timestamp <= e2.timestamp:
-                events_union.append(e1)
-                e1_i += 1
-            else:
-                events_union.append(e2)
-                e2_i += 1
+            # e1 ends before (or where) e2 starts.
+            events_union.append(e1)
+            e1_i += 1
+
     events_union += events1[e1_i:]
+    if pending is not None:
+        events_union.append(pending)
     events_union += events2[e2_i:]
     return events_union
