@@ -211,7 +211,12 @@ def tag(
     classes: List[Tuple[Tag, Rule]],
     rules_key: Optional[str] = None,
 ) -> List[Event]:
-    """Set ``$tags`` on each event, memoized like :func:`categorize`."""
+    """Set ``$tags`` on each event, memoized like :func:`categorize`.
+
+    ``$tags`` is sorted and deduplicated, like aw-server-rust
+    (ActivityWatch/activitywatch#1466). Unlike categories, an event can have
+    several tags.
+    """
     plan = _cached_plan(classes, rules_key, for_category=False)
     cache: Dict[str, Tuple[Tag, ...]] = {}
     for e in events:
@@ -222,7 +227,7 @@ def tag(
             if memo_key is not None:
                 tags = _tag_memo.get(memo_key)
             if tags is None:
-                tags = tuple(_matching(e.data, plan, first_only=False))
+                tags = tuple(sorted(set(_matching(e.data, plan, first_only=False))))
                 if memo_key is not None:
                     _tag_memo.put(memo_key, tags)
             cache[key] = tags
@@ -231,7 +236,7 @@ def tag(
 
 
 def _tag_one(e: Event, classes: List[Tuple[Tag, Rule]]) -> Event:
-    e.data["$tags"] = [_cls for _cls, rule in classes if rule.match(e)]
+    e.data["$tags"] = sorted({_cls for _cls, rule in classes if rule.match(e)})
     return e
 
 

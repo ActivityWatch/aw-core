@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 from functools import wraps
 from inspect import signature
@@ -35,6 +36,8 @@ from aw_transform import (
 )
 
 from .exceptions import QueryFunctionException
+
+logger = logging.getLogger(__name__)
 
 
 def _verify_bucket_exists(datastore, bucketname):
@@ -256,6 +259,10 @@ def q2_merge_subwatcher_fields(
 @q2_function(chunk_events_by_key)
 @q2_typecheck
 def q2_chunk_events_by_key(events: list, key: str) -> List[Event]:
+    logger.warning(
+        "chunk_events_by_key is deprecated and will be removed, "
+        "use merge_events_by_keys instead"
+    )
     return chunk_events_by_key(events, key)
 
 
@@ -357,6 +364,15 @@ def q2_categorize(events: list, classes: list):
 @q2_function(tag)
 @q2_typecheck
 def q2_tag(events: list, classes: list):
+    # Tag names are strings, like in aw-server-rust. Category-style list names
+    # belong to categorize (ActivityWatch/activitywatch#1466).
+    for entry in classes:
+        if not isinstance(entry, list) or len(entry) != 2:
+            raise QueryFunctionException("tag expects a list of [name, rule] pairs")
+        if not isinstance(entry[0], str):
+            raise QueryFunctionException(
+                f"tag name must be a string, got {type(entry[0]).__name__}: {entry[0]!r}"
+            )
     try:
         rules_key, compiled = compile_rules(classes)
     except ValueError as exc:

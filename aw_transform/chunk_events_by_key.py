@@ -1,4 +1,5 @@
 import logging
+import warnings
 from datetime import timedelta
 from typing import List
 
@@ -13,7 +14,17 @@ def chunk_events_by_key(
     """
     "Chunks" adjacent events together which have the same value for a key, and stores the
     original events in the :code:`subevents` key of the new event.
+
+    .. deprecated::
+        Use :func:`merge_events_by_keys` instead. Nothing first-party uses this,
+        aw-server-rust never supported ``subevents``, and it will be removed
+        (ActivityWatch/activitywatch#1466).
     """
+    warnings.warn(
+        "chunk_events_by_key is deprecated, use merge_events_by_keys instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     chunked_events: List[Event] = []
     for event in events:
         if key not in event.data:
