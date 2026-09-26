@@ -62,6 +62,20 @@ def union_no_overlap(events1: List[Event], events2: List[Event]) -> List[Event]:
             return events2[e2_i - 1]
         return None
 
+    def take_points_before(t: datetime) -> List[Event]:
+        # Zero-duration events2 events may sit inside an earlier events2 event.
+        # When that event's start moves forward to `t`, points before `t` must
+        # be handled now, or they would be emitted after it, out of order.
+        nonlocal e2_i
+        start = e2_i
+        while (
+            e2_i < len(events2)
+            and events2[e2_i].duration == timedelta(0)
+            and events2[e2_i].timestamp < t
+        ):
+            e2_i += 1
+        return events2[start:e2_i]
+
     while e1_i < len(events1) and pending is not None:
         e1 = events1[e1_i]
         e2 = pending
@@ -72,7 +86,12 @@ def union_no_overlap(events1: List[Event], events2: List[Event]) -> List[Event]:
             # e2 starts first: emit the part before e1, keep the rest pending.
             prefix, remainder = _split_event(e2, e1.timestamp)
             events_union.append(prefix)
-            pending = remainder if remainder else next_e2()
+            if remainder:
+                # Points before e1 lie inside the emitted prefix.
+                events_union += take_points_before(e1.timestamp)
+                pending = remainder
+            else:
+                pending = next_e2()
         elif e2.timestamp < e1_end:
             # e1 starts first (or together) and covers the start of e2.
             if e2_end <= e1_end:
@@ -81,6 +100,8 @@ def union_no_overlap(events1: List[Event], events2: List[Event]) -> List[Event]:
                 continue
             e2.timestamp = e1_end
             e2.duration = e2_end - e1_end
+            # Points before e1_end are covered by e1 and dropped.
+            take_points_before(e1_end)
             events_union.append(e1)
             e1_i += 1
         else:

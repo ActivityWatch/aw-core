@@ -185,6 +185,33 @@ def test_chained_unions():
     ]
 
 
+@pytest.mark.parametrize(
+    "a,b,expected",
+    [
+        # point in events2 inside the part of an events2 event covered by events1: dropped
+        ([(0, 1)], [(0, 3), (0, 0)], [(0, 1, "a"), (1, 2, "b")]),
+        # point in the part emitted before events1: kept, in order
+        (
+            [(5, 1)],
+            [(0, 10), (2, 0)],
+            [(0, 5, "b"), (2, 0, "b"), (5, 1, "a"), (6, 4, "b")],
+        ),
+        # point in the part after events1: kept, in order
+        (
+            [(2, 1)],
+            [(0, 10), (7, 0)],
+            [(0, 2, "b"), (2, 1, "a"), (3, 7, "b"), (7, 0, "b")],
+        ),
+    ],
+)
+def test_events2_points_inside_events2_stay_sorted(a, b, expected):
+    events1 = events_from(a, "a")
+    events2 = events_from(b, "b")
+    result = union_no_overlap(events1, events2)
+    assert spans(result) == expected
+    assert_union_invariants(events1, events2, result)
+
+
 def test_inputs_not_mutated():
     events1 = events_from([(2, 1)], "a")
     events2 = events_from([(0, 10)], "b")
@@ -205,6 +232,9 @@ def test_random_inputs_keep_union_invariants():
             for _ in range(rng.randrange(6)):
                 duration = 0 if rng.randrange(4) == 0 else 1 + rng.randrange(5000)
                 spans_.append((t, duration))
+                if duration > 0 and rng.randrange(4) == 0:
+                    # Zero-duration point inside the event just added.
+                    spans_.append((t + rng.randrange(duration), 0))
                 t += duration + rng.randrange(3000)
             lists.append(events_from(spans_, source, ms))
         result = union_no_overlap(lists[0], lists[1])
