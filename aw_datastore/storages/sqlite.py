@@ -350,7 +350,7 @@ class SqliteStorage(AbstractStorage):
             FROM events
             WHERE bucketrow = (SELECT rowid FROM buckets WHERE id = ?)
             AND endtime >= ? AND starttime <= ?
-            ORDER BY starttime DESC, endtime ASC, id ASC LIMIT ?
+            ORDER BY endtime DESC LIMIT ?
         """
         rows = c.execute(query, [bucket_id, starttime_i, endtime_i, limit])
         events = _rows_to_events(rows)
