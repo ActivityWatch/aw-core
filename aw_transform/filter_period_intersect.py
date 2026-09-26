@@ -29,10 +29,15 @@ def _intersecting_eventpairs(
     events2.sort(key=lambda e: e.timestamp)
     e1_i = 0
     e2_i = 0
+    # Start of the part of events1[e1_i] that has not been yielded yet, so that
+    # overlapping events in events2 don't yield the same time twice.
+    yielded_until = None
     while e1_i < len(events1) and e2_i < len(events2):
         e1 = events1[e1_i]
         e2 = events2[e2_i]
         e1_p = _get_event_period(e1)
+        if yielded_until is not None and yielded_until > e1_p.start:
+            e1_p = Timeslot(yielded_until, e1_p.end)
         e2_p = _get_event_period(e2)
 
         ip = e1_p.intersection(e2_p)
@@ -41,13 +46,16 @@ def _intersecting_eventpairs(
             yield (e1, e2, ip)
             if e1_p.end <= e2_p.end:
                 e1_i += 1
+                yielded_until = None
             else:
                 e2_i += 1
+                yielded_until = ip.end
         else:
             # No intersection, check if event is before/after filterevent
             if e1_p.end <= e2_p.start:
                 # Event ended before filter event started
                 e1_i += 1
+                yielded_until = None
             elif e2_p.end <= e1_p.start:
                 # Event started after filter event ended
                 e2_i += 1
