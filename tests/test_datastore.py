@@ -1,6 +1,6 @@
 import logging
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 
 import iso8601
 import pytest
@@ -405,19 +405,34 @@ def test_get_datefilter_end_exact(bucket_cm):
         assert [e.data["at"] for e in fetched] == ["end"]
 
 
+class _FoldTZ(tzinfo):
+    """Minimal PEP 495 zone: every wall time is ambiguous, fold=0 is UTC-4, fold=1 is UTC-5.
+
+    Stands in for zoneinfo (not available on Python 3.8) for a repeated DST hour.
+    """
+
+    def utcoffset(self, dt):
+        return timedelta(hours=-5 if dt.fold else -4)
+
+    def dst(self, dt):
+        return timedelta(hours=0 if dt.fold else 1)
+
+    def tzname(self, dt):
+        return "EST" if dt.fold else "EDT"
+
+
 def test_get_endtime_rounding_keeps_instant():
     """Rounding a sub-millisecond endtime doesn't move it by a DST fold"""
-    zoneinfo = pytest.importorskip("zoneinfo")
     from aw_datastore import Datastore
 
     ds = Datastore(get_storage_methods()["memory"], testing=True)
     bucket = ds.create_bucket("test", "test", "test", "test")
     utc_end = iso8601.parse_date("2025-11-02T06:30:00.0004Z")
-    # 01:30 on 2025-11-02 happens twice in New York, fold=1 is the second (EST)
-    ny_end = utc_end.astimezone(zoneinfo.ZoneInfo("America/New_York"))
-    assert ny_end.fold == 1
+    # Second occurrence of 01:30 local time (fold=1, UTC-5) == 06:30 UTC
+    local_end = datetime(2025, 11, 2, 1, 30, 0, 400, tzinfo=_FoldTZ(), fold=1)
+    assert local_end.astimezone(timezone.utc) == utc_end
     bucket.insert(Event(timestamp=utc_end - timedelta(minutes=10), duration=1))
-    assert len(bucket.get(-1, endtime=ny_end)) == 1
+    assert len(bucket.get(-1, endtime=local_end)) == 1
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
