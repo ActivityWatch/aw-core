@@ -126,10 +126,13 @@ def period_union(events1: List[Event], events2: List[Event]) -> List[Event]:
             merged_events[-1] = _replace_event_period(last_event, new_period)
         else:
             merged_events.append(e)
-    for event in merged_events:
-        # Clear data
-        event.data = {}
-    return merged_events
+    # Return new events without data. Clearing .data in place would also wipe
+    # the data of the input events it kept as-is, which the caller may still
+    # use (e.g. filter_keyvals_regex(events, ...) returns the same objects).
+    return [
+        Event(id=e.id, timestamp=e.timestamp, duration=e.duration, data={})
+        for e in merged_events
+    ]
 
 
 def union(events1: List[Event], events2: List[Event]) -> List[Event]:

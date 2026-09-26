@@ -206,6 +206,21 @@ def test_filter_period_intersect_zero_duration():
         )
 
 
+def test_period_union_does_not_modify_inputs():
+    """The input events keep their data (they're often shared with other variables)"""
+    now = datetime(2026, 1, 5, 9, 0, tzinfo=timezone.utc)
+    window = [
+        Event(timestamp=now, duration=30, data={"app": "Slack"}),
+        Event(timestamp=now + timedelta(minutes=5), duration=10, data={"app": "Code"}),
+    ]
+    not_afk = [Event(timestamp=now + timedelta(minutes=5), duration=5, data={})]
+    slack = [e for e in window if e.data["app"] == "Slack"]  # same objects
+    result = period_union(not_afk, slack)
+    assert all(e.data == {} for e in result)
+    assert [e.data for e in window] == [{"app": "Slack"}, {"app": "Code"}]
+    assert filter_period_intersect(window, result)[0].data == {"app": "Slack"}
+
+
 def test_period_union():
     now = datetime.now(timezone.utc)
 
