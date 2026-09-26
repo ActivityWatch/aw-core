@@ -247,3 +247,14 @@ def test_random_inputs_keep_union_invariants():
             lists.append(events_from(spans_, source, ms))
         result = union_no_overlap(lists[0], lists[1])
         assert_union_invariants(lists[0], lists[1], result)
+
+
+def test_events1_event_containing_several_events2_events():
+    # Regression test: once the first events1 event had been emitted, the second
+    # contained events2 event (5-6 min) was emitted on top of it.
+    minute = timedelta(minutes=1)
+    result = union_no_overlap(
+        events_from([(0, 10), (20, 10)], "A", minute),
+        events_from([(2, 1), (5, 1)], "b", minute),
+    )
+    assert spans(result) == [(0, 600, "A"), (1200, 600, "A")]
