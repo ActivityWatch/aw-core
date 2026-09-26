@@ -165,6 +165,47 @@ def test_filter_period_intersect():
     assert filtered_events[1].duration == timedelta(minutes=15)
 
 
+def test_filter_period_intersect_overlapping_filters():
+    """Time covered by several overlapping filter events is only kept once."""
+    now = datetime(2026, 1, 1, 10, tzinfo=timezone.utc)
+    td1s = timedelta(seconds=1)
+    to_filter = [Event(timestamp=now, duration=10 * td1s)]
+
+    filter_with = [
+        Event(timestamp=now, duration=6 * td1s),
+        Event(timestamp=now + 4 * td1s, duration=4 * td1s),
+    ]
+    filtered_events = filter_period_intersect(to_filter, filter_with)
+    assert [(e.timestamp - now, e.duration) for e in filtered_events] == [
+        (0 * td1s, 6 * td1s),
+        (6 * td1s, 2 * td1s),
+    ]
+
+    # A filter event contained in an earlier one adds nothing, also when they
+    # end at the same time
+    for start, duration in [(2, 2), (2, 4)]:
+        filter_with = [
+            Event(timestamp=now, duration=6 * td1s),
+            Event(timestamp=now + start * td1s, duration=duration * td1s),
+        ]
+        filtered_events = filter_period_intersect(to_filter, filter_with)
+        assert [(e.timestamp - now, e.duration) for e in filtered_events] == [
+            (0 * td1s, 6 * td1s),
+        ]
+
+
+def test_filter_period_intersect_zero_duration():
+    """Zero-duration events within a filter event are kept, boundaries included."""
+    now = datetime(2026, 1, 1, 10, tzinfo=timezone.utc)
+    td1s = timedelta(seconds=1)
+    filter_with = [Event(timestamp=now, duration=10 * td1s)]
+    for offset, kept in [(-1, False), (0, True), (5, True), (10, True), (11, False)]:
+        to_filter = [Event(timestamp=now + offset * td1s, duration=0)]
+        assert filter_period_intersect(to_filter, filter_with) == (
+            to_filter if kept else []
+        )
+
+
 def test_period_union():
     now = datetime.now(timezone.utc)
 
