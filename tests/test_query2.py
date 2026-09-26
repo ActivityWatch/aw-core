@@ -22,7 +22,7 @@ from aw_query.query2 import (
     _split_query_statements,
 )
 
-from .utils import param_datastore_objects
+from .utils import TempTestBucket, param_datastore_objects
 
 
 class MockDatastore(MemoryStorage):
@@ -372,6 +372,70 @@ def test_query2_function_in_function(datastore):
         assert 1 == len(result)
     finally:
         datastore.delete_bucket(bid)
+
+
+def test_query2_function_args_after_nested_call():
+    """Arguments after a nested call must not be dropped or mis-split (aw-core#164)"""
+    ns: Dict[str, Any] = {}
+
+    def parse_args(q: str):
+        (t, token), rest = _parse_token(q, ns)
+        assert t == QFunction
+        assert rest == ""
+        return QFunction.parse(token, ns).args
+
+    args = parse_args('filter_keyvals(query_bucket("a"), "app", ["Code"])')
+    assert [type(a) for a in args] == [QFunction, QString, QList]
+    assert args[0].args[0].value == "a"
+    assert args[1].value == "app"
+    assert [v.value for v in args[2].value] == ["Code"]
+
+    args = parse_args('merge_events_by_keys(query_bucket("a"), ["app", "title"])')
+    assert [type(a) for a in args] == [QFunction, QList]
+    assert [v.value for v in args[1].value] == ["app", "title"]
+
+    # Same bug for lists and dicts followed by more than one argument
+    args = parse_args('f([1], "x", "y")')
+    assert [type(a) for a in args] == [QList, QString, QString]
+    args = parse_args('f({"a": g("b")}, "x", "y")')
+    assert [type(a) for a in args] == [QDict, QString, QString]
+    args = parse_args("f(g(h(1)) , 2,3)")
+    assert [type(a) for a in args] == [QFunction, QInteger, QInteger]
+
+    # A missing separator is a syntax error, not silently dropped
+    with pytest.raises(QueryParseException):
+        parse_args('f(g("a") "x")')
+
+
+@pytest.mark.parametrize("datastore", param_datastore_objects())
+def test_query2_nested_call_with_more_args(datastore):
+    """The exact repro from aw-core#164"""
+    starttime = iso8601.parse_date("1970-01-01")
+    endtime = iso8601.parse_date("1970-01-02")
+    with TempTestBucket(datastore) as bucket:
+        bucket.insert(
+            Event(
+                data={"app": "Code", "title": "t"},
+                timestamp=starttime,
+                duration=timedelta(seconds=1),
+            )
+        )
+        bucket.insert(
+            Event(
+                data={"app": "Other", "title": "t"},
+                timestamp=starttime + timedelta(seconds=1),
+                duration=timedelta(seconds=1),
+            )
+        )
+        bid = bucket.bucket_id
+
+        q = f'RETURN = filter_keyvals(query_bucket("{bid}"), "app", ["Code"]);'
+        result = query("test", q, starttime, endtime, datastore)
+        assert [e["data"]["app"] for e in result] == ["Code"]
+
+        q = f'RETURN = merge_events_by_keys(query_bucket("{bid}"), ["app", "title"]);'
+        result = query("test", q, starttime, endtime, datastore)
+        assert sorted(e["data"]["app"] for e in result) == ["Code", "Other"]
 
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())

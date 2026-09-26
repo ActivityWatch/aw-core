@@ -161,11 +161,15 @@ class QFunction(QToken):
         # Parse arguments
         args = []
         args_str = string[arg_start + 1 : arg_end]
-        while args_str:
+        while args_str.strip():
             (arg_t, arg), args_str = _parse_token(args_str, namespace)
-            comma = args_str.find(",")
-            if comma != -1:
-                args_str = args_str[comma + 1 :]
+            args_str = args_str.strip()
+            if args_str:
+                if args_str[0] != ",":
+                    raise QueryParseException(
+                        f"Expected , between arguments to {name}, got: {args_str}"
+                    )
+                args_str = args_str[1:]
             args.append(arg_t.parse(arg, namespace))
         return QFunction(name, args)
 
@@ -210,7 +214,7 @@ class QFunction(QToken):
             prev_char = char
         if to_consume != 0:
             return None, string
-        return string[:i], string[i + 1 :]
+        return string[:i], string[i:]
 
 
 class QDict(QToken):
@@ -275,7 +279,7 @@ class QDict(QToken):
             if to_consume == 0:
                 break
             prev_char = char
-        return string[:i], string[i + 1 :]
+        return string[:i], string[i:]
 
 
 class QList(QToken):
@@ -330,7 +334,7 @@ class QList(QToken):
             if to_consume == 0:
                 break
             prev_char = char
-        return string[:i], string[i + 1 :]
+        return string[:i], string[i:]
 
 
 qtypes: Sequence[Type[QToken]] = [QString, QInteger, QFunction, QDict, QList, QVariable]
