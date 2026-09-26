@@ -359,6 +359,36 @@ def test_get_event_trimming(bucket_cm):
 
 
 @pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
+def test_get_event_trimming_exact_end(bucket_cm):
+    """Events are trimmed at the exact end of the period, not 1 ms after it (aw-core#162)"""
+    with bucket_cm as bucket:
+        if not isinstance(bucket.ds.storage_strategy, PeeweeStorage):
+            pytest.skip("Trimming not supported for datastore")
+
+        start = iso8601.parse_date("2026-01-01T10:00:00Z")
+        bucket.insert(Event(timestamp=start, duration=timedelta(seconds=60)))
+
+        # Exact repro from the issue: period ends 30 s into a 60 s event
+        fetched = bucket.get(
+            -1,
+            starttime=iso8601.parse_date("2026-01-01T09:00:00Z"),
+            endtime=iso8601.parse_date("2026-01-01T10:00:30Z"),
+        )
+        assert len(fetched) == 1
+        assert fetched[0].duration == timedelta(seconds=30)
+
+        # Sub-millisecond endtimes are still rounded up to the next millisecond
+        fetched = bucket.get(-1, endtime=start + timedelta(seconds=30, microseconds=1))
+        assert fetched[0].duration == timedelta(seconds=30, milliseconds=1)
+
+        # ...including when that rolls over into the next second
+        fetched = bucket.get(
+            -1, endtime=start + timedelta(seconds=30, microseconds=999_500)
+        )
+        assert fetched[0].duration == timedelta(seconds=31)
+
+
+@pytest.mark.parametrize("bucket_cm", param_testing_buckets_cm())
 def test_get_datefilter_start(bucket_cm):
     """
     Tests the datetimefilter when fetching events

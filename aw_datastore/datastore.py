@@ -98,15 +98,14 @@ class Bucket:
                 microsecond=1000 * int(starttime.microsecond / 1000)
             )
         if endtime:
-            # Rounding up here in order to ensure events aren't missed
-            # second_offset and microseconds modulo required since replace() only takes microseconds up to 999999 (doesn't handle overflow)
-            milliseconds = 1 + int(endtime.microsecond / 1000)
-            second_offset = int(milliseconds / 1000)  # usually 0, rarely 1
-            microseconds = (
-                (1000 * milliseconds) % 1000000
-            )  # will likely just be 1000 * milliseconds, if it overflows it would become zero
-            endtime = endtime.replace(microsecond=microseconds) + timedelta(
-                seconds=second_offset
+            # Rounding up here in order to ensure events aren't missed, but only
+            # when there are sub-millisecond digits: an endtime that is already a
+            # whole millisecond must stay as-is, or events get clipped 1 ms past
+            # the end of the requested period (aw-core#162).
+            # timedelta addition handles the overflow into the next second.
+            milliseconds = -(-endtime.microsecond // 1000)  # ceil division
+            endtime = endtime.replace(microsecond=0) + timedelta(
+                milliseconds=milliseconds
             )
 
         return self.ds.storage_strategy.get_events(
