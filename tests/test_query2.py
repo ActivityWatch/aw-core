@@ -351,6 +351,24 @@ def test_query2_categorize_invalid_priority():
         query(qname, example_query, starttime, endtime, ds)
 
 
+def test_query2_tag_requires_string_names():
+    """Category-style list names are rejected, like in aw-server-rust (#1466)"""
+    ds = mock_ds
+    starttime = iso8601.parse_date("1970-01-01")
+    endtime = iso8601.parse_date("1970-01-02")
+    example_query = """
+        events = [];
+        RETURN = tag(events, [[["Work"], {"type": "regex", "regex": "Code"}]]);
+    """
+    with pytest.raises(QueryFunctionException, match="string"):
+        query("asd", example_query, starttime, endtime, ds)
+    ok_query = """
+        events = [];
+        RETURN = tag(events, [["Work", {"type": "regex", "regex": "Code"}]]);
+    """
+    assert query("asd", ok_query, starttime, endtime, ds) == []
+
+
 @pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query2_transforms_dont_modify_other_variables(datastore):
     """Query variables have value semantics, like in aw-server-rust"""
@@ -390,6 +408,46 @@ def test_query2_transforms_dont_modify_other_variables(datastore):
         """
         result = query("test", q, starttime, endtime, datastore)
         assert result[0]["data"]["app"] == "Slack"
+
+
+@pytest.mark.parametrize(
+    "q",
+    [
+        'RETURN = tag([], [["Work", "not a rule"]]);',
+        'RETURN = tag([], [["Work", 5]]);',
+        'RETURN = tag([], [["Work"]]);',
+        'RETURN = categorize([], [[["Work"], "not a rule"]]);',
+    ],
+)
+def test_query2_malformed_rules_are_query_errors(q):
+    """A malformed rule is a query error (like aw-server-rust), not a crash"""
+    with pytest.raises(QueryFunctionException):
+        query(
+            "asd",
+            q,
+            iso8601.parse_date("1970-01-01"),
+            iso8601.parse_date("1970-01-02"),
+            mock_ds,
+        )
+
+
+def test_query2_chunk_deprecation_logged_once(caplog):
+    """The deprecation warning is logged once per process, not on every query"""
+    import aw_query.functions as functions
+
+    functions._chunk_deprecation_logged = False
+    q = 'RETURN = chunk_events_by_key([], "app");'
+    start, end = iso8601.parse_date("1970-01-01"), iso8601.parse_date("1970-01-02")
+    with caplog.at_level("WARNING", logger="aw_query.functions"):
+        for _ in range(3):
+            query("asd", q, start, end, mock_ds)
+    messages = [
+        r.getMessage()
+        for r in caplog.records
+        if "chunk_events_by_key" in r.getMessage()
+    ]
+    assert len(messages) == 1
+    assert "no drop-in replacement" in messages[0]
 
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())

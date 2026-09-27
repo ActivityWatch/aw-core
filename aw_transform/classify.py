@@ -79,7 +79,16 @@ def _categorize_one(e: Event, classes: List[Tuple[Category, Rule]]) -> Event:
     return e
 
 
+def _matching_tags(e: Event, classes: List[Tuple[Tag, Rule]]) -> List[Tag]:
+    # Sorted and deduplicated, like aw-server-rust (ActivityWatch/activitywatch#1466)
+    return sorted({_cls for _cls, rule in classes if rule.match(e)})
+
+
 def tag(events: List[Event], classes: List[Tuple[Tag, Rule]]) -> List[Event]:
+    """
+    Adds the names of all matching rules to ``$tags`` (sorted, without
+    duplicates). Unlike categories, an event can have several tags.
+    """
     cache: Dict[str, List[Tag]] = {}
     for e in events:
         try:
@@ -87,13 +96,13 @@ def tag(events: List[Event], classes: List[Tuple[Tag, Rule]]) -> List[Event]:
         except TypeError:
             key = str(id(e.data))
         if key not in cache:
-            cache[key] = [_cls for _cls, rule in classes if rule.match(e)]
+            cache[key] = _matching_tags(e, classes)
         e.data["$tags"] = list(cache[key])
     return events
 
 
 def _tag_one(e: Event, classes: List[Tuple[Tag, Rule]]) -> Event:
-    e.data["$tags"] = [_cls for _cls, rule in classes if rule.match(e)]
+    e.data["$tags"] = _matching_tags(e, classes)
     return e
 
 

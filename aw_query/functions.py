@@ -1,3 +1,5 @@
+import logging
+import warnings
 from datetime import timedelta
 from functools import wraps
 from inspect import signature
@@ -12,6 +14,7 @@ from typing import (
 import iso8601
 from aw_core.models import Event
 from aw_datastore import Datastore
+from aw_transform.chunk_events_by_key import CHUNK_DEPRECATION
 from aw_transform import (
     Rule,
     categorize,
@@ -35,6 +38,11 @@ from aw_transform import (
 )
 
 from .exceptions import QueryFunctionException
+
+logger = logging.getLogger(__name__)
+
+# Logged once per process: queries run repeatedly (e.g. on every dashboard refresh)
+_chunk_deprecation_logged = False
 
 
 def _verify_bucket_exists(datastore, bucketname):
@@ -256,7 +264,14 @@ def q2_merge_subwatcher_fields(
 @q2_function(chunk_events_by_key)
 @q2_typecheck
 def q2_chunk_events_by_key(events: list, key: str) -> List[Event]:
-    return chunk_events_by_key(events, key)
+    global _chunk_deprecation_logged
+    if not _chunk_deprecation_logged:
+        _chunk_deprecation_logged = True
+        logger.warning(CHUNK_DEPRECATION)
+    with warnings.catch_warnings():
+        # Logged once above; don't also emit the transform's DeprecationWarning
+        warnings.simplefilter("ignore", DeprecationWarning)
+        return chunk_events_by_key(events, key)
 
 
 """
@@ -344,21 +359,43 @@ def q2_nop():
 """
 
 
+def _parse_rules(function: str, classes: list) -> list:
+    """[[name, rule_dict], ...] into (name, Rule) pairs, with a
+    QueryFunctionException (like aw-server-rust's query error) for malformed
+    entries instead of a crash."""
+    rules = []
+    for entry in classes:
+        if not isinstance(entry, list) or len(entry) != 2:
+            raise QueryFunctionException(
+                f"{function} expects a list of [name, rule] pairs, got {entry!r}"
+            )
+        name, rule_dict = entry
+        if not isinstance(rule_dict, dict):
+            raise QueryFunctionException(
+                f"{function} rule must be a dict, got {type(rule_dict).__name__}: {rule_dict!r}"
+            )
+        try:
+            rules.append((name, Rule(rule_dict)))
+        except ValueError as exc:
+            raise QueryFunctionException(str(exc)) from None
+    return rules
+
+
 @q2_function(categorize)
 @q2_typecheck
 def q2_categorize(events: list, classes: list):
-    try:
-        classes = [(_cls, Rule(rule_dict)) for _cls, rule_dict in classes]
-    except ValueError as exc:
-        raise QueryFunctionException(str(exc)) from None
-    return categorize(_copy_events(events), classes)
+    return categorize(_copy_events(events), _parse_rules("categorize", classes))
 
 
 @q2_function(tag)
 @q2_typecheck
 def q2_tag(events: list, classes: list):
-    try:
-        classes = [(_cls, Rule(rule_dict)) for _cls, rule_dict in classes]
-    except ValueError as exc:
-        raise QueryFunctionException(str(exc)) from None
-    return tag(_copy_events(events), classes)
+    # Tag names are strings, like in aw-server-rust. Category-style list names
+    # belong to categorize (ActivityWatch/activitywatch#1466).
+    rules = _parse_rules("tag", classes)
+    for name, _ in rules:
+        if not isinstance(name, str):
+            raise QueryFunctionException(
+                f"tag name must be a string, got {type(name).__name__}: {name!r}"
+            )
+    return tag(_copy_events(events), rules)
