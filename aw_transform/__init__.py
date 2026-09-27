@@ -14,7 +14,7 @@ from .split_url_events import split_url_events
 from .merge_subwatcher_fields import merge_subwatcher_fields
 from .simplify import simplify_string
 from .flood import flood
-from .classify import categorize, tag, Rule
+from .classify import categorize, tag, Rule, compile_rules
 from .union_no_overlap import union_no_overlap
 
 __all__ = [
@@ -23,6 +23,7 @@ __all__ = [
     "categorize",
     "tag",
     "Rule",
+    "compile_rules",
     "period_union",
     "filter_period_intersect",
     "union",

@@ -13,6 +13,8 @@ from typing import (
 
 from aw_datastore import Datastore
 
+from aw_core.cache import LRUCache
+
 from .exceptions import QueryInterpretException, QueryParseException
 from .functions import functions
 
@@ -63,19 +65,17 @@ class QVariable(QToken):
         self.value = value
 
     def interpret(self, datastore: Datastore, namespace: dict):
+        # Resolved at interpret time, not parse time, so parsed statements
+        # can be cached and reused across queries (see _parse_cached).
         if self.name not in namespace:
             raise QueryInterpretException(
                 f"Tried to reference variable '{self.name}' which is not defined"
             )
-        namespace[self.name] = self.value
-        return self.value
+        return namespace[self.name]
 
     @staticmethod
     def parse(string: str, namespace: dict) -> QToken:
-        val = None
-        if string in namespace:
-            val = namespace[string]
-        return QVariable(string, val)
+        return QVariable(string, None)
 
     @staticmethod
     def check(string: str):
@@ -397,6 +397,33 @@ def interpret(var, val, namespace, datastore):
     # logger.debug("Set {} to {}".format(var.name, namespace[var.name]))
 
 
+# Parsing is pure (it doesn't depend on the namespace), and clients like
+# aw-webui send the same statements for every day of a long range, often with
+# large inline literals such as category rules. Parsed trees are immutable at
+# interpret time (QList/QDict build fresh containers), so they can be shared.
+# Bounded by entry count and by total statement length (the parsed tree is
+# proportional to it), so many distinct large queries can't pin much memory.
+_split_cache = LRUCache(maxsize=64, max_weight=2_000_000)
+_parse_cache = LRUCache(maxsize=512, max_weight=2_000_000)
+
+
+def _split_cached(query: str) -> List[str]:
+    stmts = _split_cache.get(query)
+    if stmts is None:
+        stmts = _split_query_statements(query)
+        _split_cache.put(query, stmts, weight=len(query))
+    return stmts
+
+
+def _parse_cached(statement: str):
+    parsed = _parse_cache.get(statement)
+    if parsed is None:
+        logger.debug("Parsing: " + statement)
+        parsed = parse(statement, {})
+        _parse_cache.put(statement, parsed, weight=len(statement))
+    return parsed
+
+
 def get_return(namespace):
     if "RETURN" not in namespace:
         raise QueryParseException(
@@ -440,12 +467,11 @@ def query(
     namespace["STARTTIME"] = starttime.isoformat()
     namespace["ENDTIME"] = endtime.isoformat()
 
-    query_stmts = _split_query_statements(query)
+    query_stmts = _split_cached(query)
     for statement in query_stmts:
         statement = statement.strip()
         if statement:
-            logger.debug("Parsing: " + statement)
-            var, val = parse(statement, namespace)
+            var, val = _parse_cached(statement)
             interpret(var, val, namespace, datastore)
 
     result = get_return(namespace)
