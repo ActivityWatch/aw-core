@@ -512,6 +512,13 @@ def test_url_parse_event_like_url_standard():
     assert fields("https://\u0301.com/") is None  # leading combining mark
     assert fields("https://xn--zz.com/") is None  # invalid A-label
     assert fields("https://xn--fa-hia.de/")[0] == "xn--fa-hia.de"
+    # CheckBidi and CheckJoiners
+    assert fields("https://\u05d0\u05d1x.com/") is None  # mixed direction label
+    assert fields("https://\u05d0\u05d1.com/")[0] == "xn--4dbc.com"
+    assert fields("https://\u200d\u094d.com/") is None  # leading joiner
+    # Other schemes: credentials or a port need a host
+    assert fields("foo://:80/a") is None
+    assert fields("foo://@/a") is None
     # Other schemes: ports validated, IPv6 without port, encoded like the URL Standard
     assert fields("foo://host:not-a-port/a") is None
     assert fields("foo://host:99999/a") is None

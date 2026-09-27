@@ -131,7 +131,7 @@ def _valid_label(label: str) -> bool:
         return False  # a label can't begin with a combining mark
     for i, c in enumerate(label):
         # Zero-width joiners are only valid after a virama (CheckJoiners)
-        if c in "\u200c\u200d" and unicodedata.combining(label[i - 1]) != 9:
+        if c in "\u200c\u200d" and (i == 0 or unicodedata.combining(label[i - 1]) != 9):
             return False
     return unicodedata.is_normalized("NFC", label)
 
@@ -146,9 +146,18 @@ def _uts46_to_ascii(host: str) -> Optional[str]:
     except idna.IDNAError:
         return None
     labels = []
-    for label in mapped.split("."):
+    split = mapped.split(".")
+    # CheckBidi (RFC 5893): in a domain with right-to-left text, every label
+    # must satisfy the bidi rules
+    bidi = any(unicodedata.bidirectional(c) in ("R", "AL", "AN") for c in mapped)
+    for label in split:
         if not _valid_label(label):
             return None
+        if bidi and label:
+            try:
+                idna.check_bidi(label, check_ltr=True)
+            except idna.IDNAError:
+                return None
         labels.append(
             label
             if label.isascii()
@@ -275,6 +284,10 @@ def _split_other(scheme: str, rest: str) -> Optional[dict]:
         slash = rest.find("/")
         authority, path = (rest, "") if slash == -1 else (rest[:slash], rest[slash:])
         hostport = authority.rpartition("@")[2]
+        # Credentials or a port need a host ("foo://:80/a", "foo://@/a")
+        if hostport in ("", ":") or hostport.startswith(":"):
+            if "@" in authority or ":" in hostport:
+                return None
         if hostport.startswith("["):
             close = hostport.find("]")
             if close == -1:
