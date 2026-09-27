@@ -13,9 +13,9 @@ import iso8601
 from aw_core.models import Event
 from aw_datastore import Datastore
 from aw_transform import (
-    Rule,
     categorize,
     chunk_events_by_key,
+    compile_rules,
     concat,
     filter_keyvals,
     filter_keyvals_regex,
@@ -348,17 +348,17 @@ def q2_nop():
 @q2_typecheck
 def q2_categorize(events: list, classes: list):
     try:
-        classes = [(_cls, Rule(rule_dict)) for _cls, rule_dict in classes]
+        rules_key, compiled = compile_rules(classes)
     except ValueError as exc:
         raise QueryFunctionException(str(exc)) from None
-    return categorize(_copy_events(events), classes)
+    return categorize(_copy_events(events), compiled, rules_key=rules_key)
 
 
 @q2_function(tag)
 @q2_typecheck
 def q2_tag(events: list, classes: list):
     try:
-        classes = [(_cls, Rule(rule_dict)) for _cls, rule_dict in classes]
+        rules_key, compiled = compile_rules(classes)
     except ValueError as exc:
         raise QueryFunctionException(str(exc)) from None
-    return tag(_copy_events(events), classes)
+    return tag(_copy_events(events), compiled, rules_key=rules_key)
