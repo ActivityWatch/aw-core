@@ -498,6 +498,23 @@ def test_url_parse_event_like_url_standard():
         "/a%20b",
         "q=a%20b&r=%C3%A4",
     )
+    # Non-ASCII digits aren't a port (and don't crash the transform)
+    assert fields("https://example.com:\u00b2/a") is None
+    assert fields("https://example.org:\uff11\uff12/a") is None
+    # UTS 46 non-transitional: ß and ς are kept, compatibility forms mapped
+    assert fields("https://fa\u00df.de/") == ("xn--fa-hia.de", "/", "")
+    assert (
+        fields("https://\uff25\uff38\uff21\uff2d\uff30\uff2c\uff25.com/")[0]
+        == "example.com"
+    )
+    # file: URLs: localhost is no host, Windows drive letters stay in the path
+    assert fields("file://localhost/etc") == ("file", "/etc", "")
+    assert fields("file:c:/foo") == ("file", "/c:/foo", "")
+    assert fields("file:C|/x") == ("file", "/C:/x", "")
+    assert fields("file:///C:/../a") == ("file", "/C:/a", "")
+    assert fields("file://host.example/share/x") == ("host.example", "/share/x", "")
+    # "?" and "#" end the authority, as in the URL Standard
+    assert fields("http://example.com?x/y") == ("example.com", "/", "x/y")
     # Other fields of the event are kept, like in aw-server-rust
     e = Event(
         data={"url": "https://x.org/", "$options": "old"},

@@ -1,6 +1,7 @@
 import ipaddress
 import logging
 import re
+import unicodedata
 from typing import List, Optional
 from urllib.parse import unquote_to_bytes, urlsplit
 
@@ -35,14 +36,21 @@ def _is_dot(segment: str, dots: str) -> bool:
     return segment.replace("%2e", ".").replace("%2E", ".") == dots
 
 
-def _normalize_path(path: str) -> str:
-    """Special-scheme path: "/" separators, dot segments resolved, encoded."""
+_DRIVE_RE = re.compile(r"[A-Za-z][:|]")
+
+
+def _normalize_path(path: str, file: bool = False, pipe_drive: bool = True) -> str:
+    """Special-scheme path: "/" separators, dot segments resolved, encoded.
+    For file URLs a leading Windows drive letter is kept ("C|" becomes "C:")
+    and ".." never removes it."""
     segments = path.replace("\\", "/").split("/")[1:]
     out: List[str] = []
     for i, segment in enumerate(segments):
         last = i == len(segments) - 1
+        if file and i == 0 and pipe_drive and _DRIVE_RE.fullmatch(segment):
+            segment = segment[0] + ":"
         if _is_dot(segment, ".."):
-            if out:
+            if out and not (file and len(out) == 1 and _DRIVE_RE.fullmatch(out[0])):
                 out.pop()
             if last:
                 out.append("")
@@ -96,6 +104,43 @@ def _parse_ipv4(host: str) -> Optional[str]:
     return ".".join(str((value >> shift) & 0xFF) for shift in (24, 16, 8, 0))
 
 
+# UTS 46 non-transitional processing keeps these instead of mapping them
+# (ß to "ss", ς to σ), which the URL Standard requires.
+_DEVIATIONS = set("\u00df\u03c2\u200c\u200d")
+_LABEL_SEPARATORS = str.maketrans({"\u3002": ".", "\uff0e": ".", "\uff61": "."})
+
+
+def _uts46_to_ascii(host: str) -> Optional[str]:
+    """Non-ASCII host to ASCII (punycode) like the URL Standard's domain to
+    ASCII: UTS 46 mapping (compatibility forms, case folding, deviations kept),
+    NFC, then punycode per label."""
+    mapped = "".join(
+        c
+        if c in _DEVIATIONS
+        else unicodedata.normalize("NFKC", unicodedata.normalize("NFKC", c).casefold())
+        for c in host.translate(_LABEL_SEPARATORS)
+    )
+    labels = []
+    for label in unicodedata.normalize("NFC", mapped).split("."):
+        # Zero-width joiners are only valid after a virama (UTS 46 CheckJoiners)
+        for i, c in enumerate(label):
+            if c in "\u200c\u200d" and (
+                i == 0 or unicodedata.combining(label[i - 1]) != 9
+            ):
+                return None
+        if label.isascii():
+            labels.append(label)
+            continue
+        try:
+            labels.append("xn--" + label.encode("punycode").decode("ascii"))
+        except UnicodeError:
+            return None
+    result = ".".join(labels)
+    if any(c in _FORBIDDEN_HOST for c in result):
+        return None
+    return result
+
+
 def _parse_host(host: str) -> Optional[str]:
     """A special-scheme host as serialized by the URL Standard, or None if invalid."""
     if host.startswith("["):
@@ -111,13 +156,9 @@ def _parse_host(host: str) -> Optional[str]:
         return None
     if not decoded or any(c in _FORBIDDEN_HOST for c in decoded):
         return None
-    if decoded.isascii():
-        ascii_host = decoded.lower()
-    else:
-        try:
-            ascii_host = decoded.encode("idna").decode("ascii").lower()
-        except UnicodeError:
-            return None
+    ascii_host = decoded.lower() if decoded.isascii() else _uts46_to_ascii(decoded)
+    if ascii_host is None:
+        return None
     ipv4 = _parse_ipv4(ascii_host)
     if ipv4 is None:
         return None
@@ -142,7 +183,7 @@ def _split_special(scheme: str, rest: str) -> Optional[dict]:
         port = port[1:]
     else:
         host, _, port = hostport.partition(":")
-    if port and (not port.isdigit() or int(port) > 65535):
+    if port and (not port.isascii() or not port.isdigit() or int(port) > 65535):
         return None
     parsed_host = _parse_host(host)
     if parsed_host is None:
@@ -162,15 +203,50 @@ def _strip_www(host: str) -> str:
     return host
 
 
+def _split_file(rest: str) -> Optional[dict]:
+    """file: URLs like the URL Standard: "localhost" is no host, and a Windows
+    drive letter is part of the path, not the host."""
+    rest = rest.split("#", 1)[0]
+    rest, _, query = rest.partition("?")
+    host = ""
+    # Like the url crate, "C|" becomes "C:" except right after an empty host
+    # ("file:///c|/x" keeps it).
+    pipe_drive = True
+    if len(rest) >= 2 and rest[0] in "/\\" and rest[1] in "/\\":
+        rest = rest[2:]
+        end = len(rest)
+        for sep in "/\\":
+            idx = rest.find(sep)
+            if idx != -1:
+                end = min(end, idx)
+        authority, path = rest[:end], rest[end:]
+        if not authority:
+            pipe_drive = False
+        if _DRIVE_RE.fullmatch(authority):
+            path = "/" + authority + path
+        elif authority:
+            parsed = _parse_host(authority)
+            if parsed is None:
+                return None
+            host = "" if parsed == "localhost" else parsed
+    elif rest[:1] in ("/", "\\"):
+        path = rest
+    else:
+        path = "/" + rest
+    return {
+        "$protocol": "file",
+        "$domain": _strip_www(host) or "file",
+        "$path": _normalize_path(path or "/", file=True, pipe_drive=pipe_drive),
+        "$params": _percent_encode(query, _QUERY_ENCODE),
+    }
+
+
 def _split_other(scheme: str, url: str) -> dict:
     parts = urlsplit(url)
     host = parts.netloc.rpartition("@")[2]
     if not host.startswith("["):
         host = host.partition(":")[0]
     path = parts.path
-    if scheme == "file":
-        path = _normalize_path(path.replace("\\", "/") or "/")
-        host = host.lower()
     return {
         "$protocol": scheme,
         # No host (e.g. about:blank, file:///x): the scheme is the domain, so
@@ -190,11 +266,14 @@ def _split_url(url: str) -> Optional[dict]:
     if not match:
         return None  # a relative URL or plain text, not something we can split
     scheme, rest = match.group(1).lower(), match.group(2)
-    if scheme in _SPECIAL_SCHEMES and scheme != "file":
-        return _split_special(scheme, rest)
     try:
+        if scheme == "file":
+            return _split_file(rest)
+        if scheme in _SPECIAL_SCHEMES:
+            return _split_special(scheme, rest)
         return _split_other(scheme, f"{scheme}:{rest}")
     except ValueError:
+        # Never let one odd URL abort the whole transform: leave it unchanged.
         return None
 
 
