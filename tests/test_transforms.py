@@ -516,6 +516,12 @@ def test_url_parse_event_like_url_standard():
     assert fields("https://\u05d0\u05d1x.com/") is None  # mixed direction label
     assert fields("https://\u05d0\u05d1.com/")[0] == "xn--4dbc.com"
     assert fields("https://\u200d\u094d.com/") is None  # leading joiner
+    assert fields("https://xn--x-zhcd.com/") is None  # encoded mixed-direction label
+    # ZWNJ in a joining context is valid (Persian)
+    persian = "https://\u0646\u0627\u0645\u0647\u200c\u0627\u06cc.com/"
+    assert fields(persian)[0] == "xn--mgba3gch31f060k.com"
+    # "^" is kept literally in paths, like aw-server-rust
+    assert fields("https://x.org/a^b") == ("x.org", "/a^b", "")
     # Other schemes: credentials or a port need a host
     assert fields("foo://:80/a") is None
     assert fields("foo://@/a") is None
