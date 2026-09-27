@@ -223,3 +223,26 @@ def test_undefined_variable_still_raises_with_cache():
     for _ in range(2):
         with pytest.raises(QueryInterpretException):
             query("q", "RETURN = not_defined;", t, t + timedelta(days=1), None)
+
+
+def test_lru_weight_budget():
+    c = LRUCache(maxsize=10, max_weight=10)
+    c.put("a", 1, weight=4)
+    c.put("b", 2, weight=4)
+    c.put("c", 3, weight=4)  # total 12 > 10, evicts oldest
+    assert "a" not in c and "b" in c and "c" in c and c.weight == 8
+    c.put("huge", 4, weight=11)  # heavier than the whole budget: not cached
+    assert "huge" not in c and c.weight == 8
+    c.put("b", 5, weight=1)  # replacing an entry updates the weight
+    assert c.get("b") == 5 and c.weight == 5
+
+
+def test_non_json_classes_fall_back_uncached():
+    """Non-serializable class lists still reach Rule() so its error is reported."""
+    with pytest.raises(ValueError):
+        compile_rules([[["x"], {"type": "regex", "regex": "x", "priority": object()}]])
+    key, compiled = compile_rules(
+        [[("x",), {"type": "regex", "regex": "x", "o": object()}]]
+    )
+    assert key is None and len(compiled) == 1
+    assert len(classify._compiled_rules_cache) == 0

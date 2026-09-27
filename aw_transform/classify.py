@@ -69,17 +69,23 @@ class Rule:
 
 def compile_rules(
     classes: List[Tuple[Any, Dict[str, Any]]],
-) -> Tuple[str, List[Tuple[Any, Rule]]]:
+) -> Tuple[Optional[str], List[Tuple[Any, Rule]]]:
     """Build Rule objects for a class list, reusing them across queries.
 
-    Returns ``(rules_key, compiled)``. ``rules_key`` identifies the rule set and
+    Returns ``(rules_key, compiled)``; ``rules_key`` is None if the class list
+    isn't JSON-serializable (then nothing is cached). ``rules_key`` identifies the rule set and
     scopes the cross-query result memos in :func:`categorize` and :func:`tag`.
     The compiled list is shared between callers and must not be mutated.
     Invalid rules raise ValueError and are never cached.
     """
-    rules_key = hashlib.sha1(
-        json.dumps(classes, sort_keys=True).encode("utf-8")
-    ).hexdigest()
+    try:
+        rules_key = hashlib.sha1(
+            json.dumps(classes, sort_keys=True).encode("utf-8")
+        ).hexdigest()
+    except TypeError:
+        # Not a plain JSON rule list: compile uncached so Rule() reports the
+        # real problem, and skip the cross-query memos.
+        return None, [(_cls, Rule(rule_dict)) for _cls, rule_dict in classes]
     compiled = _compiled_rules_cache.get(rules_key)
     if compiled is None:
         compiled = [(_cls, Rule(rule_dict)) for _cls, rule_dict in classes]

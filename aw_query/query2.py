@@ -401,15 +401,17 @@ def interpret(var, val, namespace, datastore):
 # aw-webui send the same statements for every day of a long range, often with
 # large inline literals such as category rules. Parsed trees are immutable at
 # interpret time (QList/QDict build fresh containers), so they can be shared.
-_split_cache = LRUCache(maxsize=64)
-_parse_cache = LRUCache(maxsize=512)
+# Bounded by entry count and by total statement length (the parsed tree is
+# proportional to it), so many distinct large queries can't pin much memory.
+_split_cache = LRUCache(maxsize=64, max_weight=2_000_000)
+_parse_cache = LRUCache(maxsize=512, max_weight=2_000_000)
 
 
 def _split_cached(query: str) -> List[str]:
     stmts = _split_cache.get(query)
     if stmts is None:
         stmts = _split_query_statements(query)
-        _split_cache.put(query, stmts)
+        _split_cache.put(query, stmts, weight=len(query))
     return stmts
 
 
@@ -418,7 +420,7 @@ def _parse_cached(statement: str):
     if parsed is None:
         logger.debug("Parsing: " + statement)
         parsed = parse(statement, {})
-        _parse_cache.put(statement, parsed)
+        _parse_cache.put(statement, parsed, weight=len(statement))
     return parsed
 
 
