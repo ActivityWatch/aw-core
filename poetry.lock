@@ -168,6 +168,21 @@ files = [
 test = ["pytest (>=6)"]
 
 [[package]]
+name = "idna"
+version = "3.15"
+description = "Internationalized Domain Names in Applications (IDNA)"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "idna-3.15-py3-none-any.whl", hash = "sha256:048adeaf8c2d788c40fee287673ccaa74c24ffd8dcf09ffa555a2fbb59f10ac8"},
+    {file = "idna-3.15.tar.gz", hash = "sha256:ca962446ea538f7092a95e057da437618e886f4d349216d2b1e294abfdb65fdc"},
+]
+
+[package.extras]
+all = ["mypy (>=1.11.2)", "pytest (>=8.3.2)", "ruff (>=0.6.2)"]
+
+[[package]]
 name = "importlib-resources"
 version = "6.4.5"
 description = "Read resources from Python packages"
@@ -693,4 +708,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.8"
-content-hash = "9ac93f2d6bac28473f4b5a4dabda037554159497caa7ae113ca25ea79f763cbe"
+content-hash = "9881cc22bf799b6b8fdc764f15a3399b31a4ad70630cfd5e7ffe68543495b074"
