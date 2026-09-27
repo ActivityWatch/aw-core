@@ -130,10 +130,18 @@ def _valid_label(label: str) -> bool:
     if unicodedata.category(label[0]).startswith("M"):
         return False  # a label can't begin with a combining mark
     for i, c in enumerate(label):
-        # Zero-width joiners are only valid after a virama (CheckJoiners)
-        if c in "\u200c\u200d" and (i == 0 or unicodedata.combining(label[i - 1]) != 9):
+        # CheckJoiners: RFC 5892 CONTEXTJ (after a virama, or ZWNJ in a
+        # joining context, as in Persian)
+        if c in "\u200c\u200d" and not idna.valid_contextj(label, i):
             return False
     return unicodedata.is_normalized("NFC", label)
+
+
+def _decode_label(label: str) -> str:
+    """The Unicode form of a (valid) label."""
+    if label.startswith("xn--"):
+        return label[4:].encode("ascii").decode("punycode")
+    return label
 
 
 def _uts46_to_ascii(host: str) -> Optional[str]:
@@ -147,17 +155,25 @@ def _uts46_to_ascii(host: str) -> Optional[str]:
         return None
     labels = []
     split = mapped.split(".")
-    # CheckBidi (RFC 5893): in a domain with right-to-left text, every label
-    # must satisfy the bidi rules
-    bidi = any(unicodedata.bidirectional(c) in ("R", "AL", "AN") for c in mapped)
     for label in split:
         if not _valid_label(label):
             return None
-        if bidi and label:
+    # CheckBidi (RFC 5893): in a domain with right-to-left text, every label
+    # must satisfy the bidi rules. Checked on the Unicode form, so encoded
+    # ("xn--") labels count too.
+    unicode_labels = [_decode_label(label) for label in split]
+    if any(
+        unicodedata.bidirectional(c) in ("R", "AL", "AN")
+        for label in unicode_labels
+        for c in label
+    ):
+        for label in unicode_labels:
             try:
-                idna.check_bidi(label, check_ltr=True)
+                if label:
+                    idna.check_bidi(label, check_ltr=True)
             except idna.IDNAError:
                 return None
+    for label in split:
         labels.append(
             label
             if label.isascii()
