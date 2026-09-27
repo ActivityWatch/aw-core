@@ -3,7 +3,9 @@ import logging
 import re
 import unicodedata
 from typing import List, Optional
-from urllib.parse import unquote_to_bytes, urlsplit
+from urllib.parse import unquote_to_bytes
+
+import idna
 
 from aw_core.models import Event
 
@@ -39,11 +41,14 @@ def _is_dot(segment: str, dots: str) -> bool:
 _DRIVE_RE = re.compile(r"[A-Za-z][:|]")
 
 
-def _normalize_path(path: str, file: bool = False, pipe_drive: bool = True) -> str:
+def _normalize_path(
+    path: str, file: bool = False, pipe_drive: bool = True, special: bool = True
+) -> str:
     """Special-scheme path: "/" separators, dot segments resolved, encoded.
     For file URLs a leading Windows drive letter is kept ("C|" becomes "C:")
     and ".." never removes it."""
-    segments = path.replace("\\", "/").split("/")[1:]
+    # "\\" is a separator only in special URLs
+    segments = (path.replace("\\", "/") if special else path).split("/")[1:]
     out: List[str] = []
     for i, segment in enumerate(segments):
         last = i == len(segments) - 1
@@ -104,37 +109,51 @@ def _parse_ipv4(host: str) -> Optional[str]:
     return ".".join(str((value >> shift) & 0xFF) for shift in (24, 16, 8, 0))
 
 
-# UTS 46 non-transitional processing keeps these instead of mapping them
-# (ß to "ss", ς to σ), which the URL Standard requires.
-_DEVIATIONS = set("\u00df\u03c2\u200c\u200d")
-_LABEL_SEPARATORS = str.maketrans({"\u3002": ".", "\uff0e": ".", "\uff61": "."})
+def _valid_label(label: str) -> bool:
+    """The URL Standard's UTS 46 validity checks that apply to a mapped label."""
+    if label.startswith("xn--"):
+        # An A-label must decode, to a label that is itself valid
+        try:
+            decoded = label[4:].encode("ascii").decode("punycode")
+        except UnicodeError:
+            return False
+        if not decoded or decoded.isascii():
+            return False
+        try:
+            # The decoded label must already be in mapped form (and allowed)
+            remapped = idna.uts46_remap(decoded, std3_rules=False, transitional=False)
+        except idna.IDNAError:
+            return False
+        return remapped == decoded and _valid_label(decoded)
+    if not label or label.isascii():
+        return True
+    if unicodedata.category(label[0]).startswith("M"):
+        return False  # a label can't begin with a combining mark
+    for i, c in enumerate(label):
+        # Zero-width joiners are only valid after a virama (CheckJoiners)
+        if c in "\u200c\u200d" and unicodedata.combining(label[i - 1]) != 9:
+            return False
+    return unicodedata.is_normalized("NFC", label)
 
 
 def _uts46_to_ascii(host: str) -> Optional[str]:
-    """Non-ASCII host to ASCII (punycode) like the URL Standard's domain to
-    ASCII: UTS 46 mapping (compatibility forms, case folding, deviations kept),
-    NFC, then punycode per label."""
-    mapped = "".join(
-        c
-        if c in _DEVIATIONS
-        else unicodedata.normalize("NFKC", unicodedata.normalize("NFKC", c).casefold())
-        for c in host.translate(_LABEL_SEPARATORS)
-    )
+    """The URL Standard's domain to ASCII: UTS 46 mapping (non-transitional,
+    so ß and ς are kept; soft hyphens removed; compatibility forms and case
+    mapped), validity checks, then punycode for non-ASCII labels. None if the
+    host isn't valid."""
+    try:
+        mapped = idna.uts46_remap(host, std3_rules=False, transitional=False)
+    except idna.IDNAError:
+        return None
     labels = []
-    for label in unicodedata.normalize("NFC", mapped).split("."):
-        # Zero-width joiners are only valid after a virama (UTS 46 CheckJoiners)
-        for i, c in enumerate(label):
-            if c in "\u200c\u200d" and (
-                i == 0 or unicodedata.combining(label[i - 1]) != 9
-            ):
-                return None
-        if label.isascii():
-            labels.append(label)
-            continue
-        try:
-            labels.append("xn--" + label.encode("punycode").decode("ascii"))
-        except UnicodeError:
+    for label in mapped.split("."):
+        if not _valid_label(label):
             return None
+        labels.append(
+            label
+            if label.isascii()
+            else "xn--" + label.encode("punycode").decode("ascii")
+        )
     result = ".".join(labels)
     if any(c in _FORBIDDEN_HOST for c in result):
         return None
@@ -156,7 +175,8 @@ def _parse_host(host: str) -> Optional[str]:
         return None
     if not decoded or any(c in _FORBIDDEN_HOST for c in decoded):
         return None
-    ascii_host = decoded.lower() if decoded.isascii() else _uts46_to_ascii(decoded)
+    # ASCII hosts go through it too, so invalid "xn--" labels are rejected
+    ascii_host = _uts46_to_ascii(decoded)
     if ascii_host is None:
         return None
     ipv4 = _parse_ipv4(ascii_host)
@@ -241,20 +261,68 @@ def _split_file(rest: str) -> Optional[dict]:
     }
 
 
-def _split_other(scheme: str, url: str) -> dict:
-    parts = urlsplit(url)
-    host = parts.netloc.rpartition("@")[2]
-    if not host.startswith("["):
-        host = host.partition(":")[0]
-    path = parts.path
+# Non-special schemes: opaque hosts and paths keep their case, and only the
+# URL Standard's C0 control percent-encode set applies to opaque paths.
+_OPAQUE_HOST_FORBIDDEN = _FORBIDDEN_HOST - {"%"}
+
+
+def _split_other(scheme: str, rest: str) -> Optional[dict]:
+    rest = rest.split("#", 1)[0]
+    rest, _, query = rest.partition("?")
+    host = ""
+    if rest.startswith("//"):
+        rest = rest[2:]
+        slash = rest.find("/")
+        authority, path = (rest, "") if slash == -1 else (rest[:slash], rest[slash:])
+        hostport = authority.rpartition("@")[2]
+        if hostport.startswith("["):
+            close = hostport.find("]")
+            if close == -1:
+                return None
+            host, port = hostport[: close + 1], hostport[close + 1 :]
+            if port and not port.startswith(":"):
+                return None
+            port = port[1:]
+            try:
+                host = f"[{ipaddress.IPv6Address(host[1:-1]).compressed}]"
+            except ValueError:
+                return None
+        else:
+            host, _, port = hostport.partition(":")
+            if any(c in _OPAQUE_HOST_FORBIDDEN for c in host):
+                return None
+            host = _percent_encode(host, set())
+        if port and (not port.isascii() or not port.isdigit() or int(port) > 65535):
+            return None
+        path = _normalize_nonspecial_path(path) if path else ""
+    elif rest.startswith("/"):
+        path = _normalize_nonspecial_path(rest)
+    else:
+        # An opaque path (mailto:, about:, data:, javascript:)
+        path = _percent_encode_c0(rest)
     return {
         "$protocol": scheme,
-        # No host (e.g. about:blank, file:///x): the scheme is the domain, so
-        # these don't all cluster as an empty string.
+        # No host (e.g. about:blank): the scheme is the domain, so these don't
+        # all cluster as an empty string.
         "$domain": _strip_www(host) or scheme,
         "$path": path,
-        "$params": parts.query,
+        "$params": _percent_encode(query, _QUERY_ENCODE - {"'"}),
     }
+
+
+def _percent_encode_c0(text: str) -> str:
+    out: List[str] = []
+    for char in text:
+        if ord(char) < 0x20 or ord(char) > 0x7E:
+            out.extend(f"%{byte:02X}" for byte in char.encode("utf-8"))
+        else:
+            out.append(char)
+    return "".join(out)
+
+
+def _normalize_nonspecial_path(path: str) -> str:
+    """A non-special path with segments: dot segments resolved, encoded."""
+    return _normalize_path(path, special=False)
 
 
 def _split_url(url: str) -> Optional[dict]:
@@ -271,7 +339,7 @@ def _split_url(url: str) -> Optional[dict]:
             return _split_file(rest)
         if scheme in _SPECIAL_SCHEMES:
             return _split_special(scheme, rest)
-        return _split_other(scheme, f"{scheme}:{rest}")
+        return _split_other(scheme, rest)
     except ValueError:
         # Never let one odd URL abort the whole transform: leave it unchanged.
         return None

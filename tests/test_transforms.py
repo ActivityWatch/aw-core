@@ -507,6 +507,21 @@ def test_url_parse_event_like_url_standard():
         fields("https://\uff25\uff38\uff21\uff2d\uff30\uff2c\uff25.com/")[0]
         == "example.com"
     )
+    # UTS 46 validity: soft hyphens are removed, invalid labels are rejected
+    assert fields("https://foo\u00adbar.com/")[0] == "foobar.com"
+    assert fields("https://\u0301.com/") is None  # leading combining mark
+    assert fields("https://xn--zz.com/") is None  # invalid A-label
+    assert fields("https://xn--fa-hia.de/")[0] == "xn--fa-hia.de"
+    # Other schemes: ports validated, IPv6 without port, encoded like the URL Standard
+    assert fields("foo://host:not-a-port/a") is None
+    assert fields("foo://host:99999/a") is None
+    assert fields("foo://[::1]:80/a") == ("[::1]", "/a", "")
+    assert fields("foo://host/a b") == ("host", "/a%20b", "")
+    assert fields("mailto:user@example.com?subject=hello world") == (
+        "mailto",
+        "user@example.com",
+        "subject=hello%20world",
+    )
     # file: URLs: localhost is no host, Windows drive letters stay in the path
     assert fields("file://localhost/etc") == ("file", "/etc", "")
     assert fields("file:c:/foo") == ("file", "/c:/foo", "")
