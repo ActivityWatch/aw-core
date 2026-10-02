@@ -56,9 +56,11 @@ class Rule:
                     regex_str,
                     (re.IGNORECASE if self.ignore_case else 0) | re.UNICODE,
                 )
-            except re.error as e:
-                # An invalid user-supplied pattern should not crash categorization
-                # for the entire query. Log it and disable this rule (match nothing).
+            except (re.error, TypeError) as e:
+                # An invalid user-supplied pattern — a malformed regex *or* a
+                # non-string value (e.g. {"regex": 123}) — should not crash
+                # categorization for the entire query. Log it and disable this
+                # rule (match nothing).
                 logger.warning(
                     "Invalid regex pattern %r in category/tag rule (%s); "
                     "this rule will match nothing.",
