@@ -352,6 +352,90 @@ def test_query2_categorize_invalid_priority():
 
 
 @pytest.mark.parametrize("datastore", param_datastore_objects())
+def test_query2_categorize_invalid_regex_does_not_crash(datastore):
+    # The reported failure (#1340) is at the query entrypoint: a malformed
+    # user-supplied regex must not make categorize() raise. A non-string regex
+    # ({"regex": 123}) must be handled too. See aw-core#176.
+    bid = "test_bucket_invalid_regex"
+    qname = "test"
+    starttime = iso8601.parse_date("1970")
+    endtime = starttime + timedelta(hours=1)
+    example_query = rf"""
+    events = query_bucket("{bid}");
+    events = sort_by_timestamp(events);
+    events = categorize(events, [
+                [["Bad"], {{"regex": "*invalid("}}],
+                [["Bad2"], {{"regex": 123}}],
+                [["Test"], {{"regex": "^just"}}]
+            ]);
+    RETURN = events;
+    """
+    try:
+        bucket = datastore.create_bucket(
+            bucket_id=bid, type="test", client="test", hostname="test", name="asd"
+        )
+        events = [
+            Event(
+                data={"label": "just a test"},
+                timestamp=starttime,
+                duration=timedelta(seconds=1),
+            ),
+            Event(
+                data={"label": "unrelated"},
+                timestamp=starttime + timedelta(seconds=1),
+                duration=timedelta(seconds=1),
+            ),
+        ]
+        bucket.insert(events)
+        result = query(qname, example_query, starttime, endtime, datastore)
+        assert len(result) == 2
+        assert result[0].data["$category"] == ["Test"]
+        assert result[1].data["$category"] == ["Uncategorized"]
+    finally:
+        datastore.delete_bucket(bid)
+
+
+@pytest.mark.parametrize("datastore", param_datastore_objects())
+def test_query2_tag_invalid_regex_does_not_crash(datastore):
+    bid = "test_bucket_invalid_regex_tag"
+    qname = "test"
+    starttime = iso8601.parse_date("1970")
+    endtime = starttime + timedelta(hours=1)
+    example_query = rf"""
+    events = query_bucket("{bid}");
+    events = sort_by_timestamp(events);
+    events = tag(events, [
+                ["Bad", {{"regex": "*invalid("}}],
+                ["Good", {{"regex": "just"}}]
+            ]);
+    RETURN = events;
+    """
+    try:
+        bucket = datastore.create_bucket(
+            bucket_id=bid, type="test", client="test", hostname="test", name="asd"
+        )
+        events = [
+            Event(
+                data={"label": "just a test"},
+                timestamp=starttime,
+                duration=timedelta(seconds=1),
+            ),
+            Event(
+                data={"label": "unrelated"},
+                timestamp=starttime + timedelta(seconds=1),
+                duration=timedelta(seconds=1),
+            ),
+        ]
+        bucket.insert(events)
+        result = query(qname, example_query, starttime, endtime, datastore)
+        assert len(result) == 2
+        assert result[0].data["$tags"] == ["Good"]
+        assert result[1].data["$tags"] == []
+    finally:
+        datastore.delete_bucket(bid)
+
+
+@pytest.mark.parametrize("datastore", param_datastore_objects())
 def test_query2_transforms_dont_modify_other_variables(datastore):
     """Query variables have value semantics, like in aw-server-rust"""
     starttime = iso8601.parse_date("1970-01-01")
