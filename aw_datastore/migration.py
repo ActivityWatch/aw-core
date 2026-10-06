@@ -129,4 +129,7 @@ def sqlite_v1_to_v2(datastore: AbstractStorage, v1_path: str) -> None:
                 datastore.insert_many(bucket_id, events)
     finally:
         conn.close()
+    # Flush the final event batch: conditional_commit batches up to 50 events,
+    # so the tail of a migration (1–50 events) would otherwise remain uncommitted.
+    datastore.commit()
     logger.info("Migration SQLite v1 → v2 finished")

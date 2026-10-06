@@ -97,16 +97,50 @@ class SqliteStorage(AbstractStorage):
         self.conn.execute(INDEX_EVENTS_TABLE_ENDTIME)
         self.conn.execute("PRAGMA journal_mode=WAL;")
 
-        # Upgrade legacy schema: CREATE TABLE IF NOT EXISTS won't alter an
-        # existing table, so add device_id to any database that predates v2.
+        # Upgrade legacy schema if needed.  CREATE TABLE IF NOT EXISTS is a no-op
+        # on existing tables, and ALTER TABLE can add a column but cannot replace a
+        # constraint, so a full rebuild is required to change UNIQUE(id) →
+        # UNIQUE(device_id, id).  Rowids are preserved so events.bucketrow FKs stay valid.
         existing_columns = {
             row[1] for row in self.conn.execute("PRAGMA table_info(buckets)")
         }
-        if "device_id" not in existing_columns:
-            self.conn.execute(
-                "ALTER TABLE buckets ADD COLUMN device_id TEXT NOT NULL DEFAULT 'local'"
+        has_device_id = "device_id" in existing_columns
+        has_composite_unique = False
+        for idx in self.conn.execute("PRAGMA index_list(buckets)").fetchall():
+            if idx[2]:  # unique flag
+                idx_cols = {
+                    r[2] for r in self.conn.execute(f"PRAGMA index_info({idx[1]})")
+                }
+                if "device_id" in idx_cols and "id" in idx_cols:
+                    has_composite_unique = True
+                    break
+        if not has_composite_unique:
+            device_id_src = "device_id" if has_device_id else "'local'"
+            self.conn.executescript(f"""
+                PRAGMA foreign_keys = OFF;
+                BEGIN;
+                CREATE TABLE buckets_v2 (
+                    rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id TEXT NOT NULL,
+                    device_id TEXT NOT NULL DEFAULT 'local',
+                    name TEXT,
+                    type TEXT NOT NULL,
+                    client TEXT NOT NULL,
+                    hostname TEXT NOT NULL,
+                    created TEXT NOT NULL,
+                    datastr TEXT NOT NULL,
+                    UNIQUE(device_id, id)
+                );
+                INSERT INTO buckets_v2 (rowid, id, device_id, name, type, client, hostname, created, datastr)
+                SELECT rowid, id, {device_id_src}, name, type, client, hostname, created, datastr FROM buckets;
+                DROP TABLE buckets;
+                ALTER TABLE buckets_v2 RENAME TO buckets;
+                COMMIT;
+                PRAGMA foreign_keys = ON;
+            """)
+            logger.info(
+                "Schema upgraded: rebuilt buckets table with UNIQUE(device_id, id)"
             )
-            logger.info("Schema upgraded: added device_id column to buckets table")
 
         self.commit()
 
