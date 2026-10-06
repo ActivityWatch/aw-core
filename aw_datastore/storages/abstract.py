@@ -121,3 +121,6 @@ class AbstractStorage(metaclass=ABCMeta):
     @abstractmethod
     def replace_last(self, bucket_id: str, event: Event) -> None:
         raise NotImplementedError
+
+    def commit(self) -> None:  # noqa: B027
+        """Flush pending writes to durable storage. No-op for backends without batched writes."""
