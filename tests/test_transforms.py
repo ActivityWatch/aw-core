@@ -636,6 +636,64 @@ def test_tags():
     assert len(events[1].data["$tags"]) == 0
 
 
+def test_rule_invalid_regex_does_not_raise():
+    # An invalid user-supplied pattern (e.g. "Notepad++" on Python versions
+    # where "++" is not a valid quantifier) must not raise from Rule.__init__.
+    # Instead the rule should silently disable itself. See:
+    # https://github.com/ActivityWatch/activitywatch/issues/1340
+    rule = Rule({"regex": "*invalid("})
+    assert rule.regex is None
+
+    now = datetime.now(timezone.utc)
+    e = Event(timestamp=now, duration=0, data={"key": "anything"})
+    assert rule.match(e) is False
+
+
+def test_categorize_survives_invalid_regex():
+    # A single bad rule should not break categorization for the rest.
+    now = datetime.now(timezone.utc)
+    classes = [
+        (["Bad"], Rule({"regex": "*invalid("})),
+        (["Test"], Rule({"regex": "^just"})),
+    ]
+    events = [
+        Event(timestamp=now, duration=0, data={"key": "just a test"}),
+        Event(timestamp=now, duration=0, data={"key": "unrelated"}),
+    ]
+    events = categorize(events, classes)
+    assert events[0].data["$category"] == ["Test"]
+    assert events[1].data["$category"] == ["Uncategorized"]
+
+
+def test_rule_non_string_regex_does_not_raise():
+    # A truthy non-string value (e.g. {"regex": 123}) makes re.compile raise
+    # TypeError. Rule.__init__ must disable the rule instead of propagating it,
+    # so a single bad rule can't fail an entire query.
+    rule = Rule({"regex": 123})
+    assert rule.regex is None
+
+    now = datetime.now(timezone.utc)
+    e = Event(timestamp=now, duration=0, data={"key": "123"})
+    assert rule.match(e) is False
+
+
+def test_categorize_survives_non_string_regex():
+    # Non-string and malformed string rules coexist with a valid rule.
+    now = datetime.now(timezone.utc)
+    classes = [
+        (["Bad"], Rule({"regex": 123})),
+        (["Bad2"], Rule({"regex": "*invalid("})),
+        (["Test"], Rule({"regex": "^just"})),
+    ]
+    events = [
+        Event(timestamp=now, duration=0, data={"key": "just a test"}),
+        Event(timestamp=now, duration=0, data={"key": "unrelated"}),
+    ]
+    events = categorize(events, classes)
+    assert events[0].data["$category"] == ["Test"]
+    assert events[1].data["$category"] == ["Uncategorized"]
+
+
 def test_union_no_overlap():
     from pprint import pprint
 
