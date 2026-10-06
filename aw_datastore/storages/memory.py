@@ -29,6 +29,7 @@ class MemoryStorage(AbstractStorage):
         created,
         name=None,
         data=None,
+        device_id: str = "local",
     ) -> None:
         if not name:
             name = bucket_id

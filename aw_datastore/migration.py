@@ -35,19 +35,20 @@ def check_for_migration(datastore: AbstractStorage):
     if datastore.sid == "sqlite":
         suffix = legacy_testing_suffix(datastore.testing)
 
-        peewee_type = "peewee-sqlite"
-        peewee_name = peewee_type + suffix
-        # Migrate from peewee v2
-        peewee_db_v2 = detect_db_files(data_dir, peewee_name, 2)
-        if len(peewee_db_v2) > 0:
-            peewee_v2_to_sqlite_v1(datastore)
-
-        # Migrate from sqlite v1 to v2
+        # Prefer SQLite v1 (most recent); only fall back to Peewee if no SQLite v1.
+        # Running both migrations into the same destination causes IntegrityError when
+        # shared bucket IDs collide on UNIQUE(device_id, id).
         sqlite_name = "sqlite" + suffix
         sqlite_v1_files = detect_db_files(data_dir, sqlite_name, 1)
         if len(sqlite_v1_files) > 0:
             v1_path = os.path.join(data_dir, sqlite_v1_files[0])
             sqlite_v1_to_v2(datastore, v1_path)
+        else:
+            peewee_type = "peewee-sqlite"
+            peewee_name = peewee_type + suffix
+            peewee_db_v2 = detect_db_files(data_dir, peewee_name, 2)
+            if len(peewee_db_v2) > 0:
+                peewee_v2_to_sqlite_v1(datastore)
 
 
 def peewee_v2_to_sqlite_v1(datastore):
@@ -120,6 +121,11 @@ def sqlite_v1_to_v2(datastore: AbstractStorage, v1_path: str) -> None:
                     )
                 )
             if events:
+                # Clear IDs so insert_many inserts fresh rows; v1 IDs have no
+                # meaning in the v2 schema and replace() would silently skip
+                # events that don't yet exist in the new database.
+                for e in events:
+                    e.id = None
                 datastore.insert_many(bucket_id, events)
     finally:
         conn.close()

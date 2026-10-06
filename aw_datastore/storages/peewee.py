@@ -275,6 +275,7 @@ class PeeweeStorage(AbstractStorage):
         created: str,
         name: Optional[str] = None,
         data: Optional[Dict[str, Any]] = None,
+        device_id: str = "local",
     ):
         BucketModel.create(
             id=bucket_id,
