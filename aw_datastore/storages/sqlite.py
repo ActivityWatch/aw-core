@@ -96,6 +96,18 @@ class SqliteStorage(AbstractStorage):
         self.conn.execute(INDEX_EVENTS_TABLE_STARTTIME)
         self.conn.execute(INDEX_EVENTS_TABLE_ENDTIME)
         self.conn.execute("PRAGMA journal_mode=WAL;")
+
+        # Upgrade legacy schema: CREATE TABLE IF NOT EXISTS won't alter an
+        # existing table, so add device_id to any database that predates v2.
+        existing_columns = {
+            row[1] for row in self.conn.execute("PRAGMA table_info(buckets)")
+        }
+        if "device_id" not in existing_columns:
+            self.conn.execute(
+                "ALTER TABLE buckets ADD COLUMN device_id TEXT NOT NULL DEFAULT 'local'"
+            )
+            logger.info("Schema upgraded: added device_id column to buckets table")
+
         self.commit()
 
         if new_db_file and not ignore_migration_check:

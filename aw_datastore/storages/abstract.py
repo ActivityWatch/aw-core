@@ -52,6 +52,7 @@ class AbstractStorage(metaclass=ABCMeta):
         created: str,
         name: Optional[str] = None,
         data: Optional[dict] = None,
+        device_id: str = "local",
     ) -> None:
         raise NotImplementedError
 
