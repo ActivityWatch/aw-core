@@ -151,7 +151,10 @@ def test_categorize_matches_reference_randomized():
             for e in categorize([Event(**e) for e in events], compiled)
         ]
         assert got == expected
-        expected_tags = [[c for c, r in compiled if r.match(e)] for e in events]
+        expected_tags = [
+            classify._sorted_tags([c for c, r in compiled if r.match(e)])
+            for e in events
+        ]
         got_tags = [
             e.data["$tags"] for e in tag([Event(**e) for e in events], compiled)
         ]
