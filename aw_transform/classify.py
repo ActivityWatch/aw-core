@@ -222,12 +222,34 @@ def _categorize_one(e: Event, classes: List[Tuple[Category, Rule]]) -> Event:
     return e
 
 
+def _sorted_tags(tags: List[Any]) -> List[Any]:
+    """Sorted and deduplicated, like aw-server-rust (ActivityWatch/activitywatch#1466).
+
+    Queries only allow string names, but Python callers may pass other names
+    (such as category-style lists), which aren't hashable: dedupe by equality,
+    and keep match order if the names can't be compared.
+    """
+    unique: List[Any] = []
+    for t in tags:
+        if t not in unique:
+            unique.append(t)
+    try:
+        return sorted(unique)
+    except TypeError:
+        return unique
+
+
 def tag(
     events: List[Event],
     classes: List[Tuple[Tag, Rule]],
     rules_key: Optional[str] = None,
 ) -> List[Event]:
-    """Set ``$tags`` on each event, memoized like :func:`categorize`."""
+    """Set ``$tags`` on each event, memoized like :func:`categorize`.
+
+    ``$tags`` is sorted and deduplicated, like aw-server-rust
+    (ActivityWatch/activitywatch#1466). Unlike categories, an event can have
+    several tags.
+    """
     plan = _cached_plan(classes, rules_key, for_category=False)
     cache: Dict[str, Tuple[Tag, ...]] = {}
     for e in events:
@@ -238,7 +260,7 @@ def tag(
             if memo_key is not None:
                 tags = _tag_memo.get(memo_key)
             if tags is None:
-                tags = tuple(_matching(e.data, plan, first_only=False))
+                tags = tuple(_sorted_tags(_matching(e.data, plan, first_only=False)))
                 if memo_key is not None:
                     _tag_memo.put(memo_key, tags)
             cache[key] = tags
@@ -247,7 +269,7 @@ def tag(
 
 
 def _tag_one(e: Event, classes: List[Tuple[Tag, Rule]]) -> Event:
-    e.data["$tags"] = [_cls for _cls, rule in classes if rule.match(e)]
+    e.data["$tags"] = _sorted_tags([_cls for _cls, rule in classes if rule.match(e)])
     return e
 
 
