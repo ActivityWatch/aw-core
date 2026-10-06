@@ -185,13 +185,41 @@ def _uts46_to_ascii(host: str) -> Optional[str]:
     return result
 
 
+def _serialize_ipv6(text: str) -> str:
+    """An IPv6 address serialized like the URL Standard (raises ValueError if invalid).
+
+    Not ``IPv6Address.compressed``: newer Pythons (3.13, and security
+    releases of older ones) write IPv4-mapped addresses with a dotted IPv4
+    tail (``::ffff:1.2.3.4``), the URL Standard always uses hex pieces
+    (``::ffff:102:304``).
+    """
+    packed = ipaddress.IPv6Address(text).packed
+    pieces = [int.from_bytes(packed[i : i + 2], "big") for i in range(0, 16, 2)]
+    # Compress the first longest run of two or more zero pieces
+    best_start, best_len, start = -1, 1, None
+    for i, piece in enumerate(pieces + [1]):
+        if piece == 0 and i < 8:
+            if start is None:
+                start = i
+        elif start is not None:
+            if i - start > best_len:
+                best_start, best_len = start, i - start
+            start = None
+    hexes = [format(p, "x") for p in pieces]
+    if best_start == -1:
+        return ":".join(hexes)
+    head = ":".join(hexes[:best_start])
+    tail = ":".join(hexes[best_start + best_len :])
+    return f"{head}::{tail}"
+
+
 def _parse_host(host: str) -> Optional[str]:
     """A special-scheme host as serialized by the URL Standard, or None if invalid."""
     if host.startswith("["):
         if not host.endswith("]"):
             return None
         try:
-            return f"[{ipaddress.IPv6Address(host[1:-1]).compressed}]"
+            return f"[{_serialize_ipv6(host[1:-1])}]"
         except ValueError:
             return None
     try:
@@ -313,7 +341,7 @@ def _split_other(scheme: str, rest: str) -> Optional[dict]:
                 return None
             port = port[1:]
             try:
-                host = f"[{ipaddress.IPv6Address(host[1:-1]).compressed}]"
+                host = f"[{_serialize_ipv6(host[1:-1])}]"
             except ValueError:
                 return None
         else:

@@ -23,6 +23,7 @@ from aw_transform import (
     Rule,
 )
 from aw_transform.filter_period_intersect import _intersecting_eventpairs
+from aw_transform.split_url_events import _serialize_ipv6
 
 
 def test_simplify_string():
@@ -461,6 +462,26 @@ def test_url_parse_event():
         assert _split(url) == {"url": url}
     e = Event(data={"url": 5}, timestamp=datetime.now(timezone.utc), duration=1)
     assert split_url_events([e])[0].data == {"url": 5}
+
+
+@pytest.mark.parametrize(
+    "addr,expected",
+    [
+        ("::", "::"),
+        ("::1", "::1"),
+        ("1::", "1::"),
+        # Hex pieces, not a dotted IPv4 tail as newer Pythons' ipaddress writes
+        ("::ffff:1.2.3.4", "::ffff:102:304"),
+        ("::1.2.3.4", "::102:304"),
+        # First of the longest zero runs; a single zero piece isn't compressed
+        ("1:0:0:2:0:0:0:3", "1:0:0:2::3"),
+        ("1:0:0:0:2:0:0:3", "1::2:0:0:3"),
+        ("1:0:2:3:4:5:6:7", "1:0:2:3:4:5:6:7"),
+        ("2001:DB8::8:800:200C:417A", "2001:db8::8:800:200c:417a"),
+    ],
+)
+def test_serialize_ipv6_like_url_standard(addr, expected):
+    assert _serialize_ipv6(addr) == expected
 
 
 def test_url_parse_event_like_url_standard():
