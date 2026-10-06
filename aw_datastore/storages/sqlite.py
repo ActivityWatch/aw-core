@@ -12,7 +12,7 @@ from .abstract import AbstractStorage
 
 logger = logging.getLogger(__name__)
 
-LATEST_VERSION = 1
+LATEST_VERSION = 2
 
 # The max integer value in SQLite is signed 8 Bytes / 64 bits
 MAX_TIMESTAMP = 2**63 - 1
@@ -20,13 +20,15 @@ MAX_TIMESTAMP = 2**63 - 1
 CREATE_BUCKETS_TABLE = """
     CREATE TABLE IF NOT EXISTS buckets (
         rowid INTEGER PRIMARY KEY AUTOINCREMENT,
-        id TEXT UNIQUE NOT NULL,
+        id TEXT NOT NULL,
+        device_id TEXT NOT NULL DEFAULT 'local',
         name TEXT,
         type TEXT NOT NULL,
         client TEXT NOT NULL,
         hostname TEXT NOT NULL,
         created TEXT NOT NULL,
-        datastr TEXT NOT NULL
+        datastr TEXT NOT NULL,
+        UNIQUE(device_id, id)
     )
 """
 
@@ -136,16 +138,17 @@ class SqliteStorage(AbstractStorage):
         buckets = {}
         c = self.conn.cursor()
         for row in c.execute(
-            "SELECT id, name, type, client, hostname, created, datastr FROM buckets"
+            "SELECT id, device_id, name, type, client, hostname, created, datastr FROM buckets"
         ):
             buckets[row[0]] = {
                 "id": row[0],
-                "name": row[1],
-                "type": row[2],
-                "client": row[3],
-                "hostname": row[4],
-                "created": row[5],
-                "data": json.loads(row[6] or "{}"),
+                "device_id": row[1],
+                "name": row[2],
+                "type": row[3],
+                "client": row[4],
+                "hostname": row[5],
+                "created": row[6],
+                "data": json.loads(row[7] or "{}"),
             }
         return buckets
 
@@ -160,7 +163,7 @@ class SqliteStorage(AbstractStorage):
     def buckets_with_last_updated(self):
         # Match get_events' ordering by endtime for this backend.
         rows = self.conn.execute(
-            "SELECT b.id, b.name, b.type, b.client, b.hostname, b.created, "
+            "SELECT b.id, b.device_id, b.name, b.type, b.client, b.hostname, b.created, "
             "b.datastr, e.endtime FROM buckets b LEFT JOIN events e ON e.id = "
             "(SELECT id FROM events WHERE bucketrow = b.rowid "
             "AND endtime >= 0 AND starttime <= ? ORDER BY endtime DESC LIMIT 1)",
@@ -171,13 +174,22 @@ class SqliteStorage(AbstractStorage):
             for row in rows:
                 metadata = dict(
                     zip(
-                        ("id", "name", "type", "client", "hostname", "created"), row[:6]
+                        (
+                            "id",
+                            "device_id",
+                            "name",
+                            "type",
+                            "client",
+                            "hostname",
+                            "created",
+                        ),
+                        row[:7],
                     )
                 )
-                metadata["data"] = json.loads(row[6] or "{}")
-                if row[7] is not None:
+                metadata["data"] = json.loads(row[7] or "{}")
+                if row[8] is not None:
                     metadata["last_updated"] = datetime.fromtimestamp(
-                        row[7] / 1000000, timezone.utc
+                        row[8] / 1000000, timezone.utc
                     ).isoformat()
                 buckets[row[0]] = metadata
             return buckets
@@ -207,12 +219,14 @@ class SqliteStorage(AbstractStorage):
         created: str,
         name: Optional[str] = None,
         data: Optional[dict] = None,
+        device_id: str = "local",
     ):
         self.conn.execute(
-            "INSERT INTO buckets(id, name, type, client, hostname, created, datastr) "
-            + "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO buckets(id, device_id, name, type, client, hostname, created, datastr) "
+            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 bucket_id,
+                device_id,
                 name,
                 type_id,
                 client,
@@ -266,19 +280,20 @@ class SqliteStorage(AbstractStorage):
     def get_metadata(self, bucket_id: str):
         c = self.conn.cursor()
         res = c.execute(
-            "SELECT id, name, type, client, hostname, created, datastr FROM buckets WHERE id = ?",
+            "SELECT id, device_id, name, type, client, hostname, created, datastr FROM buckets WHERE id = ?",
             [bucket_id],
         )
         row = res.fetchone()
         if row is not None:
             return {
                 "id": row[0],
-                "name": row[1],
-                "type": row[2],
-                "client": row[3],
-                "hostname": row[4],
-                "created": row[5],
-                "data": json.loads(row[6] or "{}"),
+                "device_id": row[1],
+                "name": row[2],
+                "type": row[3],
+                "client": row[4],
+                "hostname": row[5],
+                "created": row[6],
+                "data": json.loads(row[7] or "{}"),
             }
         else:
             raise ValueError("Bucket did not exist, could not get metadata")
