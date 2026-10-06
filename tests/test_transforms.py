@@ -476,6 +476,9 @@ def test_url_parse_event():
         # First of the longest zero runs; a single zero piece isn't compressed
         ("1:0:0:2:0:0:0:3", "1:0:0:2::3"),
         ("1:0:0:0:2:0:0:3", "1::2:0:0:3"),
+        # Equal-length runs: the first one is compressed
+        ("1:0:0:2:0:0:3:4", "1::2:0:0:3:4"),
+        ("0:0:1:0:0:2:0:0", "::1:0:0:2:0:0"),
         ("1:0:2:3:4:5:6:7", "1:0:2:3:4:5:6:7"),
         ("2001:DB8::8:800:200C:417A", "2001:db8::8:800:200c:417a"),
     ],
