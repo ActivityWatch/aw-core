@@ -80,6 +80,7 @@ def sqlite_v1_to_v2(datastore: AbstractStorage, v1_path: str) -> None:
     from aw_core.models import Event
 
     logger.info(f"Migrating SQLite v1 → v2: {v1_path}")
+    existing_buckets = set(datastore.buckets().keys())
     conn = sqlite3.connect(v1_path)
     try:
         buckets = conn.execute(
@@ -87,6 +88,16 @@ def sqlite_v1_to_v2(datastore: AbstractStorage, v1_path: str) -> None:
         ).fetchall()
         for row in buckets:
             bucket_id, name, type_, client, hostname, created, datastr = row
+            if bucket_id in existing_buckets:
+                # Idempotency guard: a previous migration attempt already
+                # created this bucket (e.g. a crash between create_bucket and
+                # the v1-file rename below).  Re-inserting would raise
+                # IntegrityError on UNIQUE(device_id, id) and block startup.
+                logger.warning(
+                    f"Bucket {bucket_id} already exists in v2 datastore, "
+                    "skipping (likely from a prior migration attempt)"
+                )
+                continue
             logger.info(f"Migrating bucket {bucket_id}")
             data = json.loads(datastr or "{}")
             datastore.create_bucket(
@@ -132,4 +143,26 @@ def sqlite_v1_to_v2(datastore: AbstractStorage, v1_path: str) -> None:
     # Flush the final event batch: conditional_commit batches up to 50 events,
     # so the tail of a migration (1–50 events) would otherwise remain uncommitted.
     datastore.commit()
+    _mark_v1_migrated(v1_path)
     logger.info("Migration SQLite v1 → v2 finished")
+
+
+def _mark_v1_migrated(v1_path: str) -> None:
+    """Rename the v1 db after a successful migration so it is not re-detected.
+
+    detect_db_files() filters on filename.split(".")[1] == "v1", so the rename
+    must move the version token out of that position.  Renaming (rather than
+    deleting) preserves the user's original data as a backup.
+    """
+    migrated_path = v1_path.replace(".v1.", ".migrated-v1.", 1)
+    if migrated_path == v1_path:
+        logger.error(
+            f"Could not derive migrated filename for {v1_path}; "
+            "it will be re-detected on next startup (migration is idempotent)"
+        )
+        return
+    try:
+        os.rename(v1_path, migrated_path)
+        logger.info(f"Marked v1 db as migrated: {v1_path} → {migrated_path}")
+    except OSError as e:
+        logger.error(f"Failed to rename migrated v1 db {v1_path}: {e}")
