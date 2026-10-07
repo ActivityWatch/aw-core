@@ -2,12 +2,13 @@ import json
 import logging
 import os
 import sqlite3
-from datetime import datetime, timezone
+from collections import Counter
+from pathlib import Path
 from typing import List, Optional
 
 from aw_core.dirs import get_data_dir, legacy_testing_suffix
 
-from .storages import AbstractStorage
+from .storages import AbstractStorage, SqliteStorage
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ def detect_db_files(
     return db_files
 
 
-def check_for_migration(datastore: AbstractStorage):
+def check_for_migration(datastore: AbstractStorage, migrate_peewee: bool = True):
     data_dir = get_data_dir("aw-server")
 
     if datastore.sid == "sqlite":
@@ -47,7 +48,7 @@ def check_for_migration(datastore: AbstractStorage):
             peewee_type = "peewee-sqlite"
             peewee_name = peewee_type + suffix
             peewee_db_v2 = detect_db_files(data_dir, peewee_name, 2)
-            if len(peewee_db_v2) > 0:
+            if len(peewee_db_v2) > 0 and migrate_peewee:
                 peewee_v2_to_sqlite_v1(datastore)
 
 
@@ -76,93 +77,83 @@ def peewee_v2_to_sqlite_v1(datastore):
 
 
 def sqlite_v1_to_v2(datastore: AbstractStorage, v1_path: str) -> None:
-    """Migrate SQLite v1 db (no device_id) to v2 (UNIQUE(device_id, id))."""
-    from aw_core.models import Event
+    """Copy v1 atomically, retaining the source (including its WAL) untouched."""
+    if not isinstance(datastore, SqliteStorage):
+        raise TypeError("SQLite v1 migration requires SqliteStorage")
+    destination = datastore.conn
+    source_path = str(Path(v1_path).resolve())
+    destination.execute(
+        "CREATE TABLE IF NOT EXISTS migrated_sources (path TEXT PRIMARY KEY)"
+    )
+    if destination.execute(
+        "SELECT 1 FROM migrated_sources WHERE path = ?", (source_path,)
+    ).fetchone():
+        return
 
     logger.info(f"Migrating SQLite v1 → v2: {v1_path}")
-    existing_buckets = set(datastore.buckets().keys())
-    conn = sqlite3.connect(v1_path)
+    source = sqlite3.connect(Path(source_path).as_uri() + "?mode=ro", uri=True)
     try:
-        buckets = conn.execute(
-            "SELECT id, name, type, client, hostname, created, datastr FROM buckets"
-        ).fetchall()
-        for row in buckets:
-            bucket_id, name, type_, client, hostname, created, datastr = row
-            if bucket_id in existing_buckets:
-                # Idempotency guard: a previous migration attempt already
-                # created this bucket (e.g. a crash between create_bucket and
-                # the v1-file rename below).  Re-inserting would raise
-                # IntegrityError on UNIQUE(device_id, id) and block startup.
-                logger.warning(
-                    f"Bucket {bucket_id} already exists in v2 datastore, "
-                    "skipping (likely from a prior migration attempt)"
-                )
-                continue
-            logger.info(f"Migrating bucket {bucket_id}")
-            data = json.loads(datastr or "{}")
-            datastore.create_bucket(
-                bucket_id,
-                type_,
-                client,
-                hostname,
-                created,
-                name=name,
-                data=data,
-                device_id="local",
-            )
-            event_rows = conn.execute(
-                "SELECT id, starttime, endtime, datastr FROM events "
-                "WHERE bucketrow = (SELECT rowid FROM buckets WHERE id = ?)",
-                [bucket_id],
+        # One source snapshot and one destination transaction. Do not call storage
+        # methods here: create_bucket/insert_many may commit midway through a copy.
+        source.execute("BEGIN")
+        with destination:
+            buckets = source.execute(
+                "SELECT rowid, id, name, type, client, hostname, created, datastr FROM buckets"
             ).fetchall()
-            events = []
-            for erow in event_rows:
-                eid, starttime_us, endtime_us, event_datastr = erow
-                starttime = datetime.fromtimestamp(
-                    starttime_us / 1_000_000, timezone.utc
+            for row in buckets:
+                (
+                    source_rowid,
+                    bucket_id,
+                    name,
+                    type_,
+                    client,
+                    hostname,
+                    created,
+                    datastr,
+                ) = row
+                destination.execute(
+                    "INSERT OR IGNORE INTO buckets(id, device_id, name, type, client, hostname, created, datastr) "
+                    "VALUES (?, 'local', ?, ?, ?, ?, ?, ?)",
+                    (bucket_id, name, type_, client, hostname, created, datastr),
                 )
-                endtime = datetime.fromtimestamp(endtime_us / 1_000_000, timezone.utc)
-                duration = endtime - starttime
-                events.append(
-                    Event(
-                        id=eid,
-                        timestamp=starttime,
-                        duration=duration,
-                        data=json.loads(event_datastr),
+                bucketrow = destination.execute(
+                    "SELECT rowid FROM buckets WHERE device_id = 'local' AND id = ?",
+                    (bucket_id,),
+                ).fetchone()[0]
+
+                # Recover destinations partially copied by older migration code.
+                # Match multiplicities, not just a set: identical source events
+                # are distinct rows. Keep unrelated destination events intact.
+                def event_key(event):
+                    start, end, data = event
+                    return start, end, json.dumps(json.loads(data), sort_keys=True)
+
+                existing = Counter(
+                    event_key(event)
+                    for event in destination.execute(
+                        "SELECT starttime, endtime, datastr FROM events WHERE bucketrow = ?",
+                        (bucketrow,),
                     )
                 )
-            if events:
-                # Clear IDs so insert_many inserts fresh rows; v1 IDs have no
-                # meaning in the v2 schema and replace() would silently skip
-                # events that don't yet exist in the new database.
-                for e in events:
-                    e.id = None
-                datastore.insert_many(bucket_id, events)
+                for event in source.execute(
+                    "SELECT starttime, endtime, datastr FROM events WHERE bucketrow = ? ORDER BY id",
+                    (source_rowid,),
+                ):
+                    key = event_key(event)
+                    if existing[key]:
+                        existing[key] -= 1
+                    else:
+                        # Copy integer microseconds and JSON verbatim; new event
+                        # IDs avoid collisions with pre-existing destination rows.
+                        destination.execute(
+                            "INSERT INTO events(bucketrow, starttime, endtime, datastr) VALUES (?, ?, ?, ?)",
+                            (bucketrow, *event),
+                        )
+            # Completion commits alongside the data, never before it. Retaining
+            # the source avoids unsafe main-file-only renames of WAL databases.
+            destination.execute(
+                "INSERT INTO migrated_sources(path) VALUES (?)", (source_path,)
+            )
     finally:
-        conn.close()
-    # Flush the final event batch: conditional_commit batches up to 50 events,
-    # so the tail of a migration (1–50 events) would otherwise remain uncommitted.
-    datastore.commit()
-    _mark_v1_migrated(v1_path)
+        source.close()
     logger.info("Migration SQLite v1 → v2 finished")
-
-
-def _mark_v1_migrated(v1_path: str) -> None:
-    """Rename the v1 db after a successful migration so it is not re-detected.
-
-    detect_db_files() filters on filename.split(".")[1] == "v1", so the rename
-    must move the version token out of that position.  Renaming (rather than
-    deleting) preserves the user's original data as a backup.
-    """
-    migrated_path = v1_path.replace(".v1.", ".migrated-v1.", 1)
-    if migrated_path == v1_path:
-        logger.error(
-            f"Could not derive migrated filename for {v1_path}; "
-            "it will be re-detected on next startup (migration is idempotent)"
-        )
-        return
-    try:
-        os.rename(v1_path, migrated_path)
-        logger.info(f"Marked v1 db as migrated: {v1_path} → {migrated_path}")
-    except OSError as e:
-        logger.error(f"Failed to rename migrated v1 db {v1_path}: {e}")

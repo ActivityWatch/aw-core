@@ -83,23 +83,128 @@ def test_migration_copies_buckets_and_events(v1_db_path, v2_datastore):
     assert len(events) == 3
 
 
-def test_v1_file_renamed_after_migration(v1_db_path, v2_datastore):
+def test_v1_file_retained_after_migration(v1_db_path, v2_datastore):
     sqlite_v1_to_v2(v2_datastore, v1_db_path)
 
-    # The v1 file must no longer be detectable: the version token moved out of
-    # the split(".")[1] position that detect_db_files() filters on.
-    assert not os.path.exists(v1_db_path)
-    renamed = v1_db_path.replace(".v1.", ".migrated-v1.", 1)
-    assert os.path.exists(renamed)
+    # Keep the original path so any open writer and WAL remain associated.
+    assert os.path.exists(v1_db_path)
 
 
 def test_migration_rerun_is_idempotent(v1_db_path, v2_datastore):
     sqlite_v1_to_v2(v2_datastore, v1_db_path)
-    # Simulate re-detection of the v1 file (e.g. rename failed on an earlier run):
-    # re-running must not raise IntegrityError and must not duplicate data.
-    os.rename(v1_db_path.replace(".v1.", ".migrated-v1.", 1), v1_db_path)
+    # Re-detection must neither duplicate events nor restore deleted v2 data.
+    assert os.path.exists(v1_db_path)
 
     sqlite_v1_to_v2(v2_datastore, v1_db_path)
 
     assert list(v2_datastore.buckets().keys()) == ["test-bucket"]
     assert len(v2_datastore.get_events("test-bucket", -1)) == 3
+
+
+def test_retry_restores_missing_events(v1_db_path, v2_datastore):
+    # A previous attempt committed the bucket and only its first event.
+    with sqlite3.connect(v1_db_path) as source:
+        bucket = source.execute("SELECT * FROM buckets").fetchone()
+        first = source.execute(
+            "SELECT starttime, endtime, datastr FROM events LIMIT 1"
+        ).fetchone()
+    v2_datastore.create_bucket(bucket[0], bucket[2], bucket[3], bucket[4], bucket[5])
+    v2_datastore.conn.execute(
+        "INSERT INTO events(bucketrow, starttime, endtime, datastr) VALUES (1, ?, ?, ?)",
+        first,
+    )
+    v2_datastore.commit()
+    sqlite_v1_to_v2(v2_datastore, v1_db_path)
+    assert len(v2_datastore.get_events("test-bucket", -1)) == 3
+    sqlite_v1_to_v2(v2_datastore, v1_db_path)
+    assert len(v2_datastore.get_events("test-bucket", -1)) == 3
+
+
+def test_wal_source_remains_readable(v1_db_path, v2_datastore):
+    source = sqlite3.connect(v1_db_path)
+    try:
+        source.execute("PRAGMA journal_mode=WAL")
+        source.execute("PRAGMA wal_autocheckpoint=0")
+        source.execute(
+            "INSERT INTO events SELECT 4, bucketrow, starttime + 10000000, endtime + 10000000, datastr FROM events LIMIT 1"
+        )
+        source.commit()
+        assert os.path.exists(v1_db_path + "-wal")
+        sqlite_v1_to_v2(v2_datastore, v1_db_path)
+        assert len(v2_datastore.get_events("test-bucket", -1)) == 4
+        with sqlite3.connect(v1_db_path) as backup:
+            assert backup.execute("SELECT count(*) FROM events").fetchone()[0] == 4
+    finally:
+        source.close()
+
+
+def test_startup_retries_existing_v2(v1_db_path, v2_datastore, monkeypatch):
+    from aw_datastore.storages import SqliteStorage
+
+    monkeypatch.setattr(
+        "aw_datastore.storages.sqlite.get_data_dir",
+        lambda _: os.path.dirname(v1_db_path),
+    )
+    monkeypatch.setattr(
+        "aw_datastore.migration.get_data_dir", lambda _: os.path.dirname(v1_db_path)
+    )
+    v2_datastore.conn.close()
+    reopened = SqliteStorage(testing=True)
+    try:
+        assert len(reopened.get_events("test-bucket", -1)) == 3
+    finally:
+        reopened.conn.close()
+
+
+def test_failure_rolls_back_copy_and_completion(v1_db_path, v2_datastore):
+    v2_datastore.conn.execute(
+        "CREATE TRIGGER interrupt_copy BEFORE INSERT ON events WHEN NEW.starttime > 1767225600000000 BEGIN SELECT RAISE(ABORT, 'interrupted'); END"
+    )
+    with pytest.raises(sqlite3.IntegrityError, match="interrupted"):
+        sqlite_v1_to_v2(v2_datastore, v1_db_path)
+    assert not v2_datastore.buckets()
+    assert v2_datastore.conn.execute("SELECT count(*) FROM events").fetchone()[0] == 0
+    assert (
+        v2_datastore.conn.execute("SELECT count(*) FROM migrated_sources").fetchone()[0]
+        == 0
+    )
+    assert os.path.exists(v1_db_path)
+    v2_datastore.conn.execute("DROP TRIGGER interrupt_copy")
+    sqlite_v1_to_v2(v2_datastore, v1_db_path)
+    assert len(v2_datastore.get_events("test-bucket", -1)) == 3
+
+
+def test_completion_does_not_restore_deleted_events(v1_db_path, v2_datastore):
+    sqlite_v1_to_v2(v2_datastore, v1_db_path)
+    v2_datastore.conn.execute("DELETE FROM events")
+    v2_datastore.commit()
+    sqlite_v1_to_v2(v2_datastore, v1_db_path)
+    assert not v2_datastore.get_events("test-bucket", -1)
+
+
+def test_identical_source_rows_keep_multiplicity(v1_db_path, v2_datastore):
+    with sqlite3.connect(v1_db_path) as source:
+        source.execute(
+            "INSERT INTO events SELECT 4, bucketrow, starttime, endtime, datastr FROM events LIMIT 1"
+        )
+    sqlite_v1_to_v2(v2_datastore, v1_db_path)
+    assert len(v2_datastore.get_events("test-bucket", -1)) == 4
+
+
+def test_completion_is_durable_on_reopen(v1_db_path, v2_datastore):
+    from aw_datastore.storages import SqliteStorage
+
+    sqlite_v1_to_v2(v2_datastore, v1_db_path)
+    v2_datastore.conn.close()
+    reopened = SqliteStorage(
+        testing=True,
+        filepath=os.path.join(os.path.dirname(v1_db_path), "sqlite-testing.v2.db"),
+    )
+    try:
+        assert len(reopened.get_events("test-bucket", -1)) == 3
+        reopened.conn.execute("DELETE FROM events")
+        reopened.commit()
+        sqlite_v1_to_v2(reopened, v1_db_path)
+        assert not reopened.get_events("test-bucket", -1)
+    finally:
+        reopened.conn.close()

@@ -144,12 +144,13 @@ class SqliteStorage(AbstractStorage):
 
         self.commit()
 
-        if new_db_file and not ignore_migration_check:
-            logger.info("Created new SQlite db file")
+        if not ignore_migration_check:
+            if new_db_file:
+                logger.info("Created new SQlite db file")
 
             from aw_datastore import check_for_migration  # fmt: skip
 
-            check_for_migration(self)
+            check_for_migration(self, migrate_peewee=new_db_file)
 
         self.last_commit = datetime.now()
         self.num_uncommitted_statements = 0
