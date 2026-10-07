@@ -71,6 +71,8 @@ def _expected_roots() -> dict:
 @pytest.fixture(autouse=True)
 def _default_profile(monkeypatch):
     monkeypatch.delenv("AW_PROFILE", raising=False)
+    # The getters create missing dirs; don't write into the real profile.
+    monkeypatch.setattr("aw_core.dirs.ensure_path_exists", lambda path: None)
 
 
 @pytest.mark.parametrize(
