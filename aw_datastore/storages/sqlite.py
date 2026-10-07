@@ -116,8 +116,9 @@ class SqliteStorage(AbstractStorage):
                     break
         if not has_composite_unique:
             device_id_src = "device_id" if has_device_id else "'local'"
-            self.conn.executescript(f"""
-                PRAGMA foreign_keys = OFF;
+            self.conn.execute("PRAGMA foreign_keys = OFF;")
+            try:
+                self.conn.executescript(f"""
                 BEGIN;
                 CREATE TABLE buckets_v2 (
                     rowid INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -136,8 +137,14 @@ class SqliteStorage(AbstractStorage):
                 DROP TABLE buckets;
                 ALTER TABLE buckets_v2 RENAME TO buckets;
                 COMMIT;
-                PRAGMA foreign_keys = ON;
-            """)
+                """)
+            except sqlite3.Error:
+                self.conn.rollback()
+                raise
+            finally:
+                # PRAGMA foreign_keys cannot change inside a transaction, so
+                # roll back a failed rebuild before restoring enforcement.
+                self.conn.execute("PRAGMA foreign_keys = ON;")
             logger.info(
                 "Schema upgraded: rebuilt buckets table with UNIQUE(device_id, id)"
             )

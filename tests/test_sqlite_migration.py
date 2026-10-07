@@ -208,3 +208,25 @@ def test_completion_is_durable_on_reopen(v1_db_path, v2_datastore):
         assert not reopened.get_events("test-bucket", -1)
     finally:
         reopened.conn.close()
+
+
+def test_failed_schema_rebuild_rolls_back_and_restores_foreign_keys(
+    v1_db_path, monkeypatch
+):
+    from aw_datastore.storages import SqliteStorage
+
+    connection = sqlite3.connect(v1_db_path)
+    connection.execute("CREATE TABLE buckets_v2 (sentinel TEXT)")
+    connection.commit()
+    monkeypatch.setattr(
+        "aw_datastore.storages.sqlite.sqlite3.connect", lambda _: connection
+    )
+    try:
+        with pytest.raises(sqlite3.OperationalError, match="already exists"):
+            SqliteStorage(testing=True, filepath=v1_db_path)
+        assert not connection.in_transaction
+        assert connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+        assert connection.execute("SELECT count(*) FROM buckets").fetchone()[0] == 1
+        assert connection.execute("SELECT count(*) FROM events").fetchone()[0] == 3
+    finally:
+        connection.close()
