@@ -230,3 +230,53 @@ def test_failed_schema_rebuild_rolls_back_and_restores_foreign_keys(
         assert connection.execute("SELECT count(*) FROM events").fetchone()[0] == 3
     finally:
         connection.close()
+
+
+def test_schema_rebuild_rolls_back_after_copy(v1_db_path, monkeypatch):
+    from aw_datastore.storages import SqliteStorage
+
+    connection = sqlite3.connect(v1_db_path)
+    connection.set_authorizer(
+        lambda action, *_: (
+            sqlite3.SQLITE_DENY
+            if action == sqlite3.SQLITE_DROP_TABLE
+            else sqlite3.SQLITE_OK
+        )
+    )
+    monkeypatch.setattr(
+        "aw_datastore.storages.sqlite.sqlite3.connect", lambda _: connection
+    )
+    try:
+        with pytest.raises(sqlite3.DatabaseError, match="not authorized"):
+            SqliteStorage(testing=True, filepath=v1_db_path)
+        assert not connection.in_transaction
+        assert connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+        assert connection.execute("SELECT count(*) FROM buckets").fetchone()[0] == 1
+        assert connection.execute("SELECT count(*) FROM events").fetchone()[0] == 3
+        assert not connection.execute(
+            "SELECT name FROM sqlite_master WHERE name = 'buckets_v2'"
+        ).fetchall()
+    finally:
+        connection.close()
+
+
+def test_migration_local_bucket_coexists_with_remote(v1_db_path, v2_datastore):
+    v2_datastore.create_bucket(
+        "test-bucket",
+        "test.type",
+        "remote-client",
+        "remote-host",
+        "2026-01-01T00:00:00+00:00",
+        device_id="remote",
+    )
+    sqlite_v1_to_v2(v2_datastore, v1_db_path)
+    assert v2_datastore.conn.execute(
+        "SELECT device_id FROM buckets ORDER BY device_id"
+    ).fetchall() == [("local",), ("remote",)]
+    assert (
+        v2_datastore.conn.execute(
+            "SELECT count(*) FROM events JOIN buckets ON events.bucketrow = buckets.rowid "
+            "WHERE device_id = 'local'"
+        ).fetchone()[0]
+        == 3
+    )
