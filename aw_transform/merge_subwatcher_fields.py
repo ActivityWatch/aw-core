@@ -11,6 +11,26 @@ from .filter_period_intersect import _get_event_period
 logger = logging.getLogger(__name__)
 
 
+def _latest_overlapping_sub(
+    overlapping: List[Tuple[Event, Timeslot]],
+) -> Tuple[Event, Timeslot]:
+    """Pick the sub that should win on a shared slice.
+
+    Later subwatcher events supersede older overlapping pulses; ties on
+    timestamp are broken by the later end (longer coverage wins), matching
+    the segment loop's selection logic.
+    """
+    best_sub, best_period = overlapping[0]
+    for sub, sub_period in overlapping[1:]:
+        if sub.timestamp > best_sub.timestamp or (
+            sub.timestamp == best_sub.timestamp
+            and sub_period.end > best_period.end
+        ):
+            best_sub = sub
+            best_period = sub_period
+    return best_sub, best_period
+
+
 def merge_subwatcher_fields(
     base_events: List[Event],
     subwatcher_events: List[Event],
@@ -118,14 +138,7 @@ def merge_subwatcher_fields(
         # Preserve it as a single enriched event from whichever overlapping
         # sub covers the instant, using the same "latest sub wins" rule.
         if base_is_instant:
-            instant_best_sub, instant_best_period = overlapping[0]
-            for sub, sub_period in overlapping[1:]:
-                if sub.timestamp > instant_best_sub.timestamp or (
-                    sub.timestamp == instant_best_sub.timestamp
-                    and sub_period.end > instant_best_period.end
-                ):
-                    instant_best_sub = sub
-                    instant_best_period = sub_period
+            instant_best_sub, instant_best_period = _latest_overlapping_sub(overlapping)
             enriched = deepcopy(base)
             for key in keys:
                 if key in instant_best_sub.data:
