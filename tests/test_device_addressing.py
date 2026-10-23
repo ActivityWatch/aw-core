@@ -284,3 +284,48 @@ def test_stream_iterator_can_preserve_caller_snapshot(tmp_path):
     finally:
         peer.close()
         store.conn.close()
+
+
+@pytest.mark.parametrize(
+    "stored,requested", [("window_old_host", "window"), ("window", "window_old_host")]
+)
+def test_query_bucket_resolves_aliases_within_selected_device(
+    tmp_path, stored, requested
+):
+    from aw_datastore import Datastore
+    from aw_query import query
+
+    datastore = Datastore(
+        SqliteStorage, testing=True, filepath=str(tmp_path / "query.db")
+    )
+    local, peer = datastore.for_device("local"), datastore.for_device("peer")
+    try:
+        for scoped, owner in [(local, "local"), (peer, "peer")]:
+            bucket = scoped.create_bucket(
+                stored, type="test", client="test", hostname="old_host"
+            )
+            bucket.insert(
+                Event(
+                    timestamp=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                    duration=1,
+                    data={"owner": owner},
+                )
+            )
+            result = query(
+                "alias-contract",
+                f'RETURN = query_bucket("{requested}");',
+                datetime(2026, 1, 1, tzinfo=timezone.utc),
+                datetime(2026, 1, 2, tzinfo=timezone.utc),
+                scoped,
+            )
+            assert result[0].data == {"owner": owner}
+        with pytest.raises(ValueError, match="[Aa]mbiguous"):
+            query(
+                "alias-contract",
+                f'RETURN = query_bucket("{requested}");',
+                datetime(2026, 1, 1, tzinfo=timezone.utc),
+                datetime(2026, 1, 2, tzinfo=timezone.utc),
+                datastore,
+            )
+    finally:
+        datastore.storage_strategy.conn.close()
