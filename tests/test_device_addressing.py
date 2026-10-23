@@ -66,7 +66,7 @@ def test_scoped_datastore_objects_do_not_reuse_other_device_cache(tmp_path):
     assert local["window"].get()[0].data == {"host": "host"}
     assert peer["window"].get()[0].data == {"host": "peer-host"}
     with pytest.raises(ValueError, match="[Aa]mbiguous"):
-        datastore["window"]
+        datastore.__getitem__("window")
     local.delete_bucket("window")
     assert peer["window"].get_eventcount() == 1
 
@@ -92,8 +92,10 @@ def test_scoped_event_mutations_never_cross_bucketrow(tmp_path):
         local.get_events("window", -1)[0],
         peer.get_events("window", -1)[0],
     )
-    assert not local.delete("window", peer_event.id)
-    assert not local.replace("window", peer_event.id, local_event)
+    deleted = local.delete("window", peer_event.id)
+    assert not deleted
+    replaced = local.replace("window", peer_event.id, local_event)
+    assert not replaced
     changed = Event(
         timestamp=local_event.timestamp,
         duration=timedelta(seconds=4),
@@ -112,7 +114,8 @@ def test_scoped_event_mutations_never_cross_bucketrow(tmp_path):
     ]:
         with pytest.raises(ValueError, match="[Aa]mbiguous"):
             operation("window")
-    assert local.delete("window", local_event.id)
+    deleted = local.delete("window", local_event.id)
+    assert deleted
     assert local.get_eventcount("window") == 0
     assert peer.get_eventcount("window") == 1
 
@@ -139,8 +142,10 @@ def test_missing_bucket_event_contracts_remain_unchanged(tmp_path):
     assert store.get_events("missing", -1) == []
     assert store.get_eventcount("missing") == 0
     assert list(store.iter_events("missing")) == []
-    assert not store.delete("missing", 1)
-    assert not store.replace("missing", 1, event)
+    deleted = store.delete("missing", 1)
+    assert not deleted
+    replaced = store.replace("missing", 1, event)
+    assert not replaced
     store.insert_many("missing", [])
 
 
@@ -155,7 +160,7 @@ def test_cached_global_bucket_cannot_bypass_new_ambiguity(tmp_path):
         "window", type="test", client="test", hostname="other"
     )
     with pytest.raises(ValueError, match="[Aa]mbiguous"):
-        datastore["window"]
+        datastore.__getitem__("window")
 
 
 def test_metadata_aliases_resolve_both_directions_without_renaming(tmp_path):

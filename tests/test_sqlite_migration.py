@@ -280,3 +280,41 @@ def test_migration_local_bucket_coexists_with_remote(v1_db_path, v2_datastore):
         ).fetchone()[0]
         == 3
     )
+
+
+def test_successful_in_place_rebuild_preserves_sparse_bucket_rows(v1_db_path):
+    from aw_datastore.storages import SqliteStorage
+
+    with sqlite3.connect(v1_db_path) as source:
+        source.execute("UPDATE buckets SET rowid = 7")
+        source.execute("UPDATE events SET bucketrow = 7")
+        source.execute(
+            "INSERT INTO buckets (rowid, id, name, type, client, hostname, created, datastr) "
+            "SELECT 23, 'other', name, type, client, hostname, created, datastr FROM buckets"
+        )
+        source.execute(
+            "INSERT INTO events VALUES (19, 23, 1767225600000000, 1767225601000000, '{\"other\": true}')"
+        )
+    store = SqliteStorage(testing=True, filepath=v1_db_path)
+    try:
+        assert store.conn.execute(
+            "SELECT rowid FROM buckets ORDER BY rowid"
+        ).fetchall() == [(7,), (23,)]
+        assert len(store.for_device("local").get_events("test-bucket", -1)) == 3
+        assert store.get_events("other", -1)[0].data == {"other": True}
+        peer = store.for_device("peer")
+        peer.create_bucket(
+            "test-bucket", "test", "client", "peer-host", "2026-01-01T00:00:00+00:00"
+        )
+        assert peer.get_eventcount("test-bucket") == 0
+        assert store.conn.execute("PRAGMA foreign_key_check").fetchall() == []
+    finally:
+        store.conn.close()
+    reopened = SqliteStorage(testing=True, filepath=v1_db_path)
+    try:
+        assert reopened.for_device("local").get_eventcount("test-bucket") == 3
+        assert reopened.for_device("peer").get_eventcount("test-bucket") == 0
+        assert reopened.get_events("other", -1)[0].data == {"other": True}
+        assert reopened.conn.execute("PRAGMA foreign_key_check").fetchall() == []
+    finally:
+        reopened.conn.close()

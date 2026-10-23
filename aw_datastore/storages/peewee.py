@@ -281,6 +281,8 @@ class PeeweeStorage(AbstractStorage):
         data: Optional[Dict[str, Any]] = None,
         device_id: str = "local",
     ):
+        if device_id != "local":
+            raise NotImplementedError("PeeweeStorage does not support device routing")
         BucketModel.create(
             id=bucket_id,
             type=type_id,

@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Iterable, List, Optional
 
@@ -435,16 +436,32 @@ class SqliteStorage(AbstractStorage):
         else:
             raise ValueError("Bucket did not exist, could not get metadata")
 
+    @contextmanager
+    def _bucket_write(self):
+        # Acquire the writer lock before resolving a bucket row. A deferred
+        # transaction would still let another connection delete that row.
+        started = not self.conn.in_transaction
+        if started:
+            self.conn.execute("BEGIN IMMEDIATE")
+        try:
+            yield
+        except Exception:
+            if started:
+                self.conn.rollback()
+            raise
+        # Successful writes retain the existing lazy-commit ownership.
+
     def insert_one(self, bucket_id: str, event: Event) -> Event:
         c = self.conn.cursor()
         starttime = event.timestamp.timestamp() * 1000000
         endtime = starttime + (event.duration.total_seconds() * 1000000)
         datastr = json.dumps(event.data)
-        c.execute(
-            "INSERT INTO events(bucketrow, starttime, endtime, datastr) "
-            + "VALUES (?, ?, ?, ?)",
-            [self._bucket_row(bucket_id), starttime, endtime, datastr],
-        )
+        with self._bucket_write():
+            c.execute(
+                "INSERT INTO events(bucketrow, starttime, endtime, datastr) "
+                + "VALUES (?, ?, ?, ?)",
+                [self._bucket_row(bucket_id), starttime, endtime, datastr],
+            )
         event.id = c.lastrowid
         self.conditional_commit(1)
         return event
@@ -463,17 +480,20 @@ class SqliteStorage(AbstractStorage):
         # Then insert events without id's set
         events_insert = [e for e in events if e.id is None]
         event_rows = []
-        rowid = self._bucket_row(bucket_id, required=False)
-        for event in events_insert:
-            starttime = event.timestamp.timestamp() * 1000000
-            endtime = starttime + (event.duration.total_seconds() * 1000000)
-            datastr = json.dumps(event.data)
-            event_rows.append((rowid, starttime, endtime, datastr))
-        query = (
-            "INSERT INTO events(bucketrow, starttime, endtime, datastr) "
-            + "VALUES (?, ?, ?, ?)"
-        )
-        self.conn.executemany(query, event_rows)
+        if not events_insert:
+            return
+        with self._bucket_write():
+            rowid = self._bucket_row(bucket_id, required=False)
+            for event in events_insert:
+                starttime = event.timestamp.timestamp() * 1000000
+                endtime = starttime + (event.duration.total_seconds() * 1000000)
+                datastr = json.dumps(event.data)
+                event_rows.append((rowid, starttime, endtime, datastr))
+            query = (
+                "INSERT INTO events(bucketrow, starttime, endtime, datastr) "
+                + "VALUES (?, ?, ?, ?)"
+            )
+            self.conn.executemany(query, event_rows)
         self.conditional_commit(len(event_rows))
 
     def replace_last(self, bucket_id, event):

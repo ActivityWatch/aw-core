@@ -31,6 +31,8 @@ class MemoryStorage(AbstractStorage):
         data=None,
         device_id: str = "local",
     ) -> None:
+        if device_id != "local":
+            raise NotImplementedError("MemoryStorage does not support device routing")
         if not name:
             name = bucket_id
         self._metadata[bucket_id] = {
