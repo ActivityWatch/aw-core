@@ -209,6 +209,28 @@ class SqliteStorage(AbstractStorage):
         scoped._owner = self._owner or self
         return scoped
 
+    def snapshot(self) -> "SqliteStorage":
+        """Independent read transaction for long-lived exports.
+
+        Flushes the owning writer first so the snapshot includes those rows.
+        The returned handle has its own connection; close it when finished.
+        """
+        owner = self._owner or self
+        owner.commit()
+        path = owner.conn.execute("PRAGMA database_list").fetchone()[2]
+        if not path:
+            raise NotImplementedError("Snapshot export requires a file-backed database")
+        snap = copy.copy(self)
+        snap.conn = sqlite3.connect(path)
+        snap.conn.execute("PRAGMA query_only=ON")
+        snap._owner = None
+        snap.enable_lazy_commit = False
+        # Deferred BEGIN does not pin a WAL snapshot until a real table read.
+        # `SELECT 1` is a constant and does not establish the reader snapshot.
+        snap.conn.execute("BEGIN")
+        snap.conn.execute("SELECT 1 FROM sqlite_master LIMIT 1").fetchone()
+        return snap
+
     def _bucket_row(self, bucket_id: str, required: bool = True) -> Optional[int]:
         sql = "SELECT rowid FROM buckets WHERE id = ?"
         args = [bucket_id]

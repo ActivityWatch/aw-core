@@ -53,6 +53,30 @@ def test_insert_locks_bucket_resolution_against_other_connection(
         store.conn.close()
 
 
+def test_snapshot_excludes_later_writer_commits(tmp_path):
+    path = str(tmp_path / "snapshot.db")
+    store = SqliteStorage(testing=True, filepath=path)
+    store.create_bucket("window", "test", "client", "host", "2026-01-01T00:00:00+00:00")
+    store.commit()
+    snap = store.snapshot()
+    try:
+        writer = sqlite3.connect(path)
+        row = writer.execute("SELECT rowid FROM buckets WHERE id='window'").fetchone()[
+            0
+        ]
+        writer.execute(
+            "INSERT INTO events(bucketrow,starttime,endtime,datastr) VALUES (?, ?, ?, ?)",
+            (row, 1704110400000000, 1704110401000000, "{}"),
+        )
+        writer.commit()
+        writer.close()
+        assert list(snap.iter_events("window", flush=False)) == []
+        assert store.get_eventcount("window") == 1
+    finally:
+        snap.conn.close()
+        store.conn.close()
+
+
 @pytest.mark.parametrize("backend", [MemoryStorage, PeeweeStorage])
 @pytest.mark.parametrize("device_id", ["peer", ""])
 def test_unsupported_device_creation_preserves_existing_history(
