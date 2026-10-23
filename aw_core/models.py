@@ -28,9 +28,7 @@ def _timestamp_parse(ts_in: ConvertibleTimestamp) -> datetime:
     returns a timestamp in the representation we want.
     """
     ts = iso8601.parse_date(ts_in) if isinstance(ts_in, str) else ts_in
-    # Set resolution to milliseconds instead of microseconds
-    # (Fixes incompability with software based on unix time, for example mongodb)
-    ts = ts.replace(microsecond=int(ts.microsecond / 1000) * 1000)
+
     # Add timezone if not set
     if not ts.tzinfo:
         # Needed? All timestamps should be iso8601 so ought to always contain timezone.

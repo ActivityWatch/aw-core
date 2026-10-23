@@ -59,3 +59,16 @@ flushing once and opening their own read transaction. The default remains
 `flush=True` for standalone iteration. This avoids ending the caller's snapshot
 between buckets; a real concurrent WAL writer regression covers the distinction.
 The caller owns commit/rollback and must close partially consumed iterators.
+
+### Archive timestamp fidelity
+
+`Event` retains Python's full microsecond timestamp precision, including in JSON
+and timestamp assignment; timestamps are no longer truncated to milliseconds.
+SQLite event writes and explicit query bounds use integer microseconds rather
+than floating-point Unix timestamps. Unbounded reads, counts, last-updated
+metadata and snapshot iterators include pre-1970 history. Existing rows are not
+rewritten; historical REAL-valued timestamps remain readable at Python datetime
+precision. Legacy sub-microsecond REAL values cannot be represented exactly by
+Python datetime, and their raw SQL comparison boundaries remain unchanged.
+`Bucket.get` retains its existing outward millisecond rounding of explicit
+query bounds for compatibility with other storage backends.

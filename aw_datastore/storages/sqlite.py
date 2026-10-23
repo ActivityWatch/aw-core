@@ -18,6 +18,22 @@ LATEST_VERSION = 2
 
 # The max integer value in SQLite is signed 8 Bytes / 64 bits
 MAX_TIMESTAMP = 2**63 - 1
+MIN_TIMESTAMP = -(2**63)
+EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+
+def _timedelta_microseconds(value: timedelta) -> int:
+    return (value.days * 86400 + value.seconds) * 1000000 + value.microseconds
+
+
+def _timestamp_microseconds(value: datetime) -> int:
+    # Preserve datetime.timestamp()'s local-time interpretation of naive bounds.
+    return _timedelta_microseconds(value.astimezone(timezone.utc) - EPOCH)
+
+
+def _from_microseconds(value: int) -> datetime:
+    return EPOCH + timedelta(microseconds=value)
+
 
 CREATE_BUCKETS_TABLE = """
     CREATE TABLE IF NOT EXISTS buckets (
@@ -61,9 +77,8 @@ def _rows_to_events(rows: Iterable) -> List[Event]:
     events = []
     for row in rows:
         eid = row[0]
-        starttime = datetime.fromtimestamp(row[1] / 1000000, timezone.utc)
-        endtime = datetime.fromtimestamp(row[2] / 1000000, timezone.utc)
-        duration = endtime - starttime
+        starttime = _from_microseconds(row[1])
+        duration = timedelta(microseconds=row[2] - row[1])
         data = json.loads(row[3])
         events.append(Event(id=eid, timestamp=starttime, duration=duration, data=data))
     return events
@@ -299,8 +314,7 @@ class SqliteStorage(AbstractStorage):
             "SELECT b.id, b.device_id, b.name, b.type, b.client, b.hostname, b.created, "
             "b.datastr, e.endtime FROM buckets b LEFT JOIN events e ON e.id = "
             "(SELECT id FROM events WHERE bucketrow = b.rowid "
-            "AND endtime >= 0 AND starttime <= ? ORDER BY endtime DESC LIMIT 1)",
-            (MAX_TIMESTAMP,),
+            "ORDER BY endtime DESC LIMIT 1)"
         )
         try:
             buckets = {}
@@ -325,9 +339,7 @@ class SqliteStorage(AbstractStorage):
                 )
                 metadata["data"] = json.loads(row[7] or "{}")
                 if row[8] is not None:
-                    metadata["last_updated"] = datetime.fromtimestamp(
-                        row[8] / 1000000, timezone.utc
-                    ).isoformat()
+                    metadata["last_updated"] = _from_microseconds(row[8]).isoformat()
                 buckets[row[0]] = metadata
             return buckets
         finally:
@@ -340,9 +352,8 @@ class SqliteStorage(AbstractStorage):
             self.commit()
         cursor = self.conn.execute(
             "SELECT id, starttime, endtime, datastr FROM events "
-            "WHERE bucketrow = ? "
-            "AND endtime >= 0 AND starttime <= ? ORDER BY endtime DESC",
-            (self._bucket_row(bucket_id, required=False), MAX_TIMESTAMP),
+            "WHERE bucketrow = ? ORDER BY endtime DESC",
+            (self._bucket_row(bucket_id, required=False),),
         )
         try:
             for row in cursor:
@@ -478,8 +489,8 @@ class SqliteStorage(AbstractStorage):
 
     def insert_one(self, bucket_id: str, event: Event) -> Event:
         c = self.conn.cursor()
-        starttime = event.timestamp.timestamp() * 1000000
-        endtime = starttime + (event.duration.total_seconds() * 1000000)
+        starttime = _timestamp_microseconds(event.timestamp)
+        endtime = starttime + _timedelta_microseconds(event.duration)
         datastr = json.dumps(event.data)
         with self._bucket_write():
             c.execute(
@@ -510,8 +521,8 @@ class SqliteStorage(AbstractStorage):
         with self._bucket_write():
             rowid = self._bucket_row(bucket_id, required=False)
             for event in events_insert:
-                starttime = event.timestamp.timestamp() * 1000000
-                endtime = starttime + (event.duration.total_seconds() * 1000000)
+                starttime = _timestamp_microseconds(event.timestamp)
+                endtime = starttime + _timedelta_microseconds(event.duration)
                 datastr = json.dumps(event.data)
                 event_rows.append((rowid, starttime, endtime, datastr))
             query = (
@@ -522,8 +533,8 @@ class SqliteStorage(AbstractStorage):
         self.conditional_commit(len(event_rows))
 
     def replace_last(self, bucket_id, event):
-        starttime = event.timestamp.timestamp() * 1000000
-        endtime = starttime + (event.duration.total_seconds() * 1000000)
+        starttime = _timestamp_microseconds(event.timestamp)
+        endtime = starttime + _timedelta_microseconds(event.duration)
         datastr = json.dumps(event.data)
         query = """UPDATE events
                    SET starttime = ?, endtime = ?, datastr = ?
@@ -544,8 +555,8 @@ class SqliteStorage(AbstractStorage):
         return cursor.rowcount == 1
 
     def replace(self, bucket_id, event_id, event) -> bool:
-        starttime = event.timestamp.timestamp() * 1000000
-        endtime = starttime + (event.duration.total_seconds() * 1000000)
+        starttime = _timestamp_microseconds(event.timestamp)
+        endtime = starttime + _timedelta_microseconds(event.duration)
         datastr = json.dumps(event.data)
         query = """UPDATE events
                      SET starttime = ?,
@@ -600,8 +611,8 @@ class SqliteStorage(AbstractStorage):
             limit = -1
         self.commit()
         c = self.conn.cursor()
-        starttime_i = starttime.timestamp() * 1000000 if starttime else 0
-        endtime_i = endtime.timestamp() * 1000000 if endtime else MAX_TIMESTAMP
+        starttime_i = _timestamp_microseconds(starttime) if starttime else MIN_TIMESTAMP
+        endtime_i = _timestamp_microseconds(endtime) if endtime else MAX_TIMESTAMP
         query = """
             SELECT id, starttime, endtime, datastr
             FROM events
@@ -629,8 +640,8 @@ class SqliteStorage(AbstractStorage):
     ):
         self.commit()
         c = self.conn.cursor()
-        starttime_i = starttime.timestamp() * 1000000 if starttime else 0
-        endtime_i = endtime.timestamp() * 1000000 if endtime else MAX_TIMESTAMP
+        starttime_i = _timestamp_microseconds(starttime) if starttime else MIN_TIMESTAMP
+        endtime_i = _timestamp_microseconds(endtime) if endtime else MAX_TIMESTAMP
         query = (
             "SELECT count(*) "
             + "FROM events "

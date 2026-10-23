@@ -318,3 +318,33 @@ def test_successful_in_place_rebuild_preserves_sparse_bucket_rows(v1_db_path):
         assert reopened.conn.execute("PRAGMA foreign_key_check").fetchall() == []
     finally:
         reopened.conn.close()
+
+
+def test_device_migration_preserves_exact_archive_rows(v1_db_path):
+    from aw_datastore.storages import SqliteStorage
+
+    with sqlite3.connect(v1_db_path) as source:
+        source.execute(
+            "INSERT INTO events VALUES (99, 1, ?, ?, ?)",
+            (-315619199876543, -315619199876540, '{ "archive": "unchanged bytes" }'),
+        )
+        original = source.execute(
+            "SELECT id,bucketrow,starttime,endtime,datastr FROM events ORDER BY id"
+        ).fetchall()
+        names = source.execute("SELECT rowid,id FROM buckets").fetchall()
+    store = SqliteStorage(testing=True, filepath=v1_db_path)
+    try:
+        assert (
+            store.conn.execute(
+                "SELECT id,bucketrow,starttime,endtime,datastr FROM events ORDER BY id"
+            ).fetchall()
+            == original
+        )
+        assert store.conn.execute("SELECT rowid,id FROM buckets").fetchall() == names
+        events = store.for_device("local").get_events("test-bucket", -1)
+        assert len(events) == 4
+        archived = next(event for event in events if event.id == 99)
+        assert archived.timestamp.isoformat() == "1960-01-01T00:00:00.123457+00:00"
+        assert archived.duration.total_seconds() == 0.000003
+    finally:
+        store.conn.close()
