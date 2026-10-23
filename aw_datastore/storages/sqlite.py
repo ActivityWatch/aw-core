@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 import os
@@ -75,6 +76,8 @@ class SqliteStorage(AbstractStorage):
     ) -> None:
         self.testing = testing
         self.enable_lazy_commit = enable_lazy_commit
+        self.device_scope: Optional[str] = None
+        self._owner: Optional[SqliteStorage] = None
 
         # Ignore the migration check if custom filepath is set
         ignore_migration_check = filepath is not None
@@ -167,6 +170,8 @@ class SqliteStorage(AbstractStorage):
         Useful for debugging and trying to lower the amount of
         unnecessary commits
         """
+        if self._owner is not None:
+            return self._owner.commit()
         self.conn.commit()
         self.last_commit = datetime.now()
         self.num_uncommitted_statements = 0
@@ -179,6 +184,8 @@ class SqliteStorage(AbstractStorage):
         This is because sqlite is very slow with small inserts, this
         is a way to batch them together and lower CPU+disk usage
         """
+        if self._owner is not None:
+            return self._owner.conditional_commit(num_statements)
         if self.enable_lazy_commit:
             self.num_uncommitted_statements += num_statements
             if self.num_uncommitted_statements > 50:
@@ -188,12 +195,52 @@ class SqliteStorage(AbstractStorage):
         else:
             self.commit()
 
+    def for_device(self, device_id: str) -> "SqliteStorage":
+        """Return a handle with immutable routing scope and the same connection.
+
+        Like the underlying sqlite connection, handles are single-thread-owned.
+        Commit bookkeeping stays on the owning storage, not its scoped views.
+        """
+        if not device_id:
+            raise ValueError("Device scope must not be empty")
+        scoped = copy.copy(self)
+        scoped.device_scope = device_id
+        scoped._owner = self._owner or self
+        return scoped
+
+    def _bucket_row(self, bucket_id: str, required: bool = True) -> Optional[int]:
+        sql = "SELECT rowid FROM buckets WHERE id = ?"
+        args = [bucket_id]
+        if self.device_scope is not None:
+            sql += " AND device_id = ?"
+            args.append(self.device_scope)
+        rows = self.conn.execute(sql, args).fetchall()
+        if len(rows) > 1:
+            raise ValueError(f"Ambiguous bucket '{bucket_id}'; select a device")
+        if not rows:
+            if not required:
+                return None
+            raise ValueError(f"Bucket '{bucket_id}' did not exist")
+        return rows[0][0]
+
+    def device_buckets(self):
+        """Lossless metadata view, without constructing qualified string IDs."""
+        devices = {}
+        for (device,) in self.conn.execute("SELECT DISTINCT device_id FROM buckets"):
+            if self.device_scope is None or device == self.device_scope:
+                devices[device] = self.for_device(device).buckets()
+        return devices
+
     def buckets(self):
         buckets = {}
         c = self.conn.cursor()
         for row in c.execute(
             "SELECT id, device_id, name, type, client, hostname, created, datastr FROM buckets"
         ):
+            if self.device_scope is not None and row[1] != self.device_scope:
+                continue
+            if row[0] in buckets:
+                raise ValueError(f"Ambiguous bucket '{row[0]}'; select a device")
             buckets[row[0]] = {
                 "id": row[0],
                 "device_id": row[1],
@@ -207,12 +254,15 @@ class SqliteStorage(AbstractStorage):
         return buckets
 
     def has_bucket(self, bucket_id: str) -> bool:
-        return (
-            self.conn.execute(
-                "SELECT 1 FROM buckets WHERE id = ?", (bucket_id,)
-            ).fetchone()
-            is not None
-        )
+        sql = "SELECT count(*) FROM buckets WHERE id = ?"
+        args = [bucket_id]
+        if self.device_scope is not None:
+            sql += " AND device_id = ?"
+            args.append(self.device_scope)
+        count = self.conn.execute(sql, args).fetchone()[0]
+        if count > 1:
+            raise ValueError(f"Ambiguous bucket '{bucket_id}'; select a device")
+        return count == 1
 
     def buckets_with_last_updated(self):
         # Match get_events' ordering by endtime for this backend.
@@ -226,6 +276,10 @@ class SqliteStorage(AbstractStorage):
         try:
             buckets = {}
             for row in rows:
+                if self.device_scope is not None and row[1] != self.device_scope:
+                    continue
+                if row[0] in buckets:
+                    raise ValueError(f"Ambiguous bucket '{row[0]}'; select a device")
                 metadata = dict(
                     zip(
                         (
@@ -254,9 +308,9 @@ class SqliteStorage(AbstractStorage):
         self.commit()
         cursor = self.conn.execute(
             "SELECT id, starttime, endtime, datastr FROM events "
-            "WHERE bucketrow = (SELECT rowid FROM buckets WHERE id = ?) "
+            "WHERE bucketrow = ? "
             "AND endtime >= 0 AND starttime <= ? ORDER BY endtime DESC",
-            (bucket_id, MAX_TIMESTAMP),
+            (self._bucket_row(bucket_id, required=False), MAX_TIMESTAMP),
         )
         try:
             for row in cursor:
@@ -275,6 +329,10 @@ class SqliteStorage(AbstractStorage):
         data: Optional[dict] = None,
         device_id: str = "local",
     ):
+        if self.device_scope is not None:
+            device_id = self.device_scope
+        if not device_id:
+            raise ValueError("Device scope must not be empty")
         self.conn.execute(
             "INSERT INTO buckets(id, device_id, name, type, client, hostname, created, datastr) "
             + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -290,7 +348,7 @@ class SqliteStorage(AbstractStorage):
             ],
         )
         self.commit()
-        return self.get_metadata(bucket_id)
+        return self.for_device(device_id).get_metadata(bucket_id)
 
     def update_bucket(
         self,
@@ -315,18 +373,16 @@ class SqliteStorage(AbstractStorage):
         sql = (
             "UPDATE buckets SET "
             + ", ".join(f"{u} = ?" for u in updates)
-            + " WHERE id = ?"
+            + " WHERE rowid = ?"
         )
-        self.conn.execute(sql, (*values, bucket_id))
+        self.conn.execute(sql, (*values, self._bucket_row(bucket_id)))
         self.commit()
         return self.get_metadata(bucket_id)
 
     def delete_bucket(self, bucket_id: str):
-        self.conn.execute(
-            "DELETE FROM events WHERE bucketrow IN (SELECT rowid FROM buckets WHERE id = ?)",
-            [bucket_id],
-        )
-        cursor = self.conn.execute("DELETE FROM buckets WHERE id = ?", [bucket_id])
+        rowid = self._bucket_row(bucket_id)
+        self.conn.execute("DELETE FROM events WHERE bucketrow = ?", [rowid])
+        cursor = self.conn.execute("DELETE FROM buckets WHERE rowid = ?", [rowid])
         self.commit()
         if cursor.rowcount != 1:
             raise ValueError("Bucket did not exist, could not delete")
@@ -334,8 +390,8 @@ class SqliteStorage(AbstractStorage):
     def get_metadata(self, bucket_id: str):
         c = self.conn.cursor()
         res = c.execute(
-            "SELECT id, device_id, name, type, client, hostname, created, datastr FROM buckets WHERE id = ?",
-            [bucket_id],
+            "SELECT id, device_id, name, type, client, hostname, created, datastr FROM buckets WHERE rowid = ?",
+            [self._bucket_row(bucket_id)],
         )
         row = res.fetchone()
         if row is not None:
@@ -359,8 +415,8 @@ class SqliteStorage(AbstractStorage):
         datastr = json.dumps(event.data)
         c.execute(
             "INSERT INTO events(bucketrow, starttime, endtime, datastr) "
-            + "VALUES ((SELECT rowid FROM buckets WHERE id = ?), ?, ?, ?)",
-            [bucket_id, starttime, endtime, datastr],
+            + "VALUES (?, ?, ?, ?)",
+            [self._bucket_row(bucket_id), starttime, endtime, datastr],
         )
         event.id = c.lastrowid
         self.conditional_commit(1)
@@ -380,14 +436,15 @@ class SqliteStorage(AbstractStorage):
         # Then insert events without id's set
         events_insert = [e for e in events if e.id is None]
         event_rows = []
+        rowid = self._bucket_row(bucket_id, required=False)
         for event in events_insert:
             starttime = event.timestamp.timestamp() * 1000000
             endtime = starttime + (event.duration.total_seconds() * 1000000)
             datastr = json.dumps(event.data)
-            event_rows.append((bucket_id, starttime, endtime, datastr))
+            event_rows.append((rowid, starttime, endtime, datastr))
         query = (
             "INSERT INTO events(bucketrow, starttime, endtime, datastr) "
-            + "VALUES ((SELECT rowid FROM buckets WHERE id = ?), ?, ?, ?)"
+            + "VALUES (?, ?, ?, ?)"
         )
         self.conn.executemany(query, event_rows)
         self.conditional_commit(len(event_rows))
@@ -399,19 +456,19 @@ class SqliteStorage(AbstractStorage):
         query = """UPDATE events
                    SET starttime = ?, endtime = ?, datastr = ?
                    WHERE id = (
-                        SELECT id FROM events WHERE endtime =
-                            (SELECT max(endtime) FROM events WHERE bucketrow =
-                                (SELECT rowid FROM buckets WHERE id = ?) LIMIT 1))"""
-        self.conn.execute(query, [starttime, endtime, datastr, bucket_id])
+                        SELECT id FROM events WHERE bucketrow = ?
+                        ORDER BY endtime DESC, id DESC LIMIT 1)"""
+        self.conn.execute(
+            query, [starttime, endtime, datastr, self._bucket_row(bucket_id)]
+        )
         self.conditional_commit(1)
         return True
 
     def delete(self, bucket_id, event_id):
-        query = (
-            "DELETE FROM events "
-            + "WHERE id = ? AND bucketrow = (SELECT b.rowid FROM buckets b WHERE b.id = ?)"
+        query = "DELETE FROM events " + "WHERE id = ? AND bucketrow = ?"
+        cursor = self.conn.execute(
+            query, [event_id, self._bucket_row(bucket_id, required=False)]
         )
-        cursor = self.conn.execute(query, [event_id, bucket_id])
         return cursor.rowcount == 1
 
     def replace(self, bucket_id, event_id, event) -> bool:
@@ -422,10 +479,16 @@ class SqliteStorage(AbstractStorage):
                      SET starttime = ?,
                          endtime = ?,
                          datastr = ?
-                     WHERE id = ? AND bucketrow =
-                         (SELECT rowid FROM buckets WHERE id = ?)"""
+                     WHERE id = ? AND bucketrow = ?"""
         cursor = self.conn.execute(
-            query, [starttime, endtime, datastr, event_id, bucket_id]
+            query,
+            [
+                starttime,
+                endtime,
+                datastr,
+                event_id,
+                self._bucket_row(bucket_id, required=False),
+            ],
         )
         self.conditional_commit(1)
         if cursor.rowcount:
@@ -442,10 +505,10 @@ class SqliteStorage(AbstractStorage):
         query = """
             SELECT id, starttime, endtime, datastr
             FROM events
-            WHERE bucketrow = (SELECT rowid FROM buckets WHERE id = ?) AND id = ?
+            WHERE bucketrow = ? AND id = ?
             LIMIT 1
         """
-        rows = c.execute(query, [bucket_id, event_id])
+        rows = c.execute(query, [self._bucket_row(bucket_id, required=False), event_id])
         events = _rows_to_events(rows)
         if events:
             return events[0]
@@ -470,11 +533,19 @@ class SqliteStorage(AbstractStorage):
         query = """
             SELECT id, starttime, endtime, datastr
             FROM events
-            WHERE bucketrow = (SELECT rowid FROM buckets WHERE id = ?)
+            WHERE bucketrow = ?
             AND endtime >= ? AND starttime <= ?
             ORDER BY endtime DESC LIMIT ?
         """
-        rows = c.execute(query, [bucket_id, starttime_i, endtime_i, limit])
+        rows = c.execute(
+            query,
+            [
+                self._bucket_row(bucket_id, required=False),
+                starttime_i,
+                endtime_i,
+                limit,
+            ],
+        )
         events = _rows_to_events(rows)
         return events
 
@@ -491,10 +562,12 @@ class SqliteStorage(AbstractStorage):
         query = (
             "SELECT count(*) "
             + "FROM events "
-            + "WHERE bucketrow = (SELECT rowid FROM buckets WHERE id = ?) "
+            + "WHERE bucketrow = ? "
             + "AND endtime >= ? AND starttime <= ?"
         )
-        rows = c.execute(query, [bucket_id, starttime_i, endtime_i])
+        rows = c.execute(
+            query, [self._bucket_row(bucket_id, required=False), starttime_i, endtime_i]
+        )
         row = rows.fetchone()
         eventcount = row[0]
         return eventcount

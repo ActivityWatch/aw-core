@@ -21,6 +21,10 @@ class AbstractStorage(metaclass=ABCMeta):
     def buckets(self) -> Dict[str, dict]:
         raise NotImplementedError
 
+    def for_device(self, device_id: str) -> "AbstractStorage":
+        """Fail closed unless a backend explicitly implements device routing."""
+        raise NotImplementedError("This storage does not support device addressing")
+
     def has_bucket(self, bucket_id: str) -> bool:
         return bucket_id in self.buckets()
 

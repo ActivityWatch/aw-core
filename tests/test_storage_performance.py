@@ -103,7 +103,11 @@ def test_replace_does_not_select_event_first(store):
         assert bucket.replace(original.id, event(1))
     finally:
         conn.set_trace_callback(None)
-    assert not any(s.lstrip().upper().startswith("SELECT") for s in statements)
+    # Device addressing may resolve bucket identity before the mutation. Keep
+    # the important contract: never fetch the event first to decide UPDATE.
+    selects = [s.upper() for s in statements if s.lstrip().upper().startswith("SELECT")]
+    assert not any("FROM EVENTS" in s for s in selects)
+    assert all("FROM BUCKETS" in s for s in selects)
     assert sum(s.lstrip().upper().startswith("UPDATE") for s in statements) == 1
 
 

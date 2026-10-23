@@ -18,6 +18,22 @@ Core library for ActivityWatch.
  - `aw_transform`, all event-transforms used in queries.
  - `aw_query`, the query-language used by ActivityWatch.
 
+## Device-scoped SQLite handles (draft)
+
+The device-identity follow-up to the v2 schema adds
+`Datastore.for_device(device_id)` and `SqliteStorage.for_device(device_id)`.
+A scoped handle shares the SQLite connection and commit owner, but not another
+device's Bucket-object cache. Bucket metadata and every event operation resolve
+within that device. Unscoped ambiguous names raise `ValueError` before mutation;
+`SqliteStorage.device_buckets()` returns lossless device-grouped metadata.
+
+Handles retain SQLite's existing single-thread ownership. Unsupported Memory
+and Peewee backends raise `NotImplementedError` for scoped routing rather than
+falling back to global names. This is storage groundwork, not Python HTTP parity:
+server routes, UUID normalization, bidirectional hostname aliases and grouped
+HTTP transfer remain follow-up integration work. It does not enable watcher or
+V2 rollout. Existing names and the underlying schema are unchanged by this slice.
+
 ## Logging
 
 Run python with `LOG_LEVEL=debug` to use change the log level across all AW components
@@ -32,4 +48,3 @@ To install from a cloned version, cd into the directory and run
 system-wide it can be installed with `pip install .`, but that has the issue
 that it might not get the exact version of the dependencies due to not reading
 the poetry.lock file.
-
