@@ -348,3 +348,18 @@ def test_device_migration_preserves_exact_archive_rows(v1_db_path):
         assert archived.duration.total_seconds() == 0.000003
     finally:
         store.conn.close()
+
+
+def test_migration_discovery_ignores_wal_companions_first(
+    v1_db_path, v2_datastore, monkeypatch
+):
+    from aw_datastore.migration import check_for_migration, detect_db_files
+
+    directory = os.path.dirname(v1_db_path)
+    main = os.path.basename(v1_db_path)
+    filenames = [main + "-wal", main + "-shm", "unrelated", main, main + ".bak"]
+    monkeypatch.setattr("aw_datastore.migration.os.listdir", lambda _: filenames)
+    monkeypatch.setattr("aw_datastore.migration.get_data_dir", lambda _: directory)
+    assert detect_db_files(directory, "sqlite-testing", 1) == [main]
+    check_for_migration(v2_datastore)
+    assert v2_datastore.get_eventcount("test-bucket") == 3

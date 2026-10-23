@@ -16,7 +16,10 @@ logger = logging.getLogger(__name__)
 def detect_db_files(
     data_dir: str, datastore_name: Optional[str] = None, version=None
 ) -> List[str]:
-    db_files = [filename for filename in os.listdir(data_dir)]
+    # Only main database files are migration sources, never WAL/SHM or backups.
+    db_files = [
+        filename for filename in os.listdir(data_dir) if filename.endswith(".db")
+    ]
     if datastore_name:
         db_files = [
             filename
@@ -25,7 +28,9 @@ def detect_db_files(
         ]
     if version:
         db_files = [
-            filename for filename in db_files if filename.split(".")[1] == f"v{version}"
+            filename
+            for filename in db_files
+            if len(filename.split(".")) == 3 and filename.split(".")[1] == f"v{version}"
         ]
     return db_files
 
