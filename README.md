@@ -29,9 +29,14 @@ within that device. Unscoped ambiguous names raise `ValueError` before mutation;
 
 Handles retain SQLite's existing single-thread ownership. Unsupported Memory
 and Peewee backends raise `NotImplementedError` for scoped routing rather than
-falling back to global names. This is storage groundwork, not Python HTTP parity:
-server routes, UUID normalization, bidirectional hostname aliases and grouped
-HTTP transfer remain follow-up integration work. It does not enable watcher or
+falling back to global names. SQLite lookup supports exact-first bidirectional
+hostname-metadata aliases, including complete underscore-bearing hostnames;
+creation cannot split an existing alias or redirect a global alias to a peer.
+Stored names are never rewritten. Unknown hostnames do not create aliases.
+This is storage groundwork, not Python HTTP parity: server routes, UUID
+normalization, query/heartbeat caches and grouped HTTP transfer remain follow-up
+integration work. Metadata-repair/alias interactions still need the shared
+acceptance matrix. It does not enable watcher or
 V2 rollout. Existing names and the underlying schema are unchanged by this slice.
 
 ## Logging

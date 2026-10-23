@@ -218,9 +218,23 @@ class SqliteStorage(AbstractStorage):
         if len(rows) > 1:
             raise ValueError(f"Ambiguous bucket '{bucket_id}'; select a device")
         if not rows:
-            if not required:
-                return None
-            raise ValueError(f"Bucket '{bucket_id}' did not exist")
+            # Match complete hostname metadata, never split underscore-bearing
+            # names or infer a device from the identifier. Exact names win.
+            sql = (
+                "SELECT rowid FROM buckets WHERE hostname NOT IN ('', 'unknown', 'Unknown', '!local') "
+                "AND (id = ? || '_' || hostname OR ? = id || '_' || hostname)"
+            )
+            args = [bucket_id, bucket_id]
+            if self.device_scope is not None:
+                sql += " AND device_id = ?"
+                args.append(self.device_scope)
+            rows = self.conn.execute(sql, args).fetchall()
+            if len(rows) > 1:
+                raise ValueError(f"Ambiguous bucket '{bucket_id}'; select a device")
+            if not rows:
+                if not required:
+                    return None
+                raise ValueError(f"Bucket '{bucket_id}' did not exist")
         return rows[0][0]
 
     def device_buckets(self):
@@ -254,15 +268,7 @@ class SqliteStorage(AbstractStorage):
         return buckets
 
     def has_bucket(self, bucket_id: str) -> bool:
-        sql = "SELECT count(*) FROM buckets WHERE id = ?"
-        args = [bucket_id]
-        if self.device_scope is not None:
-            sql += " AND device_id = ?"
-            args.append(self.device_scope)
-        count = self.conn.execute(sql, args).fetchone()[0]
-        if count > 1:
-            raise ValueError(f"Ambiguous bucket '{bucket_id}'; select a device")
-        return count == 1
+        return self._bucket_row(bucket_id, required=False) is not None
 
     def buckets_with_last_updated(self):
         # Match get_events' ordering by endtime for this backend.
@@ -333,6 +339,27 @@ class SqliteStorage(AbstractStorage):
             device_id = self.device_scope
         if not device_id:
             raise ValueError("Device scope must not be empty")
+        selected = self.for_device(device_id)._bucket_row(bucket_id, required=False)
+        if selected is not None:
+            if self.device_scope is None and self._bucket_row(bucket_id) != selected:
+                raise ValueError(f"Ambiguous bucket '{bucket_id}'; select a device")
+            exact = self.conn.execute(
+                "SELECT id FROM buckets WHERE rowid = ?", [selected]
+            ).fetchone()[0]
+            if exact != bucket_id:
+                raise ValueError(f"Bucket '{exact}' already exists")
+            # Preserve SQLite's existing same-device exact-duplicate exception.
+        unscoped = copy.copy(self)
+        unscoped.device_scope = None
+        global_row = unscoped._bucket_row(bucket_id, required=False)
+        if global_row is not None and selected is None:
+            global_id = self.conn.execute(
+                "SELECT id FROM buckets WHERE rowid = ?", [global_row]
+            ).fetchone()[0]
+            if global_id != bucket_id:
+                raise ValueError(
+                    f"Ambiguous bucket '{bucket_id}'; creation would redirect an alias"
+                )
         self.conn.execute(
             "INSERT INTO buckets(id, device_id, name, type, client, hostname, created, datastr) "
             + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",

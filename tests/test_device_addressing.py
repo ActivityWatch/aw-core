@@ -156,3 +156,100 @@ def test_cached_global_bucket_cannot_bypass_new_ambiguity(tmp_path):
     )
     with pytest.raises(ValueError, match="[Aa]mbiguous"):
         datastore["window"]
+
+
+def test_metadata_aliases_resolve_both_directions_without_renaming(tmp_path):
+    store = SqliteStorage(testing=True, filepath=str(tmp_path / "aliases.db"))
+    local = store.for_device("local")
+    local.create_bucket(
+        "window_host_with_underscores",
+        "test",
+        "client",
+        "host_with_underscores",
+        "2026-01-01T00:00:00+00:00",
+    )
+    event = Event(
+        timestamp=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        duration=1,
+        data={"history": True},
+    )
+    local.insert_one("window", event)
+    assert local.get_metadata("window")["id"] == "window_host_with_underscores"
+    assert local.get_events("window", -1)[0].data == {"history": True}
+    peer = store.for_device("peer")
+    peer.create_bucket(
+        "editor", "test", "client", "peer_host", "2026-01-01T00:00:00+00:00"
+    )
+    assert peer.get_metadata("editor_peer_host")["id"] == "editor"
+    assert not peer.has_bucket("window")
+    assert not store.has_bucket("window_host_with_underscores_unknown")
+
+
+def test_alias_creation_cannot_split_history_or_acknowledge_peer_target(tmp_path):
+    store = SqliteStorage(testing=True, filepath=str(tmp_path / "creation.db"))
+    local = store.for_device("local")
+    local.create_bucket(
+        "window_host", "test", "client", "host", "2026-01-01T00:00:00+00:00"
+    )
+    with pytest.raises(ValueError, match="already exists"):
+        local.create_bucket(
+            "window", "test", "client", "host", "2026-01-01T00:00:00+00:00"
+        )
+    assert set(local.buckets()) == {"window_host"}
+    # An old database can already contain the exact-first conflict. New
+    # creation must not acknowledge a different scoped alias on that database.
+    store.conn.execute(
+        "INSERT INTO buckets (id, device_id, type, client, hostname, created, datastr) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (
+            "window",
+            "peer",
+            "test",
+            "client",
+            "other",
+            "2026-01-01T00:00:00+00:00",
+            "{}",
+        ),
+    )
+    store.commit()
+    with pytest.raises(ValueError, match="[Aa]mbiguous"):
+        store.create_bucket(
+            "window", "test", "client", "host", "2026-01-01T00:00:00+00:00"
+        )
+    assert store.get_metadata("window")["device_id"] == "peer"
+    assert local.get_metadata("window")["id"] == "window_host"
+
+
+def test_alias_resolution_is_exact_first_and_ambiguous_without_mutation(tmp_path):
+    store = SqliteStorage(testing=True, filepath=str(tmp_path / "ambiguous.db"))
+    local, peer = store.for_device("local"), store.for_device("peer")
+    for scoped, bid, host in [
+        (local, "window_host", "host"),
+        (peer, "window_other", "other"),
+    ]:
+        scoped.create_bucket(bid, "test", "client", host, "2026-01-01T00:00:00+00:00")
+    with pytest.raises(ValueError, match="[Aa]mbiguous"):
+        store.delete_bucket("window")
+    assert len(store.device_buckets()) == 2
+    local.create_bucket("editor", "test", "client", "host", "2026-01-01T00:00:00+00:00")
+    peer.create_bucket(
+        "editor_peer", "test", "client", "peer", "2026-01-01T00:00:00+00:00"
+    )
+    assert store.get_metadata("editor")["device_id"] == "local"
+    unknown = store.for_device("unknown-device")
+    unknown.create_bucket(
+        "browser_unknown", "test", "client", "unknown", "2026-01-01T00:00:00+00:00"
+    )
+    assert not unknown.has_bucket("browser")
+
+
+def test_peer_exact_creation_cannot_redirect_existing_global_alias(tmp_path):
+    store = SqliteStorage(testing=True, filepath=str(tmp_path / "shadow.db"))
+    store.for_device("local").create_bucket(
+        "window_host", "test", "client", "host", "2026-01-01T00:00:00+00:00"
+    )
+    with pytest.raises(ValueError, match="[Aa]mbiguous"):
+        store.for_device("peer").create_bucket(
+            "window", "test", "client", "other", "2026-01-01T00:00:00+00:00"
+        )
+    assert store.get_metadata("window")["id"] == "window_host"
+    assert not store.for_device("peer").has_bucket("window")
