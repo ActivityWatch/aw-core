@@ -311,8 +311,11 @@ class SqliteStorage(AbstractStorage):
         finally:
             rows.close()
 
-    def iter_events(self, bucket_id):
-        self.commit()
+    def iter_events(self, bucket_id, *, flush=True):
+        # Snapshot exporters flush once before BEGIN, then retain that read
+        # transaction across every bucket rather than committing per iterator.
+        if flush:
+            self.commit()
         cursor = self.conn.execute(
             "SELECT id, starttime, endtime, datastr FROM events "
             "WHERE bucketrow = ? "

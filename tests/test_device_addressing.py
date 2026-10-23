@@ -258,3 +258,29 @@ def test_peer_exact_creation_cannot_redirect_existing_global_alias(tmp_path):
         )
     assert store.get_metadata("window")["id"] == "window_host"
     assert not store.for_device("peer").has_bucket("window")
+
+
+def test_stream_iterator_can_preserve_caller_snapshot(tmp_path):
+    import sqlite3
+
+    store = SqliteStorage(testing=True, filepath=str(tmp_path / "snapshot.db"))
+    store.conn.execute("PRAGMA journal_mode=WAL")
+    store.create_bucket("window", "t", "c", "h", "2024-01-01T00:00:00Z")
+    store.commit()
+    store.conn.execute("BEGIN")
+    assert store.has_bucket("window")
+    peer = sqlite3.connect(str(tmp_path / "snapshot.db"))
+    row = peer.execute("SELECT rowid FROM buckets").fetchone()[0]
+    peer.execute(
+        "INSERT INTO events(bucketrow,starttime,endtime,datastr) VALUES (?, ?, ?, ?)",
+        (row, 1704110400000000, 1704110401000000, "{}"),
+    )
+    peer.commit()
+    try:
+        assert list(store.iter_events("window", flush=False)) == []
+        assert store.conn.in_transaction
+        store.conn.commit()
+        assert len(list(store.iter_events("window"))) == 1
+    finally:
+        peer.close()
+        store.conn.close()

@@ -53,3 +53,9 @@ To install from a cloned version, cd into the directory and run
 system-wide it can be installed with `pip install .`, but that has the issue
 that it might not get the exact version of the dependencies due to not reading
 the poetry.lock file.
+
+Snapshot exporters may call SQLite `iter_events(bucket_id, flush=False)` after
+flushing once and opening their own read transaction. The default remains
+`flush=True` for standalone iteration. This avoids ending the caller's snapshot
+between buckets; a real concurrent WAL writer regression covers the distinction.
+The caller owns commit/rollback and must close partially consumed iterators.
