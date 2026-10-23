@@ -94,6 +94,7 @@ class SqliteStorage(AbstractStorage):
         self.enable_lazy_commit = enable_lazy_commit
         self.device_scope: Optional[str] = None
         self._owner: Optional[SqliteStorage] = None
+        self._is_snapshot = False
 
         # Ignore the migration check if custom filepath is set
         ignore_migration_check = filepath is not None
@@ -188,6 +189,8 @@ class SqliteStorage(AbstractStorage):
         """
         if self._owner is not None:
             return self._owner.commit()
+        if self._is_snapshot:
+            return
         self.conn.commit()
         self.last_commit = datetime.now()
         self.num_uncommitted_statements = 0
@@ -239,6 +242,7 @@ class SqliteStorage(AbstractStorage):
         snap.conn = sqlite3.connect(path)
         snap.conn.execute("PRAGMA query_only=ON")
         snap._owner = None
+        snap._is_snapshot = True
         snap.enable_lazy_commit = False
         # Deferred BEGIN does not pin a WAL snapshot until a real table read.
         # `SELECT 1` is a constant and does not establish the reader snapshot.
@@ -376,41 +380,46 @@ class SqliteStorage(AbstractStorage):
             device_id = self.device_scope
         if not device_id:
             raise ValueError("Device scope must not be empty")
-        selected = self.for_device(device_id)._bucket_row(bucket_id, required=False)
-        if selected is not None:
-            if self.device_scope is None and self._bucket_row(bucket_id) != selected:
-                raise ValueError(f"Ambiguous bucket '{bucket_id}'; select a device")
-            exact = self.conn.execute(
-                "SELECT id FROM buckets WHERE rowid = ?", [selected]
-            ).fetchone()[0]
-            if exact != bucket_id:
-                raise ValueError(f"Bucket '{exact}' already exists")
-            # Preserve SQLite's existing same-device exact-duplicate exception.
-        unscoped = copy.copy(self)
-        unscoped.device_scope = None
-        global_row = unscoped._bucket_row(bucket_id, required=False)
-        if global_row is not None and selected is None:
-            global_id = self.conn.execute(
-                "SELECT id FROM buckets WHERE rowid = ?", [global_row]
-            ).fetchone()[0]
-            if global_id != bucket_id:
-                raise ValueError(
-                    f"Ambiguous bucket '{bucket_id}'; creation would redirect an alias"
-                )
-        self.conn.execute(
-            "INSERT INTO buckets(id, device_id, name, type, client, hostname, created, datastr) "
-            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            [
-                bucket_id,
-                device_id,
-                name,
-                type_id,
-                client,
-                hostname,
-                created,
-                json.dumps(data or {}),
-            ],
-        )
+        with self._bucket_write():
+            selected = self.for_device(device_id)._bucket_row(bucket_id, required=False)
+            if selected is not None:
+                if (
+                    self.device_scope is None
+                    and self._bucket_row(bucket_id) != selected
+                ):
+                    raise ValueError(f"Ambiguous bucket '{bucket_id}'; select a device")
+                exact = self.conn.execute(
+                    "SELECT id FROM buckets WHERE rowid = ?", [selected]
+                ).fetchone()[0]
+                if exact != bucket_id:
+                    raise ValueError(f"Bucket '{exact}' already exists")
+                # Preserve SQLite's existing same-device exact-duplicate exception.
+            # Multiple exact names are legal when the caller selects a device.
+            # Only creating the first exact name can redirect a global alias.
+            exact_exists = self.conn.execute(
+                "SELECT 1 FROM buckets WHERE id = ? LIMIT 1", [bucket_id]
+            ).fetchone()
+            if selected is None and not exact_exists:
+                unscoped = copy.copy(self)
+                unscoped.device_scope = None
+                if unscoped._bucket_row(bucket_id, required=False) is not None:
+                    raise ValueError(
+                        f"Ambiguous bucket '{bucket_id}'; creation would redirect an alias"
+                    )
+            self.conn.execute(
+                "INSERT INTO buckets(id, device_id, name, type, client, hostname, created, datastr) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    bucket_id,
+                    device_id,
+                    name,
+                    type_id,
+                    client,
+                    hostname,
+                    created,
+                    json.dumps(data or {}),
+                ],
+            )
         self.commit()
         return self.for_device(device_id).get_metadata(bucket_id)
 

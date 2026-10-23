@@ -147,3 +147,93 @@ def test_failed_insert_releases_new_transaction_but_preserves_pending_work(
         assert store.get_eventcount("window") == 1
     finally:
         store.conn.close()
+
+
+def test_three_devices_can_create_the_same_exact_bucket_name(tmp_path):
+    store = SqliteStorage(testing=True, filepath=str(tmp_path / "three.db"))
+    try:
+        for device in ("first", "second", "third"):
+            scoped = store.for_device(device)
+            scoped.create_bucket("window", "t", "c", device, "2026-01-01T00:00:00Z")
+            scoped.insert_one(
+                "window",
+                Event(timestamp="2026-01-01T00:00:00Z", data={"device": device}),
+            )
+        assert set(store.device_buckets()) == {"first", "second", "third"}
+        for device in ("first", "second", "third"):
+            assert store.for_device(device).get_events("window", -1)[0].data == {
+                "device": device
+            }
+    finally:
+        store.conn.close()
+
+
+def test_creation_locks_alias_checks_and_insert_together(tmp_path, monkeypatch):
+    path = str(tmp_path / "create-race.db")
+    store = SqliteStorage(testing=True, filepath=path)
+    contender = sqlite3.connect(path, timeout=0)
+    resolve = SqliteStorage._bucket_row
+    attempts = []
+
+    def competing_alias_creation(self, *args, **kwargs):
+        row = resolve(self, *args, **kwargs)
+        if not attempts:
+            try:
+                contender.execute(
+                    "INSERT INTO buckets(id,device_id,type,client,hostname,created,datastr) VALUES ('window','local','t','c','host','2026-01-01T00:00:00Z','{}')"
+                )
+                contender.commit()
+            except sqlite3.OperationalError as exc:
+                assert "locked" in str(exc)
+                contender.rollback()
+                attempts.append("blocked")
+            else:
+                attempts.append("created")
+        return row
+
+    monkeypatch.setattr(SqliteStorage, "_bucket_row", competing_alias_creation)
+    try:
+        store.for_device("local").create_bucket(
+            "window_host", "t", "c", "host", "2026-01-01T00:00:00Z"
+        )
+        assert attempts == ["blocked"]
+        assert store.conn.execute("SELECT id FROM buckets").fetchall() == [
+            ("window_host",)
+        ]
+        assert not store.conn.in_transaction
+    finally:
+        contender.close()
+        store.conn.close()
+
+
+@pytest.mark.parametrize(
+    "operation", ["get_event", "get_events", "get_eventcount", "iter_events"]
+)
+def test_snapshot_ordinary_reads_keep_the_original_view(tmp_path, operation):
+    store = SqliteStorage(testing=True, filepath=str(tmp_path / "mixed-snapshot.db"))
+    store.create_bucket("window", "t", "c", "h", "2026-01-01T00:00:00Z")
+    first = store.insert_one(
+        "window", Event(timestamp="2026-01-01T00:00:00Z", data={"view": "old"})
+    )
+    store.commit()
+    snapshot = store.snapshot()
+    scoped = snapshot.for_device("local")
+    try:
+        if operation == "get_event":
+            assert scoped.get_event("window", first.id).data == {"view": "old"}
+        elif operation == "get_events":
+            assert len(scoped.get_events("window", -1)) == 1
+        elif operation == "get_eventcount":
+            assert scoped.get_eventcount("window") == 1
+        else:
+            assert len(list(scoped.iter_events("window"))) == 1
+        store.insert_one(
+            "window", Event(timestamp="2026-01-01T00:00:01Z", data={"view": "new"})
+        )
+        store.commit()
+        assert len(list(scoped.iter_events("window", flush=False))) == 1
+        assert snapshot.conn.in_transaction
+        assert store.get_eventcount("window") == 2
+    finally:
+        snapshot.conn.close()
+        store.conn.close()

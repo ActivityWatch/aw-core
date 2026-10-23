@@ -72,3 +72,12 @@ precision. Legacy sub-microsecond REAL values cannot be represented exactly by
 Python datetime, and their raw SQL comparison boundaries remain unchanged.
 `Bucket.get` retains its existing outward millisecond rounding of explicit
 query bounds for compatibility with other storage backends.
+
+SQLite bucket creation holds the writer lock across alias resolution and INSERT,
+so two connections cannot create both spellings of one hostname alias. Exact
+same-name buckets on three or more explicitly selected devices are allowed;
+creating a first exact name still cannot redirect an established global alias.
+Snapshot handles retain their pinned read transaction across ordinary event
+reads and default iterator calls: their automatic `commit()` is a no-op. Close
+the snapshot connection when finished (or explicitly use its connection to end
+the transaction); it is query-only, not a write handle.
