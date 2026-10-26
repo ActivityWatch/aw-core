@@ -36,15 +36,16 @@ def test_split_event():
 def union_no_overlap(events1: List[Event], events2: List[Event]) -> List[Event]:
     """Merges two eventlists and removes overlap, the first eventlist will have precedence
 
-    Both lists are expected to be sorted by timestamp and free of internal overlap.
+    Both lists are sorted by timestamp first (query_bucket returns events
+    newest-first) and are expected to be free of internal overlap.
 
     Example:
       events1  | xxx    xx     xxx     |
       events1  |  ----     ------   -- |
       result   | xxx--  xx ----xxx  -- |
     """
-    events1 = deepcopy(events1)
-    events2 = deepcopy(events2)
+    events1 = sorted(deepcopy(events1), key=lambda e: e.timestamp)
+    events2 = sorted(deepcopy(events2), key=lambda e: e.timestamp)
 
     # Same algorithm as aw-server-rust (ActivityWatch/aw-server-rust#674, #744).
     # Positions are compared directly rather than via interval intersection,
