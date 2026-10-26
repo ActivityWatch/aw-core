@@ -48,6 +48,10 @@ def is_sqlite_healthy(path: str) -> bool:
     try:
         con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
         try:
+            # mmap_size enables kernel readahead in both directions instead of the
+            # backward-only pread that SQLite's checkTreePage uses, cutting cold-cache
+            # quick_check from ~6 s to ~1.6 s on a 450 MB database. (#181)
+            con.execute("PRAGMA mmap_size=2147483648")
             row = con.execute("PRAGMA quick_check").fetchone()
             return bool(row) and str(row[0]).lower() == "ok"
         finally:
