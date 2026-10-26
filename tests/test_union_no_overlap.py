@@ -258,3 +258,15 @@ def test_events1_event_containing_several_events2_events():
         events_from([(2, 1), (5, 1)], "b", minute),
     )
     assert spans(result) == [(0, 600, "A"), (1200, 600, "A")]
+
+
+def test_newest_first_inputs_are_sorted_before_merging():
+    # query_bucket returns events newest-first. Merging that order directly
+    # used to emit overlapping events (4200s for a fully covered 2400s span).
+    events1 = events_from([(0, 10), (10, 5), (15, 15), (30, 10)], "a", 60 * SEC)
+    events2 = events_from([(0, 20), (20, 10), (30, 10)], "b", 60 * SEC)
+    expected = union_no_overlap(events1, events2)
+    result = union_no_overlap(events1[::-1], events2[::-1])
+    assert spans(result) == spans(expected)
+    assert_union_invariants(events1, events2, result)
+    assert sum((e.duration for e in result), timedelta()) == timedelta(minutes=40)
