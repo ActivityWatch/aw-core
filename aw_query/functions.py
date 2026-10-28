@@ -1,4 +1,5 @@
 import logging
+import re
 import warnings
 from datetime import timedelta
 from functools import wraps
@@ -218,7 +219,10 @@ def q2_exclude_keyvals(events: list, key: str, vals: list) -> List[Event]:
 @q2_function(filter_keyvals_regex)
 @q2_typecheck
 def q2_filter_keyvals_regex(events: list, key: str, regex: str) -> List[Event]:
-    return filter_keyvals_regex(events, key, regex)
+    try:
+        return filter_keyvals_regex(events, key, regex)
+    except re.error as exc:
+        raise QueryFunctionException(f"Invalid regex: {exc}") from None
 
 
 @q2_function(filter_period_intersect)
