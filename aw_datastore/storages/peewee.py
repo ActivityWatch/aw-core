@@ -347,7 +347,8 @@ class PeeweeStorage(AbstractStorage):
                 raise ValueError(f"Event ID {event.id} belongs to another bucket")
 
     def insert_one(self, bucket_id: str, event: Event) -> Event:
-        with self.db.atomic():
+        # Reserve the writer before reading ownership to avoid stale WAL snapshots.
+        with self.db.atomic("IMMEDIATE"):
             self._check_event_bucket(bucket_id, event)
             e = EventModel.from_event(self.bucket_keys[bucket_id], event)
             e.save()
@@ -357,7 +358,7 @@ class PeeweeStorage(AbstractStorage):
     def insert_many(self, bucket_id, events: List[Event]) -> None:
         # NOTE: Events need to be handled differently depending on
         #       if they're upserts or inserts (have id's or not).
-        with self.db.atomic():
+        with self.db.atomic("IMMEDIATE"):
             # Reject the entire batch before writing even its valid events.
             for event in events:
                 self._check_event_bucket(bucket_id, event)

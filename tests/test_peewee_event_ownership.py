@@ -1,5 +1,7 @@
 """Explicit event IDs must not change bucket ownership in Peewee storage."""
 
+import sqlite3
+from contextlib import closing
 from datetime import datetime, timezone
 
 import pytest
@@ -88,6 +90,51 @@ def test_nonexistent_explicit_id_remains_a_noop(storage, batch):
         assert storage.insert_one("source", missing) is missing
         assert storage.get_eventcount("source") == 0
     assert storage.get_event("source", missing.id) is None
+
+
+@pytest.mark.parametrize("batch", [False, True])
+def test_same_bucket_update_with_competing_writer(storage, monkeypatch, batch):
+    original = storage.insert_one("source", event("original"))
+    check = storage._check_event_bucket
+    attempted = False
+    committed = False
+    # A separate connection must not invalidate the ownership-check snapshot.
+    with closing(sqlite3.connect(storage.db.database, timeout=0)) as competitor:
+
+        def competing_insert():
+            competitor.execute(
+                "INSERT INTO eventmodel (bucket_id, timestamp, duration, datastr) "
+                "SELECT bucket_id, timestamp, duration, datastr FROM eventmodel "
+                "WHERE id = ?",
+                (original.id,),
+            )
+            competitor.commit()
+
+        def check_then_compete(bucket_id, candidate):
+            nonlocal attempted, committed
+            check(bucket_id, candidate)
+            if not attempted:
+                attempted = True
+                try:
+                    competing_insert()
+                    committed = True
+                except sqlite3.OperationalError as exc:
+                    assert "locked" in str(exc)
+                    competitor.rollback()
+
+        monkeypatch.setattr(storage, "_check_event_bucket", check_then_compete)
+        replacement = event("updated", original.id)
+        if batch:
+            storage.insert_many("source", [replacement, event("new")])
+        else:
+            storage.insert_one("source", replacement)
+        assert attempted
+        if not committed:
+            competing_insert()
+
+    assert storage.get_event("source", original.id).data == {"label": "updated"}
+    assert storage.get_eventcount("source") == (3 if batch else 2)
+    assert storage.get_eventcount("destination") == 0
 
 
 def test_batch_write_failure_rolls_back_earlier_update(storage):
