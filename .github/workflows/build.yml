@@ -21,7 +21,8 @@ jobs:
       RELEASE: false
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
+        # Python 3.8 is unavailable on Ubuntu 26.04 (ubuntu-latest).
+        os: [ubuntu-22.04, windows-latest, macOS-latest]
         python_version: [3.8]
     steps:
     - uses: actions/checkout@v3
