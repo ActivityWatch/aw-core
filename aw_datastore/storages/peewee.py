@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import (
     Any,
     Dict,
@@ -512,10 +512,8 @@ class PeeweeStorage(AbstractStorage):
             endtime = endtime.astimezone(timezone.utc)
 
         if starttime:
-            # Faster WHERE to speed up slow query below, leads to ~2-3x speedup
-            # We'll assume events aren't >24h
-            q = q.where(starttime - timedelta(hours=24) <= EventModel.timestamp)
-
+            # Accepted events can be longer than 24h, so a lower bound on their
+            # start timestamp would discard valid overlaps before this check.
             # This can be slow on large databases...
             # Tried creating various indexes and using SQLite's unlikely() function, but it had no effect
             q = q.where(
