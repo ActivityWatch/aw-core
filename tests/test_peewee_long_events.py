@@ -119,8 +119,13 @@ def test_empty_long_event_range(bucket):
 
 def test_actual_overlap_query_keeps_bucket_timestamp_index(bucket):
     storage = bucket.ds.storage_strategy
-    query = EventModel.select().where(
-        EventModel.bucket == storage.bucket_keys[bucket.bucket_id]
+    query = (
+        EventModel.select()
+        .where(EventModel.bucket == storage.bucket_keys[bucket.bucket_id])
+        .order_by(
+            EventModel.timestamp.desc(), EventModel.duration.asc(), EventModel.id.asc()
+        )
+        .limit(100)
     )
     query = storage._where_range(
         query, BASE + timedelta(hours=36), BASE + timedelta(hours=37)
@@ -128,3 +133,5 @@ def test_actual_overlap_query_keeps_bucket_timestamp_index(bucket):
     sql, params = query.sql()
     plan = storage.db.execute_sql("EXPLAIN QUERY PLAN " + sql, params).fetchall()
     assert "eventmodel_bucket_id_timestamp" in str(plan)
+    # Sorting equal-timestamp runs is fine; sorting the entire result is not.
+    assert "TEMP B-TREE FOR ORDER BY" not in str(plan)
