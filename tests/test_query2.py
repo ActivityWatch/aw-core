@@ -115,6 +115,38 @@ def test_dict():
         d = QDict.parse(d_str, ns)
 
 
+@pytest.mark.parametrize(
+    "literal",
+    ['{"a"}', '{"a"   }', '{"a"\t\n}', '{"a": 1, "b"}', '{"outer": {"a"}}'],
+)
+def test_dict_truncated_key(literal):
+    with pytest.raises(QueryParseException, match="Key in dict is not followed by a :"):
+        QDict.parse(literal, {})
+
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    with pytest.raises(QueryParseException, match="Key in dict is not followed by a :"):
+        query("test", f"RETURN = {literal};", start, start, mock_ds)
+
+
+@pytest.mark.parametrize("literal", ['{"a":}', '{"a":   }', '{"a" 1}'])
+def test_dict_missing_colon_or_value(literal):
+    with pytest.raises(QueryParseException):
+        QDict.parse(literal, {})
+
+
+@pytest.mark.parametrize(
+    "literal, expected",
+    [
+        ("{}", {}),
+        ('{"a": 1}', {"a": 1}),
+        ('{"a": 1, "b": 2}', {"a": 1, "b": 2}),
+        ('{"outer": {"a": 1}, "empty": {}}', {"outer": {"a": 1}, "empty": {}}),
+    ],
+)
+def test_dict_valid_controls(literal, expected):
+    assert QDict.parse(literal, {}).interpret(mock_ds, {}) == expected
+
+
 def test_list():
     ds = mock_ds
     ns: Dict[str, Any] = {}
