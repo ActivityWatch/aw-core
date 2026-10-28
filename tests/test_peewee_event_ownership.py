@@ -88,3 +88,13 @@ def test_nonexistent_explicit_id_remains_a_noop(storage, batch):
         assert storage.insert_one("source", missing) is missing
         assert storage.get_eventcount("source") == 0
     assert storage.get_event("source", missing.id) is None
+
+
+def test_batch_write_failure_rolls_back_earlier_update(storage):
+    existing = storage.insert_one("destination", event("existing"))
+    before = snapshot(storage)
+    invalid = event("invalid")
+    invalid.data["unserializable"] = object()
+    with pytest.raises(TypeError):
+        storage.insert_many("destination", [event("updated", existing.id), invalid])
+    assert snapshot(storage) == before
