@@ -77,6 +77,54 @@ def test_query2_test_token_parsing():
         _parse_token("#", ns)
 
 
+@pytest.mark.parametrize("value", [-100, -1, 0, 1, 100])
+def test_query2_signed_integer_literals(value):
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    result = query(
+        "test",
+        f'RETURN = [{value}, {{"priority": {value}}}];',
+        start,
+        start + timedelta(hours=1),
+        mock_ds,
+    )
+    assert result == [value, {"priority": value}]
+
+
+@pytest.mark.parametrize("literal", ["-", "--1", "-x", "- 1"])
+def test_query2_rejects_invalid_negative_integer_literals(literal):
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    with pytest.raises(QueryParseException):
+        query("test", f"RETURN = {literal};", start, start, mock_ds)
+
+
+def test_query2_categorize_negative_priority():
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    datastore = param_datastore_objects()[0]
+    with TempTestBucket(datastore) as bucket:
+        bucket.insert(
+            Event(
+                data={"label": "test"}, timestamp=start, duration=timedelta(seconds=1)
+            )
+        )
+        # Negative priorities still match, but lose to an unprioritized rule.
+        for include_default, expected in [(False, ["Fallback"]), (True, ["Default"])]:
+            default_rule = (
+                ', [["Default"], {"regex": "test"}]' if include_default else ""
+            )
+            result = query(
+                "test",
+                f'events = query_bucket("{bucket.bucket_id}"); '
+                "RETURN = categorize(events, "
+                '[[["Fallback"], {"regex": "test", "priority": -100}]'
+                f"{default_rule}]);",
+                start,
+                start + timedelta(hours=1),
+                datastore,
+            )
+            assert len(result) == 1
+            assert result[0].data["$category"] == expected
+
+
 def test_dict():
     ds = mock_ds
     ns: Dict[str, Any] = {}

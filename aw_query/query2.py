@@ -50,13 +50,13 @@ class QInteger(QToken):
 
     @staticmethod
     def check(string: str):
-        token = ""
-        for char in string:
-            if char.isdigit():
-                token += char
-            else:
-                break
-        return token, string[len(token) :]
+        start = 1 if string.startswith("-") else 0
+        end = start
+        while end < len(string) and string[end].isdigit():
+            end += 1
+        if end == start:
+            return "", string
+        return string[:end], string[end:]
 
 
 class QVariable(QToken):
