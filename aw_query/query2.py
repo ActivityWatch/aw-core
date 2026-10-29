@@ -242,7 +242,7 @@ class QDict(QToken):
             key = QString.parse(key_str, {}).value
             entries_str = entries_str.strip()
             # Remove :
-            if entries_str[0] != ":":
+            if not entries_str.startswith(":"):
                 raise QueryParseException("Key in dict is not followed by a :")
             entries_str = entries_str[1:]
             # parse val
