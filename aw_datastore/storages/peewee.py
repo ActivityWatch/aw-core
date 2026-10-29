@@ -335,38 +335,56 @@ class PeeweeStorage(AbstractStorage):
         else:
             raise ValueError("Bucket did not exist, could not get metadata")
 
+    def _check_event_bucket(self, bucket_id: str, event: Event) -> None:
+        if event.id is not None:
+            foreign = (
+                EventModel.select()
+                .where(EventModel.id == event.id)
+                .where(EventModel.bucket != self.bucket_keys[bucket_id])
+                .exists()
+            )
+            if foreign:
+                raise ValueError(f"Event ID {event.id} belongs to another bucket")
+
     def insert_one(self, bucket_id: str, event: Event) -> Event:
-        e = EventModel.from_event(self.bucket_keys[bucket_id], event)
-        e.save()
-        event.id = e.id
+        # Reserve the writer before reading ownership to avoid stale WAL snapshots.
+        with self.db.atomic("IMMEDIATE"):
+            self._check_event_bucket(bucket_id, event)
+            e = EventModel.from_event(self.bucket_keys[bucket_id], event)
+            e.save()
+            event.id = e.id
         return event
 
     def insert_many(self, bucket_id, events: List[Event]) -> None:
         # NOTE: Events need to be handled differently depending on
         #       if they're upserts or inserts (have id's or not).
+        with self.db.atomic("IMMEDIATE"):
+            # Reject the entire batch before writing even its valid events.
+            for event in events:
+                self._check_event_bucket(bucket_id, event)
 
-        # These events are updates which need to be applied one by one
-        events_updates = [e for e in events if e.id is not None]
-        for e in events_updates:
-            self.insert_one(bucket_id, e)
+            # These events are updates which need to be applied one by one
+            events_updates = [e for e in events if e.id is not None]
+            for e in events_updates:
+                self.insert_one(bucket_id, e)
 
-        # These events can be inserted with insert_many
-        events_dictlist = [
-            {
-                "bucket": self.bucket_keys[bucket_id],
-                "timestamp": event.timestamp,
-                "duration": event.duration.total_seconds(),
-                "datastr": json.dumps(event.data),
-            }
-            for event in events
-            if event.id is None
-        ]
+            # These events can be inserted with insert_many
+            events_dictlist = [
+                {
+                    "bucket": self.bucket_keys[bucket_id],
+                    "timestamp": event.timestamp,
+                    "duration": event.duration.total_seconds(),
+                    "datastr": json.dumps(event.data),
+                }
+                for event in events
+                if event.id is None
+            ]
 
-        # Chunking into lists of length 100 is needed here due to SQLITE_MAX_COMPOUND_SELECT
-        # and SQLITE_LIMIT_VARIABLE_NUMBER under Windows.
-        # See: https://github.com/coleifer/peewee/issues/948
-        for chunk in chunks(events_dictlist, 100):
-            EventModel.insert_many(chunk).execute()
+            # Chunking into lists of length 100 is needed here due to SQLITE_MAX_COMPOUND_SELECT
+            # and SQLITE_LIMIT_VARIABLE_NUMBER under Windows.
+            # See: https://github.com/coleifer/peewee/issues/948
+            for chunk in chunks(events_dictlist, 100):
+                EventModel.insert_many(chunk).execute()
 
     def _get_event(self, bucket_id, event_id) -> Optional[EventModel]:
         try:
