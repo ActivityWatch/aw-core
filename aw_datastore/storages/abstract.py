@@ -21,6 +21,10 @@ class AbstractStorage(metaclass=ABCMeta):
     def buckets(self) -> Dict[str, dict]:
         raise NotImplementedError
 
+    def for_device(self, device_id: str) -> "AbstractStorage":
+        """Fail closed unless a backend explicitly implements device routing."""
+        raise NotImplementedError("This storage does not support device addressing")
+
     def has_bucket(self, bucket_id: str) -> bool:
         return bucket_id in self.buckets()
 
@@ -52,6 +56,7 @@ class AbstractStorage(metaclass=ABCMeta):
         created: str,
         name: Optional[str] = None,
         data: Optional[dict] = None,
+        device_id: str = "local",
     ) -> None:
         raise NotImplementedError
 
@@ -120,3 +125,6 @@ class AbstractStorage(metaclass=ABCMeta):
     @abstractmethod
     def replace_last(self, bucket_id: str, event: Event) -> None:
         raise NotImplementedError
+
+    def commit(self) -> None:  # noqa: B027
+        """Flush pending writes to durable storage. No-op for backends without batched writes."""
