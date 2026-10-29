@@ -125,6 +125,7 @@ def q2_typecheck(f):
 
     @wraps(f)
     def g(*args, **kwargs):
+        sig.bind(*args, **kwargs)
         # FIXME: If the first argument passed to a query2 function is a straight [] then the second argument disappears from the argument list for unknown reasons, which breaks things
         for i, p in enumerate(sig.parameters):
             param = sig.parameters[p]
