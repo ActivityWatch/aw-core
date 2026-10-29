@@ -12,7 +12,7 @@ from .abstract import AbstractStorage
 
 logger = logging.getLogger(__name__)
 
-LATEST_VERSION = 1
+LATEST_VERSION = 2
 
 # The max integer value in SQLite is signed 8 Bytes / 64 bits
 MAX_TIMESTAMP = 2**63 - 1
@@ -20,13 +20,15 @@ MAX_TIMESTAMP = 2**63 - 1
 CREATE_BUCKETS_TABLE = """
     CREATE TABLE IF NOT EXISTS buckets (
         rowid INTEGER PRIMARY KEY AUTOINCREMENT,
-        id TEXT UNIQUE NOT NULL,
+        id TEXT NOT NULL,
+        device_id TEXT NOT NULL DEFAULT 'local',
         name TEXT,
         type TEXT NOT NULL,
         client TEXT NOT NULL,
         hostname TEXT NOT NULL,
         created TEXT NOT NULL,
-        datastr TEXT NOT NULL
+        datastr TEXT NOT NULL,
+        UNIQUE(device_id, id)
     )
 """
 
@@ -94,14 +96,68 @@ class SqliteStorage(AbstractStorage):
         self.conn.execute(INDEX_EVENTS_TABLE_STARTTIME)
         self.conn.execute(INDEX_EVENTS_TABLE_ENDTIME)
         self.conn.execute("PRAGMA journal_mode=WAL;")
+
+        # Upgrade legacy schema if needed.  CREATE TABLE IF NOT EXISTS is a no-op
+        # on existing tables, and ALTER TABLE can add a column but cannot replace a
+        # constraint, so a full rebuild is required to change UNIQUE(id) →
+        # UNIQUE(device_id, id).  Rowids are preserved so events.bucketrow FKs stay valid.
+        existing_columns = {
+            row[1] for row in self.conn.execute("PRAGMA table_info(buckets)")
+        }
+        has_device_id = "device_id" in existing_columns
+        has_composite_unique = False
+        for idx in self.conn.execute("PRAGMA index_list(buckets)").fetchall():
+            if idx[2]:  # unique flag
+                idx_cols = {
+                    r[2] for r in self.conn.execute(f"PRAGMA index_info({idx[1]})")
+                }
+                if "device_id" in idx_cols and "id" in idx_cols:
+                    has_composite_unique = True
+                    break
+        if not has_composite_unique:
+            device_id_src = "device_id" if has_device_id else "'local'"
+            self.conn.execute("PRAGMA foreign_keys = OFF;")
+            try:
+                self.conn.executescript(f"""
+                BEGIN;
+                CREATE TABLE buckets_v2 (
+                    rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id TEXT NOT NULL,
+                    device_id TEXT NOT NULL DEFAULT 'local',
+                    name TEXT,
+                    type TEXT NOT NULL,
+                    client TEXT NOT NULL,
+                    hostname TEXT NOT NULL,
+                    created TEXT NOT NULL,
+                    datastr TEXT NOT NULL,
+                    UNIQUE(device_id, id)
+                );
+                INSERT INTO buckets_v2 (rowid, id, device_id, name, type, client, hostname, created, datastr)
+                SELECT rowid, id, {device_id_src}, name, type, client, hostname, created, datastr FROM buckets;
+                DROP TABLE buckets;
+                ALTER TABLE buckets_v2 RENAME TO buckets;
+                COMMIT;
+                """)
+            except sqlite3.Error:
+                self.conn.rollback()
+                raise
+            finally:
+                # PRAGMA foreign_keys cannot change inside a transaction, so
+                # roll back a failed rebuild before restoring enforcement.
+                self.conn.execute("PRAGMA foreign_keys = ON;")
+            logger.info(
+                "Schema upgraded: rebuilt buckets table with UNIQUE(device_id, id)"
+            )
+
         self.commit()
 
-        if new_db_file and not ignore_migration_check:
-            logger.info("Created new SQlite db file")
+        if not ignore_migration_check:
+            if new_db_file:
+                logger.info("Created new SQlite db file")
 
             from aw_datastore import check_for_migration  # fmt: skip
 
-            check_for_migration(self)
+            check_for_migration(self, migrate_peewee=new_db_file)
 
         self.last_commit = datetime.now()
         self.num_uncommitted_statements = 0
@@ -136,16 +192,17 @@ class SqliteStorage(AbstractStorage):
         buckets = {}
         c = self.conn.cursor()
         for row in c.execute(
-            "SELECT id, name, type, client, hostname, created, datastr FROM buckets"
+            "SELECT id, device_id, name, type, client, hostname, created, datastr FROM buckets"
         ):
             buckets[row[0]] = {
                 "id": row[0],
-                "name": row[1],
-                "type": row[2],
-                "client": row[3],
-                "hostname": row[4],
-                "created": row[5],
-                "data": json.loads(row[6] or "{}"),
+                "device_id": row[1],
+                "name": row[2],
+                "type": row[3],
+                "client": row[4],
+                "hostname": row[5],
+                "created": row[6],
+                "data": json.loads(row[7] or "{}"),
             }
         return buckets
 
@@ -160,7 +217,7 @@ class SqliteStorage(AbstractStorage):
     def buckets_with_last_updated(self):
         # Match get_events' ordering by endtime for this backend.
         rows = self.conn.execute(
-            "SELECT b.id, b.name, b.type, b.client, b.hostname, b.created, "
+            "SELECT b.id, b.device_id, b.name, b.type, b.client, b.hostname, b.created, "
             "b.datastr, e.endtime FROM buckets b LEFT JOIN events e ON e.id = "
             "(SELECT id FROM events WHERE bucketrow = b.rowid "
             "AND endtime >= 0 AND starttime <= ? ORDER BY endtime DESC LIMIT 1)",
@@ -171,13 +228,22 @@ class SqliteStorage(AbstractStorage):
             for row in rows:
                 metadata = dict(
                     zip(
-                        ("id", "name", "type", "client", "hostname", "created"), row[:6]
+                        (
+                            "id",
+                            "device_id",
+                            "name",
+                            "type",
+                            "client",
+                            "hostname",
+                            "created",
+                        ),
+                        row[:7],
                     )
                 )
-                metadata["data"] = json.loads(row[6] or "{}")
-                if row[7] is not None:
+                metadata["data"] = json.loads(row[7] or "{}")
+                if row[8] is not None:
                     metadata["last_updated"] = datetime.fromtimestamp(
-                        row[7] / 1000000, timezone.utc
+                        row[8] / 1000000, timezone.utc
                     ).isoformat()
                 buckets[row[0]] = metadata
             return buckets
@@ -207,12 +273,14 @@ class SqliteStorage(AbstractStorage):
         created: str,
         name: Optional[str] = None,
         data: Optional[dict] = None,
+        device_id: str = "local",
     ):
         self.conn.execute(
-            "INSERT INTO buckets(id, name, type, client, hostname, created, datastr) "
-            + "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO buckets(id, device_id, name, type, client, hostname, created, datastr) "
+            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 bucket_id,
+                device_id,
                 name,
                 type_id,
                 client,
@@ -266,19 +334,20 @@ class SqliteStorage(AbstractStorage):
     def get_metadata(self, bucket_id: str):
         c = self.conn.cursor()
         res = c.execute(
-            "SELECT id, name, type, client, hostname, created, datastr FROM buckets WHERE id = ?",
+            "SELECT id, device_id, name, type, client, hostname, created, datastr FROM buckets WHERE id = ?",
             [bucket_id],
         )
         row = res.fetchone()
         if row is not None:
             return {
                 "id": row[0],
-                "name": row[1],
-                "type": row[2],
-                "client": row[3],
-                "hostname": row[4],
-                "created": row[5],
-                "data": json.loads(row[6] or "{}"),
+                "device_id": row[1],
+                "name": row[2],
+                "type": row[3],
+                "client": row[4],
+                "hostname": row[5],
+                "created": row[6],
+                "data": json.loads(row[7] or "{}"),
             }
         else:
             raise ValueError("Bucket did not exist, could not get metadata")
