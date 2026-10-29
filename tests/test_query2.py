@@ -197,6 +197,57 @@ def test_list():
         ls = QList.parse(l_str, ns)
 
 
+@pytest.mark.parametrize("whitespace", ["", " ", "\t", "\n", " \t\r\n "])
+@pytest.mark.parametrize(
+    "token_type, brackets, expected", [(QList, "[]", []), (QDict, "{}", {})]
+)
+def test_empty_collection_whitespace(whitespace, token_type, brackets, expected):
+    literal = brackets[0] + whitespace + brackets[1]
+    assert token_type.parse(literal, {}).interpret(mock_ds, {}) == expected
+
+
+@pytest.mark.parametrize(
+    "literal, expected",
+    [
+        ("[]", []),
+        ("{}", {}),
+        ("[ \t\n ]", []),
+        ("{ \t\n }", {}),
+        ('[ [ ], { }, {"items": [\n]} ]', [[], {}, {"items": []}]),
+        (
+            '{ "list": [ ], "dict": {\n}, "nested": [{ }] }',
+            {"list": [], "dict": {}, "nested": [{}]},
+        ),
+        ('[ 1, { "items": [ 2, 3 ] }, " " ]', [1, {"items": [2, 3]}, " "]),
+    ],
+)
+def test_query2_collection_whitespace(literal, expected):
+    starttime = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    result = query(
+        "collections", "RETURN = " + literal + ";", starttime, starttime, mock_ds
+    )
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    "literal",
+    [
+        "[1, ]",
+        "[ [ ], ]",
+        '{"a":1, }',
+        '{"a":{ }, }',
+        "[ , ]",
+        "[ , 1 ]",
+        "{ : }",
+        '{"a": }',
+    ],
+)
+def test_query2_collection_whitespace_rejects_missing_items(literal):
+    starttime = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    with pytest.raises(QueryParseException):
+        query("collections", "RETURN = " + literal + ";", starttime, starttime, mock_ds)
+
+
 def test_query2_bogus_query():
     ds = mock_ds
     qname = "test"
