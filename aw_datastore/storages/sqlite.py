@@ -127,7 +127,7 @@ class SqliteStorage(AbstractStorage):
             self.num_uncommitted_statements += num_statements
             if self.num_uncommitted_statements > 50:
                 self.commit()
-            if (self.last_commit - datetime.now()) > timedelta(seconds=10):
+            if (datetime.now() - self.last_commit) > timedelta(seconds=10):
                 self.commit()
         else:
             self.commit()
