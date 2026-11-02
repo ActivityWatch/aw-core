@@ -56,6 +56,19 @@ def test_schemeless_url_fields(url, domain, path, params):
     assert "$identifier" not in data
 
 
+@pytest.mark.parametrize("separator", ["\u3002", "\uff0e", "\uff61"])
+@pytest.mark.parametrize("prefix", ["", "//"])
+@pytest.mark.parametrize("port", ["", ":8080"])
+def test_schemeless_unicode_domain_separators(separator, prefix, port):
+    authority = f"例え{separator}テスト{port}"
+    data = _split(f"{prefix}{authority}/path?x=1#frag")
+    explicit = _split(f"https://{authority}/path?x=1#frag")
+    assert data["$protocol"] == ""
+    assert data["$domain"] == "xn--r8jz45g.xn--zckzah"
+    for key in ("$domain", "$path", "$params"):
+        assert data[key] == explicit[key]
+
+
 @pytest.mark.parametrize(
     "url",
     [

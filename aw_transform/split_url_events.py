@@ -404,10 +404,12 @@ def _has_schemeless_authority(url: str) -> bool:
         port = colon + number
     if port and not re.fullmatch(r":[0-9]+", port):
         return False
-    # Require a dot in the input too: WHATWG normalizes single-number IPv4
-    # forms (e.g. 2130706433) into dotted addresses, but those aren't toolbar
-    # hostnames we can safely infer.
-    if not host.startswith("[") and "." not in host:
+    # Require a dot (including UTS 46 separators) in the input too: WHATWG
+    # normalizes single-number IPv4 forms (e.g. 2130706433) into dotted
+    # addresses, but those aren't toolbar hostnames we can safely infer.
+    if not host.startswith("[") and not any(
+        dot in host for dot in ".\u3002\uff0e\uff61"
+    ):
         return False
     parsed = _parse_host(host)
     if parsed is None:
