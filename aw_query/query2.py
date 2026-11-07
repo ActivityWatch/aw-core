@@ -229,7 +229,7 @@ class QDict(QToken):
 
     @staticmethod
     def parse(string: str, namespace: dict) -> QToken:
-        entries_str = string[1:-1]
+        entries_str = string[1:-1].strip()
         d: Dict[str, QToken] = {}
         while len(entries_str) > 0:
             entries_str = entries_str.strip()
@@ -294,7 +294,7 @@ class QList(QToken):
 
     @staticmethod
     def parse(string: str, namespace: dict) -> QToken:
-        entries_str = string[1:-1]
+        entries_str = string[1:-1].strip()
         ls: List[QToken] = []
         while len(entries_str) > 0:
             entries_str = entries_str.strip()
