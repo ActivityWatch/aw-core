@@ -382,16 +382,64 @@ def _normalize_nonspecial_path(path: str) -> str:
     return _normalize_path(path, special=False)
 
 
+def _has_schemeless_authority(url: str) -> bool:
+    """Recognize toolbar hostnames, not arbitrary relative paths or schemes.
+
+    A dotted DNS-style hostname (or bracketed IPv6) is deliberately required;
+    single-label hosts and userinfo are too ambiguous without a scheme. A
+    numeric port disambiguates ``example.com:8080`` from an opaque scheme,
+    while ``com.example:opaque`` and ``com.example://host`` remain schemes.
+    """
+    rest = url[2:] if url.startswith("//") else url
+    authority = re.split(r"[/\\?#]", rest, maxsplit=1)[0]
+    if "@" in authority:
+        return False
+    if authority.startswith("["):
+        close = authority.find("]")
+        if close == -1:
+            return False
+        host, port = authority[: close + 1], authority[close + 1 :]
+    else:
+        host, colon, number = authority.partition(":")
+        port = colon + number
+    if port and not re.fullmatch(r":[0-9]+", port):
+        return False
+    # Require a dot (including UTS 46 separators) in the input too: WHATWG
+    # normalizes single-number IPv4 forms (e.g. 2130706433) into dotted
+    # addresses, but those aren't toolbar hostnames we can safely infer.
+    if not host.startswith("[") and not any(
+        dot in host for dot in ".\u3002\uff0e\uff61"
+    ):
+        return False
+    parsed = _parse_host(host)
+    if parsed is None:
+        return False
+    if parsed.startswith("["):
+        return True
+    # Stricter than special-scheme hosts: don't promote punctuation, empty
+    # labels, or prose to an authority just because WHATWG would accept them.
+    label = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+    return bool(re.fullmatch(rf"(?:{label}\.)+{label}\.?", parsed))
+
+
 def _split_url(url: str) -> Optional[dict]:
     # Like the URL Standard: strip leading/trailing C0 controls and spaces,
     # and remove tabs and newlines anywhere.
     url = url.strip("".join(chr(c) for c in range(0x21)))
     url = re.sub(r"[\t\n\r]", "", url)
-    match = _SCHEME_RE.fullmatch(url)
-    if not match:
-        return None  # a relative URL or plain text, not something we can split
-    scheme, rest = match.group(1).lower(), match.group(2)
     try:
+        if _has_schemeless_authority(url):
+            # Reuse host/path normalization without inventing an http(s)
+            # protocol. The original event URL is never rewritten.
+            fields = _split_special("", url)
+            if fields is not None:
+                return fields
+            # A failed host:port interpretation can still be a valid opaque
+            # URI (e.g. example.com:99999/path). Keep its previous semantics.
+        match = _SCHEME_RE.fullmatch(url)
+        if not match:
+            return None  # a relative URL or plain text, not something we can split
+        scheme, rest = match.group(1).lower(), match.group(2)
         if scheme == "file":
             return _split_file(rest)
         if scheme in _SPECIAL_SCHEMES:
@@ -414,9 +462,13 @@ def split_url_events(events: List[Event]) -> List[Event]:
 
     For http(s), ws(s) and ftp URLs, the host is normalized (lowercase,
     punycode, compressed IPv6) and the path and query are percent-encoded with
-    dot segments resolved, as the URL Standard does. Events whose ``url`` isn't
-    a string or a valid absolute URL (no scheme, an invalid host or port) are
-    left unchanged. Other fields of the event are never removed.
+    dot segments resolved, as the URL Standard does. Scheme-less dotted
+    hostnames and bracketed IPv6 (optionally with ``//`` or a numeric port)
+    use the same normalization, with an empty ``$protocol`` because the
+    original protocol is unknown. Single-label hosts and arbitrary relative
+    paths are not inferred. Events whose ``url`` isn't a string or a valid
+    supported URL are left unchanged. The original URL and other fields of
+    the event are never removed.
     """
     for event in events:
         url = event.data.get("url")
