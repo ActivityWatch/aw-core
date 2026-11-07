@@ -19,7 +19,9 @@ def flood(events: List[Event], pulsetime: float = 5) -> List[Event]:
 
     Overlapping equal-data events merge. For overlapping differing-data events,
     final normalization gives the later event precedence so the result never
-    double-counts time.
+    double-counts time. Zero-duration events are dropped before the pairwise
+    pass so they cannot occupy a neighbour slot and block a pulsetime-sized
+    gap (ActivityWatch/aw-core#201).
 
     See https://github.com/ActivityWatch/activitywatch/issues/124 for the data
     collection uncertainty that flooding is intended to handle.
@@ -34,6 +36,10 @@ def flood(events: List[Event], pulsetime: float = 5) -> List[Event]:
     # This matches aw-server-rust's sort_by_timestamp behavior and ensures
     # a well-defined processing order when events share the same timestamp.
     events = sorted(events, key=lambda e: (e.timestamp, e.duration))
+    # Drop duration<=0 before pairing. A zero-duration event still occupies a
+    # zip() slot if left in, so a later pulsetime-sized gap is never considered
+    # even though the event itself is filtered from the output.
+    events = [e for e in events if e.duration > timedelta(0)]
 
     # If negative gaps are smaller than this, prune them to become zero
     negative_gap_trim_thres = timedelta(seconds=0.1)
