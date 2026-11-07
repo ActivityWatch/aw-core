@@ -29,6 +29,7 @@ class MemoryStorage(AbstractStorage):
         created,
         name=None,
         data=None,
+        device_id: str = "local",
     ) -> None:
         if not name:
             name = bucket_id
@@ -40,6 +41,7 @@ class MemoryStorage(AbstractStorage):
             "hostname": hostname,
             "created": created,
             "data": data or {},
+            "device_id": device_id,
         }
         self.db[bucket_id] = []
 
