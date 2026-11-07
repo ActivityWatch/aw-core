@@ -195,6 +195,43 @@ def test_flood_with_custom_pulsetime():
     ]
 
 
+def test_flood_zero_duration_does_not_block_neighbour_gap():
+    """A dropped zero-duration event must not eat the pairwise slot of a gap.
+
+    Reporter fixture from ActivityWatch/aw-core#201, default pulsetime=5.
+    The 2s gap (16 -> 18) is filled at the midpoint unless a duration-0
+    marker between the neighbours occupies the adjacent zip() pair.
+    """
+    t0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+    def ev(off, dur, tag):
+        return Event(
+            timestamp=t0 + timedelta(seconds=off),
+            duration=timedelta(seconds=dur),
+            data={"t": tag},
+        )
+
+    without_marker = flood([ev(9, 1, "b"), ev(9, 7, "c"), ev(18, 1, "a")])
+    with_marker = flood(
+        [ev(9, 1, "b"), ev(9, 7, "c"), ev(12, 0, "marker"), ev(18, 1, "a")]
+    )
+    expected = [
+        Event(
+            timestamp=t0 + timedelta(seconds=9),
+            duration=timedelta(seconds=8),
+            data={"t": "c"},
+        ),
+        Event(
+            timestamp=t0 + timedelta(seconds=17),
+            duration=timedelta(seconds=2),
+            data={"t": "a"},
+        ),
+    ]
+    assert without_marker == expected
+    assert with_marker == expected
+    assert flood(with_marker) == with_marker
+
+
 def test_flood_idempotent():
     """flood() applied repeatedly should produce the same result."""
     events = [
