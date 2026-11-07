@@ -289,3 +289,45 @@ def test_flood_does_not_mutate_input():
     assert all(r.data is not e.data for r in result for e in events)
     result[0].data["app"] = "changed"
     assert events[0].data["app"] == "a"
+
+
+def test_flood_preserves_standalone_zero_duration_bridge():
+    events = [
+        Event(timestamp=now, duration=1, data={"app": "a"}),
+        Event(timestamp=now + 5 * td1s, duration=0, data={"app": "marker"}),
+        Event(timestamp=now + 10 * td1s, duration=1, data={"app": "b"}),
+    ]
+    assert flood(events) == [
+        Event(timestamp=now, duration=3, data={"app": "a"}),
+        Event(timestamp=now + 3 * td1s, duration=4.5, data={"app": "marker"}),
+        Event(timestamp=now + 7.5 * td1s, duration=3.5, data={"app": "b"}),
+    ]
+    assert sum((e.duration for e in flood(events)), timedelta()) == 11 * td1s
+
+
+def test_flood_zero_marker_after_later_wins_event_still_bridges():
+    events = [
+        Event(timestamp=now, duration=10, data={"app": "a"}),
+        Event(timestamp=now + 5 * td1s, duration=1, data={"app": "nested"}),
+        Event(timestamp=now + 8 * td1s, duration=0, data={"app": "marker"}),
+        Event(timestamp=now + 12 * td1s, duration=1, data={"app": "b"}),
+    ]
+    assert flood(events) == [
+        Event(timestamp=now, duration=5, data={"app": "a"}),
+        Event(timestamp=now + 5 * td1s, duration=2, data={"app": "nested"}),
+        Event(timestamp=now + 7 * td1s, duration=3, data={"app": "marker"}),
+        Event(timestamp=now + 10 * td1s, duration=3, data={"app": "b"}),
+    ]
+
+
+def test_flood_zero_marker_at_endpoint_still_bridges():
+    events = [
+        Event(timestamp=now, duration=1, data={"app": "a"}),
+        Event(timestamp=now + td1s, duration=0, data={"app": "marker"}),
+        Event(timestamp=now + 6 * td1s, duration=1, data={"app": "b"}),
+    ]
+    assert flood(events) == [
+        Event(timestamp=now, duration=1, data={"app": "a"}),
+        Event(timestamp=now + td1s, duration=2.5, data={"app": "marker"}),
+        Event(timestamp=now + 3.5 * td1s, duration=3.5, data={"app": "b"}),
+    ]
