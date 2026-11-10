@@ -1,6 +1,5 @@
 import logging
 from typing import List, Iterable, Tuple
-from copy import deepcopy
 
 from aw_core import Event
 from timeslot import Timeslot
@@ -15,10 +14,15 @@ def _get_event_period(event: Event) -> Timeslot:
 
 
 def _replace_event_period(event: Event, period: Timeslot) -> Event:
-    e = deepcopy(event)
-    e.timestamp = period.start
-    e.duration = period.duration
-    return e
+    # A new Event with a one-level copy of data, like aw_query's _copy_events:
+    # transforms only set top-level keys. deepcopy here was the largest single
+    # cost of a year-long Activity query (ActivityWatch/activitywatch#1545).
+    return Event(
+        id=event.id,
+        timestamp=period.start,
+        duration=period.duration,
+        data=dict(event.data),
+    )
 
 
 def _intersecting_eventpairs(
