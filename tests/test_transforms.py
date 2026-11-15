@@ -166,6 +166,21 @@ def test_filter_period_intersect():
     assert filtered_events[1].duration == timedelta(minutes=15)
 
 
+def test_filter_period_intersect_copies_events():
+    """Results are new events: changing one must not change the input event."""
+    now = datetime.now(timezone.utc)
+    event = Event(id=7, timestamp=now, duration=timedelta(hours=1), data={"app": "a"})
+    filter_with = [Event(timestamp=now, duration=timedelta(minutes=30))]
+    (result,) = filter_period_intersect([event], filter_with)
+    assert result is not event
+    assert result.id == 7 and result.data == {"app": "a"}
+    assert result.duration == timedelta(minutes=30)
+    result.data["$category"] = ["Work"]
+    result.duration = timedelta(0)
+    assert event.data == {"app": "a"}
+    assert event.duration == timedelta(hours=1)
+
+
 def test_filter_period_intersect_overlapping_filters():
     """Time covered by several overlapping filter events is only kept once."""
     now = datetime(2026, 1, 1, 10, tzinfo=timezone.utc)
