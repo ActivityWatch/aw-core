@@ -1,6 +1,5 @@
 import logging
 from datetime import timedelta
-from copy import deepcopy
 from typing import List
 
 from aw_core.models import Event
@@ -29,7 +28,14 @@ def flood(events: List[Event], pulsetime: float = 5) -> List[Event]:
     #       carefully considered by anyone wishing to edit it, see:
     #        - https://github.com/ActivityWatch/aw-core/pull/73
 
-    events = deepcopy(events)
+    # flood only reassigns timestamp/duration (never mutates data in place), so
+    # copy one level deep instead of deep-copying the whole list; deepcopy was a
+    # measurable share of the year-long Activity query
+    # (ActivityWatch/activitywatch#1545).
+    events = [
+        Event(id=e.id, timestamp=e.timestamp, duration=e.duration, data=dict(e.data))
+        for e in events
+    ]
     # Sort by (timestamp, duration) so shorter same-timestamp events come first.
     # This matches aw-server-rust's sort_by_timestamp behavior and ensures
     # a well-defined processing order when events share the same timestamp.

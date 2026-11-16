@@ -1189,3 +1189,39 @@ def test_merge_subwatcher_fields_zero_duration_sub_does_not_color_base():
     assert result[0].timestamp == now
     assert result[0].duration == timedelta(seconds=10)
     assert result[0].data == {"app": "vim"}
+
+
+def test_merge_subwatcher_fields_does_not_mutate_inputs():
+    """Output events are copies: injecting sub fields must not touch the inputs."""
+    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    base = [
+        Event(
+            id=1,
+            timestamp=now,
+            duration=timedelta(seconds=10),
+            data={"app": "vim", "tags": ["a"]},
+        )
+    ]
+    sub = [
+        Event(
+            timestamp=now,
+            duration=timedelta(seconds=10),
+            data={"project": "aw", "nested": {"k": 1}},
+        )
+    ]
+    base_before = (base[0].id, base[0].timestamp, base[0].duration, dict(base[0].data))
+    sub_data_before = {"project": "aw", "nested": {"k": 1}}
+
+    result = merge_subwatcher_fields(base, sub, ["project", "nested"])
+
+    assert result[0].data["project"] == "aw"
+    assert (base[0].id, base[0].timestamp, base[0].duration, dict(base[0].data)) == (
+        base_before
+    )
+    assert "project" not in base[0].data
+    # injected values are still deep-copied from the subwatcher event
+    result[0].data["nested"]["k"] = 2
+    assert sub[0].data == sub_data_before
+    # the no-overlap / empty-keys passthrough returns copies too
+    passthrough = merge_subwatcher_fields(base, sub, [])
+    assert passthrough[0] is not base[0] and passthrough[0].data is not base[0].data

@@ -11,6 +11,20 @@ from .filter_period_intersect import _get_event_period
 logger = logging.getLogger(__name__)
 
 
+def _copy_event(event: Event) -> Event:
+    """Copy an event one level deep: new Event and new ``data`` dict.
+
+    Only top-level ``data`` keys are assigned below, so nested values can be
+    shared; values injected from subwatcher events are still deep-copied.
+    """
+    return Event(
+        id=event.id,
+        timestamp=event.timestamp,
+        duration=event.duration,
+        data=dict(event.data),
+    )
+
+
 def _latest_overlapping_sub(
     overlapping: List[Tuple[Event, Timeslot]],
 ) -> Tuple[Event, Timeslot]:
@@ -23,8 +37,7 @@ def _latest_overlapping_sub(
     best_sub, best_period = overlapping[0]
     for sub, sub_period in overlapping[1:]:
         if sub.timestamp > best_sub.timestamp or (
-            sub.timestamp == best_sub.timestamp
-            and sub_period.end > best_period.end
+            sub.timestamp == best_sub.timestamp and sub_period.end > best_period.end
         ):
             best_sub = sub
             best_period = sub_period
@@ -91,7 +104,7 @@ def merge_subwatcher_fields(
             f"conflict must be 'base_wins' or 'sub_wins', got {conflict!r}"
         )
     if not subwatcher_events or not keys:
-        return [deepcopy(e) for e in base_events]
+        return [_copy_event(e) for e in base_events]
 
     # Build a sorted copy so we can do a linear scan
     sub_sorted = sorted(subwatcher_events, key=lambda e: e.timestamp)
@@ -129,7 +142,7 @@ def merge_subwatcher_fields(
                 boundaries.add(ip.end)
 
         if not overlapping:
-            result.append(deepcopy(base))
+            result.append(_copy_event(base))
             continue
 
         # A zero-duration base event has no slice for boundaries to split,
@@ -139,7 +152,7 @@ def merge_subwatcher_fields(
         # sub covers the instant, using the same "latest sub wins" rule.
         if base_is_instant:
             instant_best_sub, instant_best_period = _latest_overlapping_sub(overlapping)
-            enriched = deepcopy(base)
+            enriched = _copy_event(base)
             for key in keys:
                 if key in instant_best_sub.data:
                     if conflict == "base_wins" and key in enriched.data:
@@ -176,7 +189,7 @@ def merge_subwatcher_fields(
                     best_sub = sub
                     best_sub_period = sub_period
 
-            enriched = deepcopy(base)
+            enriched = _copy_event(base)
             enriched.timestamp = start
             enriched.duration = end - start
 
