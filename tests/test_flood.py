@@ -223,3 +223,32 @@ def test_flood_unsafe_gap():
 
     # Total duration must not exceed the span covered by the two events
     assert sum((e.duration for e in flooded), timedelta(0)) == 14 * td1s
+
+
+def test_flood_does_not_mutate_input():
+    """flood() copies events one level deep: inputs (and their data) stay untouched."""
+    t0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    events = [
+        Event(
+            id=1,
+            timestamp=t0,
+            duration=timedelta(seconds=10),
+            data={"app": "a", "nested": {"k": 1}},
+        ),
+        Event(
+            id=2,
+            timestamp=t0 + timedelta(seconds=12),
+            duration=timedelta(seconds=10),
+            data={"app": "a", "nested": {"k": 1}},
+        ),
+    ]
+    snapshot = [(e.id, e.timestamp, e.duration, dict(e.data)) for e in events]
+
+    result = flood(events, pulsetime=5)
+
+    assert [(e.id, e.timestamp, e.duration, dict(e.data)) for e in events] == snapshot
+    assert len(result) == 1
+    assert all(r is not e for r in result for e in events)
+    assert all(r.data is not e.data for r in result for e in events)
+    result[0].data["app"] = "changed"
+    assert events[0].data["app"] == "a"
