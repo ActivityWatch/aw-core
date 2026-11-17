@@ -1,6 +1,8 @@
 """Accepted event durations must not be capped implicitly by range queries."""
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
+from threading import Event as ThreadEvent
 
 import pytest
 from aw_core.models import Event
@@ -202,6 +204,60 @@ def test_bound_covers_write_racing_a_cold_read(bucket):
     storage._forget_duration_bound(bucket.bucket_id)
     storage._raise_max_duration(bucket.bucket_id, 48 * 3600)
     assert storage._bucket_max_duration(bucket.bucket_id) >= 48 * 3600
+
+
+@pytest.mark.parametrize("read", ["get", "get_eventcount"])
+@pytest.mark.parametrize("write", ["insert", "insert_many", "replace", "replace_last"])
+def test_write_between_range_construction_and_execution(
+    bucket, monkeypatch, read, write
+):
+    storage = bucket.ds.storage_strategy
+    short = bucket.insert(Event(timestamp=BASE, duration=60))
+    bounds = (BASE + timedelta(hours=36), BASE + timedelta(hours=37))
+    assert bucket.get_eventcount(*bounds) == 0  # Warm the short lookback.
+    original_where_range = storage._where_range
+    writer_started = ThreadEvent()
+    writer_finished = ThreadEvent()
+    committed_before_execution = []
+
+    def write_long_event():
+        try:
+            writer_started.set()
+            event = Event(timestamp=BASE, duration=timedelta(hours=48))
+            if write == "insert_many":
+                bucket.insert([event])
+            elif write == "replace":
+                bucket.replace(short.id, event)
+            elif write == "replace_last":
+                bucket.replace_last(event)
+            else:
+                bucket.insert(event)
+            writer_finished.set()
+        finally:
+            storage.db.close()  # Peewee connections are thread-local.
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        pending = []
+
+        def pause_after_range(*args, **kwargs):
+            query = original_where_range(*args, **kwargs)
+            pending.append(executor.submit(write_long_event))
+            assert writer_started.wait(5)
+            # A serialized read may finish before the writer. Otherwise its
+            # predicate must include the write committed before SQL execution.
+            committed_before_execution.append(writer_finished.wait(0.2))
+            return query
+
+        monkeypatch.setattr(storage, "_where_range", pause_after_range)
+        if read == "get":
+            result = len(bucket.get(starttime=bounds[0], endtime=bounds[1]))
+        else:
+            result = bucket.get_eventcount(*bounds)
+        pending[0].result(timeout=5)
+    assert result == int(committed_before_execution[0])
+    monkeypatch.setattr(storage, "_where_range", original_where_range)
+    assert bucket.get_eventcount(*bounds) == 1
+    assert len(bucket.get(starttime=bounds[0], endtime=bounds[1])) == 1
 
 
 def test_failed_batch_keeps_raised_bound(bucket, monkeypatch):
