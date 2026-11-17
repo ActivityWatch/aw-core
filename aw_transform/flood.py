@@ -1,6 +1,6 @@
 import logging
-from datetime import timedelta
-from typing import List
+from datetime import datetime, timedelta
+from typing import List, Optional
 
 from aw_core.models import Event
 
@@ -18,8 +18,9 @@ def flood(events: List[Event], pulsetime: float = 5) -> List[Event]:
 
     Overlapping equal-data events merge. For overlapping differing-data events,
     final normalization gives the later event precedence so the result never
-    double-counts time. Zero-duration markers inside the immediately preceding
-    retained event's half-open span are skipped before the pairwise pass so they
+    double-counts time. Zero-duration markers inside the preceding retained
+    event's half-open span (extended by overlapping equal-data events that merge
+    into it) are skipped before the pairwise pass so they
     cannot block a short gap. Standalone and endpoint markers remain eligible to
     bridge nearby events, even inside an older event superseded by a later one.
 
@@ -47,15 +48,31 @@ def flood(events: List[Event], pulsetime: float = 5) -> List[Event]:
     # and endpoint markers can bridge short gaps. An older event's maximum end
     # is not the boundary: normalization gives the later event precedence.
     visible_events: List[Event] = []
+    # Span of the retained event the next marker is checked against. An
+    # overlapping equal-data event merges into it later in the pairwise pass, so
+    # it extends the span instead of replacing it: a marker inside the merged
+    # span is contained even when an intervening same-data event precedes it.
+    span_data: Optional[dict] = None
+    span_start: Optional[datetime] = None
+    span_end: Optional[datetime] = None
     for event in events:
+        event_end = event.timestamp + event.duration
         if visible_events and event.duration == timedelta(0):
-            previous = visible_events[-1]
             if (
-                previous.timestamp
-                <= event.timestamp
-                < previous.timestamp + previous.duration
+                span_start is not None
+                and span_end is not None
+                and span_start <= event.timestamp < span_end
             ):
                 continue
+        elif (
+            span_data is not None
+            and event.data == span_data
+            and span_end is not None
+            and event.timestamp <= span_end
+        ):
+            span_end = max(span_end, event_end)
+        else:
+            span_data, span_start, span_end = event.data, event.timestamp, event_end
         visible_events.append(event)
     events = visible_events
 

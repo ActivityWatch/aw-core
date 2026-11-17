@@ -331,3 +331,17 @@ def test_flood_zero_marker_at_endpoint_still_bridges():
         Event(timestamp=now + td1s, duration=2.5, data={"app": "marker"}),
         Event(timestamp=now + 3.5 * td1s, duration=3.5, data={"app": "b"}),
     ]
+
+
+def test_flood_zero_marker_inside_merged_equal_data_span_is_skipped():
+    # B merges into A, so a marker inside A's span must not survive just because
+    # B (a same-data event) sits between A and the marker.
+    events = [
+        Event(timestamp=now, duration=10, data={"app": "a"}),
+        Event(timestamp=now + 2 * td1s, duration=1, data={"app": "a"}),
+        Event(timestamp=now + 4 * td1s, duration=0, data={"app": "marker"}),
+        Event(timestamp=now + 12 * td1s, duration=1, data={"app": "b"}),
+    ]
+    without_marker = flood([events[0], events[1], events[3]])
+    assert flood(events) == without_marker
+    assert sum((e.duration for e in flood(events)), timedelta()) == 13 * td1s
