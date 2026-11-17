@@ -128,10 +128,67 @@ def test_actual_overlap_query_keeps_bucket_timestamp_index(bucket):
         .limit(100)
     )
     query = storage._where_range(
-        query, BASE + timedelta(hours=36), BASE + timedelta(hours=37)
+        query,
+        bucket.bucket_id,
+        BASE + timedelta(hours=36),
+        BASE + timedelta(hours=37),
     )
     sql, params = query.sql()
     plan = storage.db.execute_sql("EXPLAIN QUERY PLAN " + sql, params).fetchall()
     assert "eventmodel_bucket_id_timestamp" in str(plan)
+    # The max-duration lookback bounds the index range on both sides, so a
+    # range query does not scan the bucket's whole history.
+    assert "timestamp>? AND timestamp<?" in str(plan)
     # Sorting equal-timestamp runs is fine; sorting the entire result is not.
     assert "TEMP B-TREE FOR ORDER BY" not in str(plan)
+
+
+def test_inserting_longer_event_widens_lookback(bucket):
+    # Prime the cached bound with a short event, then insert a longer one
+    # through each write path; the interior query must still find it.
+    bucket.insert(Event(timestamp=BASE, duration=timedelta(minutes=1)))
+    day_two = (BASE + timedelta(hours=36), BASE + timedelta(hours=37))
+    assert bucket.get_eventcount(*day_two) == 0
+
+    bucket.insert(Event(timestamp=BASE, duration=timedelta(hours=48)))
+    assert bucket.get_eventcount(*day_two) == 1
+
+    bucket.insert(
+        [Event(timestamp=BASE - timedelta(days=5), duration=timedelta(days=7))]
+    )
+    assert (
+        bucket.get_eventcount(BASE + timedelta(hours=40), BASE + timedelta(hours=41))
+        == 2
+    )
+
+
+def test_replace_with_longer_duration_widens_lookback(bucket):
+    short = bucket.insert(Event(timestamp=BASE, duration=timedelta(minutes=1)))
+    interior = (BASE + timedelta(hours=60), BASE + timedelta(hours=61))
+    assert bucket.get_eventcount(*interior) == 0
+
+    bucket.replace(
+        short.id, Event(timestamp=BASE, duration=timedelta(hours=72), data={})
+    )
+    assert bucket.get_eventcount(*interior) == 1
+
+    last = Event(timestamp=BASE, duration=timedelta(hours=96), data={})
+    bucket.replace_last(last)
+    assert (
+        bucket.get_eventcount(BASE + timedelta(hours=90), BASE + timedelta(hours=91))
+        == 1
+    )
+
+
+def test_lookback_bound_reset_when_bucket_recreated(bucket, tmp_path):
+    ds = bucket.ds
+    bucket.insert(Event(timestamp=BASE, duration=timedelta(hours=48)))
+    interior = (BASE + timedelta(hours=36), BASE + timedelta(hours=37))
+    assert bucket.get_eventcount(*interior) == 1
+    ds.delete_bucket(bucket.bucket_id)
+    fresh = ds.create_bucket(
+        bucket.bucket_id, type="test", client="test", hostname="test"
+    )
+    assert fresh.get_eventcount(*interior) == 0
+    fresh.insert(Event(timestamp=BASE, duration=timedelta(hours=48)))
+    assert fresh.get_eventcount(*interior) == 1
