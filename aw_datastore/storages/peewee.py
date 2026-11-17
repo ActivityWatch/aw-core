@@ -2,6 +2,8 @@ import json
 import logging
 import os
 from datetime import datetime, timedelta, timezone
+from functools import wraps
+from threading import RLock
 from typing import (
     Any,
     Dict,
@@ -164,6 +166,15 @@ class EventModel(BaseModel):
         }
 
 
+def _with_duration_bound_lock(method):
+    @wraps(method)
+    def locked(self, *args, **kwargs):
+        with self._duration_bound_lock:
+            return method(self, *args, **kwargs)
+
+    return locked
+
+
 class PeeweeStorage(AbstractStorage):
     sid = "peewee"
 
@@ -193,10 +204,13 @@ class PeeweeStorage(AbstractStorage):
         # Upper bound on each bucket's stored event duration (seconds), used as
         # the lookback bound for range queries: the database maximum (read
         # lazily) combined with a floor that this instance raises *before*
-        # each write, so a concurrent or partially failed write can only
-        # leave the bound too high, never too low. A delete may also leave it
-        # high, which only widens the scan. Like bucket_keys, this assumes
-        # writes to a bucket go through this storage instance.
+        # each write. The lock spans bound computation AND query consumption,
+        # as well as writes and bucket resets, so no longer event can commit
+        # between choosing a lookback and executing its query. A failed write
+        # or delete may leave the bound high, which only widens the scan.
+        # Like bucket_keys, this assumes writes go through this instance.
+        # Reentrant because insert_many delegates upserts to insert_one.
+        self._duration_bound_lock = RLock()
         self._max_duration: Dict[str, float] = {}
         self._duration_floor: Dict[str, float] = {}
         BucketModel.create_table(safe=True)
@@ -296,6 +310,7 @@ class PeeweeStorage(AbstractStorage):
         finally:
             cursor.close()
 
+    @_with_duration_bound_lock
     def create_bucket(
         self,
         bucket_id: str,
@@ -345,6 +360,7 @@ class PeeweeStorage(AbstractStorage):
         else:
             raise ValueError("Bucket did not exist, could not update")
 
+    @_with_duration_bound_lock
     def delete_bucket(self, bucket_id: str) -> None:
         if bucket_id in self.bucket_keys:
             EventModel.delete().where(
@@ -367,6 +383,7 @@ class PeeweeStorage(AbstractStorage):
         else:
             raise ValueError("Bucket did not exist, could not get metadata")
 
+    @_with_duration_bound_lock
     def insert_one(self, bucket_id: str, event: Event) -> Event:
         e = EventModel.from_event(self.bucket_keys[bucket_id], event)
         self._raise_max_duration(bucket_id, event.duration.total_seconds())
@@ -374,6 +391,7 @@ class PeeweeStorage(AbstractStorage):
         event.id = e.id
         return event
 
+    @_with_duration_bound_lock
     def insert_many(self, bucket_id, events: List[Event]) -> None:
         # NOTE: Events need to be handled differently depending on
         #       if they're upserts or inserts (have id's or not).
@@ -423,6 +441,7 @@ class PeeweeStorage(AbstractStorage):
             .get()
         )
 
+    @_with_duration_bound_lock
     def replace_last(self, bucket_id, event):
         e = self._get_last(bucket_id)
         e.timestamp = event.timestamp
@@ -441,6 +460,7 @@ class PeeweeStorage(AbstractStorage):
             .execute()
         )
 
+    @_with_duration_bound_lock
     def replace(self, bucket_id, event_id, event):
         self._raise_max_duration(bucket_id, event.duration.total_seconds())
         updated = (
@@ -468,6 +488,7 @@ class PeeweeStorage(AbstractStorage):
         res = self._get_event(bucket_id, event_id)
         return Event(**EventModel.json(res)) if res else None
 
+    @_with_duration_bound_lock
     def get_events(
         self,
         bucket_id: str,
@@ -527,6 +548,7 @@ class PeeweeStorage(AbstractStorage):
 
         return events
 
+    @_with_duration_bound_lock
     def get_eventcount(
         self,
         bucket_id: str,
