@@ -2,6 +2,8 @@ import json
 import logging
 import os
 from datetime import datetime, timedelta, timezone
+from functools import wraps
+from threading import RLock
 from typing import (
     Any,
     Dict,
@@ -164,6 +166,15 @@ class EventModel(BaseModel):
         }
 
 
+def _with_duration_bound_lock(method):
+    @wraps(method)
+    def locked(self, *args, **kwargs):
+        with self._duration_bound_lock:
+            return method(self, *args, **kwargs)
+
+    return locked
+
+
 class PeeweeStorage(AbstractStorage):
     sid = "peewee"
 
@@ -190,6 +201,18 @@ class PeeweeStorage(AbstractStorage):
         self.db.connect()
 
         self.bucket_keys: Dict[str, int] = {}
+        # Upper bound on each bucket's stored event duration (seconds), used as
+        # the lookback bound for range queries: the database maximum (read
+        # lazily) combined with a floor that this instance raises *before*
+        # each write. The lock spans bound computation AND query consumption,
+        # as well as writes and bucket resets, so no longer event can commit
+        # between choosing a lookback and executing its query. A failed write
+        # or delete may leave the bound high, which only widens the scan.
+        # Like bucket_keys, this assumes writes go through this instance.
+        # Reentrant because insert_many delegates upserts to insert_one.
+        self._duration_bound_lock = RLock()
+        self._max_duration: Dict[str, float] = {}
+        self._duration_floor: Dict[str, float] = {}
         BucketModel.create_table(safe=True)
         EventModel.create_table(safe=True)
 
@@ -204,6 +227,27 @@ class PeeweeStorage(AbstractStorage):
     def update_bucket_keys(self) -> None:
         buckets = BucketModel.select()
         self.bucket_keys = {bucket.id: bucket.key for bucket in buckets}
+
+    def _forget_duration_bound(self, bucket_id: str) -> None:
+        self._max_duration.pop(bucket_id, None)
+        self._duration_floor.pop(bucket_id, None)
+
+    def _bucket_max_duration(self, bucket_id: str) -> float:
+        max_duration = self._max_duration.get(bucket_id)
+        if max_duration is None:
+            value = (
+                EventModel.select(peewee.fn.MAX(EventModel.duration))
+                .where(EventModel.bucket == self.bucket_keys[bucket_id])
+                .scalar()
+            )
+            max_duration = max(float(value or 0), 0.0)
+            self._max_duration[bucket_id] = max_duration
+        return max(max_duration, self._duration_floor.get(bucket_id, 0.0))
+
+    def _raise_max_duration(self, bucket_id: str, seconds: float) -> None:
+        # Call before the write it covers.
+        if seconds > self._duration_floor.get(bucket_id, 0.0):
+            self._duration_floor[bucket_id] = seconds
 
     def buckets(self) -> Dict[str, Dict[str, Any]]:
         return {bucket.id: bucket.json() for bucket in BucketModel.select()}
@@ -266,6 +310,7 @@ class PeeweeStorage(AbstractStorage):
         finally:
             cursor.close()
 
+    @_with_duration_bound_lock
     def create_bucket(
         self,
         bucket_id: str,
@@ -276,6 +321,7 @@ class PeeweeStorage(AbstractStorage):
         name: Optional[str] = None,
         data: Optional[Dict[str, Any]] = None,
     ):
+        self._forget_duration_bound(bucket_id)
         BucketModel.create(
             id=bucket_id,
             type=type_id,
@@ -314,6 +360,7 @@ class PeeweeStorage(AbstractStorage):
         else:
             raise ValueError("Bucket did not exist, could not update")
 
+    @_with_duration_bound_lock
     def delete_bucket(self, bucket_id: str) -> None:
         if bucket_id in self.bucket_keys:
             EventModel.delete().where(
@@ -322,6 +369,7 @@ class PeeweeStorage(AbstractStorage):
             BucketModel.delete().where(
                 BucketModel.key == self.bucket_keys[bucket_id]
             ).execute()
+            self._forget_duration_bound(bucket_id)
             self.update_bucket_keys()
         else:
             raise ValueError("Bucket did not exist, could not delete")
@@ -335,12 +383,15 @@ class PeeweeStorage(AbstractStorage):
         else:
             raise ValueError("Bucket did not exist, could not get metadata")
 
+    @_with_duration_bound_lock
     def insert_one(self, bucket_id: str, event: Event) -> Event:
         e = EventModel.from_event(self.bucket_keys[bucket_id], event)
+        self._raise_max_duration(bucket_id, event.duration.total_seconds())
         e.save()
         event.id = e.id
         return event
 
+    @_with_duration_bound_lock
     def insert_many(self, bucket_id, events: List[Event]) -> None:
         # NOTE: Events need to be handled differently depending on
         #       if they're upserts or inserts (have id's or not).
@@ -365,6 +416,9 @@ class PeeweeStorage(AbstractStorage):
         # Chunking into lists of length 100 is needed here due to SQLITE_MAX_COMPOUND_SELECT
         # and SQLITE_LIMIT_VARIABLE_NUMBER under Windows.
         # See: https://github.com/coleifer/peewee/issues/948
+        new_durations = [e.duration.total_seconds() for e in events if e.id is None]
+        if new_durations:
+            self._raise_max_duration(bucket_id, max(new_durations))
         for chunk in chunks(events_dictlist, 100):
             EventModel.insert_many(chunk).execute()
 
@@ -387,11 +441,13 @@ class PeeweeStorage(AbstractStorage):
             .get()
         )
 
+    @_with_duration_bound_lock
     def replace_last(self, bucket_id, event):
         e = self._get_last(bucket_id)
         e.timestamp = event.timestamp
         e.duration = event.duration.total_seconds()
         e.datastr = json.dumps(event.data)
+        self._raise_max_duration(bucket_id, event.duration.total_seconds())
         e.save()
         event.id = e.id
         return event
@@ -404,7 +460,9 @@ class PeeweeStorage(AbstractStorage):
             .execute()
         )
 
+    @_with_duration_bound_lock
     def replace(self, bucket_id, event_id, event):
+        self._raise_max_duration(bucket_id, event.duration.total_seconds())
         updated = (
             EventModel.update(
                 timestamp=event.timestamp,
@@ -430,6 +488,7 @@ class PeeweeStorage(AbstractStorage):
         res = self._get_event(bucket_id, event_id)
         return Event(**EventModel.json(res)) if res else None
 
+    @_with_duration_bound_lock
     def get_events(
         self,
         bucket_id: str,
@@ -470,7 +529,7 @@ class PeeweeStorage(AbstractStorage):
             .limit(limit)
         )
 
-        q = self._where_range(q, starttime, endtime)
+        q = self._where_range(q, bucket_id, starttime, endtime)
 
         res = q.execute()
         events = [Event(**e) for e in list(map(EventModel.json, res))]
@@ -489,6 +548,7 @@ class PeeweeStorage(AbstractStorage):
 
         return events
 
+    @_with_duration_bound_lock
     def get_eventcount(
         self,
         bucket_id: str,
@@ -496,12 +556,13 @@ class PeeweeStorage(AbstractStorage):
         endtime: Optional[datetime] = None,
     ) -> int:
         q = EventModel.select().where(EventModel.bucket == self.bucket_keys[bucket_id])
-        q = self._where_range(q, starttime, endtime)
+        q = self._where_range(q, bucket_id, starttime, endtime)
         return q.count()
 
     def _where_range(
         self,
         q,
+        bucket_id: str,
         starttime: Optional[datetime] = None,
         endtime: Optional[datetime] = None,
     ):
@@ -512,11 +573,18 @@ class PeeweeStorage(AbstractStorage):
             endtime = endtime.astimezone(timezone.utc)
 
         if starttime:
-            # Faster WHERE to speed up slow query below, leads to ~2-3x speedup
-            # We'll assume events aren't >24h
-            q = q.where(starttime - timedelta(hours=24) <= EventModel.timestamp)
+            # An event overlapping starttime cannot start earlier than
+            # starttime minus the longest stored duration in the bucket. This
+            # indexable bound keeps range queries from scanning the whole
+            # bucket history, without capping accepted event durations.
+            # The extra second absorbs float/decimal rounding.
+            try:
+                lookback = timedelta(seconds=self._bucket_max_duration(bucket_id) + 1)
+                q = q.where(starttime - lookback <= EventModel.timestamp)
+            except OverflowError:
+                pass  # Bound precedes datetime.min, so it excludes nothing.
 
-            # This can be slow on large databases...
+            # Exact overlap check; not indexable on its own.
             # Tried creating various indexes and using SQLite's unlikely() function, but it had no effect
             q = q.where(
                 starttime <= dt_plus_duration(EventModel.timestamp, EventModel.duration)
