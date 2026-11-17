@@ -192,3 +192,39 @@ def test_lookback_bound_reset_when_bucket_recreated(bucket, tmp_path):
     assert fresh.get_eventcount(*interior) == 0
     fresh.insert(Event(timestamp=BASE, duration=timedelta(hours=48)))
     assert fresh.get_eventcount(*interior) == 1
+
+
+def test_bound_covers_write_racing_a_cold_read(bucket):
+    # A writer raises the floor before its row is visible; a reader that
+    # filled the cache from the older database maximum must still honor it.
+    storage = bucket.ds.storage_strategy
+    bucket.insert(Event(timestamp=BASE, duration=timedelta(minutes=1)))
+    storage._forget_duration_bound(bucket.bucket_id)
+    storage._raise_max_duration(bucket.bucket_id, 48 * 3600)
+    assert storage._bucket_max_duration(bucket.bucket_id) >= 48 * 3600
+
+
+def test_failed_batch_keeps_raised_bound(bucket, monkeypatch):
+    bucket.insert(Event(timestamp=BASE, duration=timedelta(minutes=1)))
+    real_insert_many = EventModel.insert_many
+    calls = []
+
+    def flaky_insert_many(rows):
+        calls.append(len(rows))
+        if len(calls) > 1:
+            raise RuntimeError("database is locked")
+        return real_insert_many(rows)
+
+    monkeypatch.setattr(EventModel, "insert_many", flaky_insert_many)
+    batch = [
+        Event(timestamp=BASE + timedelta(seconds=i), duration=timedelta(hours=48))
+        for i in range(150)
+    ]
+    with pytest.raises(RuntimeError):
+        bucket.insert(batch)
+    monkeypatch.undo()
+    # The batch is one transaction, so the saved first chunk rolled back too.
+    # The bound stays raised, which only widens later scans.
+    assert bucket.get_eventcount() == 1
+    storage = bucket.ds.storage_strategy
+    assert storage._bucket_max_duration(bucket.bucket_id) >= 48 * 3600

@@ -191,10 +191,14 @@ class PeeweeStorage(AbstractStorage):
 
         self.bucket_keys: Dict[str, int] = {}
         # Upper bound on each bucket's stored event duration (seconds), used as
-        # the lookback bound for range queries. Filled lazily from the
-        # database and raised on writes; a delete may leave it high, which
-        # only widens the scan and stays correct.
+        # the lookback bound for range queries: the database maximum (read
+        # lazily) combined with a floor that this instance raises *before*
+        # each write, so a concurrent or partially failed write can only
+        # leave the bound too high, never too low. A delete may also leave it
+        # high, which only widens the scan. Like bucket_keys, this assumes
+        # writes to a bucket go through this storage instance.
         self._max_duration: Dict[str, float] = {}
+        self._duration_floor: Dict[str, float] = {}
         BucketModel.create_table(safe=True)
         EventModel.create_table(safe=True)
 
@@ -209,8 +213,10 @@ class PeeweeStorage(AbstractStorage):
     def update_bucket_keys(self) -> None:
         buckets = BucketModel.select()
         self.bucket_keys = {bucket.id: bucket.key for bucket in buckets}
-        # Bucket keys can change on create/delete; recompute bounds lazily.
-        self._max_duration.clear()
+
+    def _forget_duration_bound(self, bucket_id: str) -> None:
+        self._max_duration.pop(bucket_id, None)
+        self._duration_floor.pop(bucket_id, None)
 
     def _bucket_max_duration(self, bucket_id: str) -> float:
         max_duration = self._max_duration.get(bucket_id)
@@ -222,13 +228,12 @@ class PeeweeStorage(AbstractStorage):
             )
             max_duration = max(float(value or 0), 0.0)
             self._max_duration[bucket_id] = max_duration
-        return max_duration
+        return max(max_duration, self._duration_floor.get(bucket_id, 0.0))
 
     def _raise_max_duration(self, bucket_id: str, seconds: float) -> None:
-        # Only raise a computed bound; an uncomputed one will see the new row.
-        max_duration = self._max_duration.get(bucket_id)
-        if max_duration is not None and seconds > max_duration:
-            self._max_duration[bucket_id] = seconds
+        # Call before the write it covers.
+        if seconds > self._duration_floor.get(bucket_id, 0.0):
+            self._duration_floor[bucket_id] = seconds
 
     def buckets(self) -> Dict[str, Dict[str, Any]]:
         return {bucket.id: bucket.json() for bucket in BucketModel.select()}
@@ -301,6 +306,7 @@ class PeeweeStorage(AbstractStorage):
         name: Optional[str] = None,
         data: Optional[Dict[str, Any]] = None,
     ):
+        self._forget_duration_bound(bucket_id)
         BucketModel.create(
             id=bucket_id,
             type=type_id,
@@ -347,6 +353,7 @@ class PeeweeStorage(AbstractStorage):
             BucketModel.delete().where(
                 BucketModel.key == self.bucket_keys[bucket_id]
             ).execute()
+            self._forget_duration_bound(bucket_id)
             self.update_bucket_keys()
         else:
             raise ValueError("Bucket did not exist, could not delete")
@@ -376,8 +383,8 @@ class PeeweeStorage(AbstractStorage):
         with self.db.atomic("IMMEDIATE"):
             self._check_event_bucket(bucket_id, event)
             e = EventModel.from_event(self.bucket_keys[bucket_id], event)
-            e.save()
             self._raise_max_duration(bucket_id, event.duration.total_seconds())
+            e.save()
             event.id = e.id
         return event
 
@@ -409,11 +416,11 @@ class PeeweeStorage(AbstractStorage):
             # Chunking into lists of length 100 is needed here due to SQLITE_MAX_COMPOUND_SELECT
             # and SQLITE_LIMIT_VARIABLE_NUMBER under Windows.
             # See: https://github.com/coleifer/peewee/issues/948
-            for chunk in chunks(events_dictlist, 100):
-                EventModel.insert_many(chunk).execute()
             new_durations = [e.duration.total_seconds() for e in events if e.id is None]
             if new_durations:
                 self._raise_max_duration(bucket_id, max(new_durations))
+            for chunk in chunks(events_dictlist, 100):
+                EventModel.insert_many(chunk).execute()
 
     def _get_event(self, bucket_id, event_id) -> Optional[EventModel]:
         try:
@@ -439,8 +446,8 @@ class PeeweeStorage(AbstractStorage):
         e.timestamp = event.timestamp
         e.duration = event.duration.total_seconds()
         e.datastr = json.dumps(event.data)
-        e.save()
         self._raise_max_duration(bucket_id, event.duration.total_seconds())
+        e.save()
         event.id = e.id
         return event
 
@@ -453,6 +460,7 @@ class PeeweeStorage(AbstractStorage):
         )
 
     def replace(self, bucket_id, event_id, event):
+        self._raise_max_duration(bucket_id, event.duration.total_seconds())
         updated = (
             EventModel.update(
                 timestamp=event.timestamp,
@@ -464,7 +472,6 @@ class PeeweeStorage(AbstractStorage):
             .execute()
         )
         if updated:
-            self._raise_max_duration(bucket_id, event.duration.total_seconds())
             event.id = event_id
         return bool(updated)
 
