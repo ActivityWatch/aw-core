@@ -47,7 +47,7 @@ _chunk_deprecation_logged = False
 
 
 def _verify_bucket_exists(datastore, bucketname):
-    if bucketname in datastore.buckets():
+    if datastore.has_bucket(bucketname):
         return
     else:
         raise QueryFunctionException(f"There's no bucket named '{bucketname}'")

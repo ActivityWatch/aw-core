@@ -1,3 +1,4 @@
+import copy
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import (
@@ -27,6 +28,17 @@ class Datastore:
 
         self.storage_strategy = storage_strategy(testing=testing, **kwargs)
 
+    def for_device(self, device_id: str) -> "Datastore":
+        """A scoped datastore owns a separate Bucket-object cache.
+
+        Only storages implementing explicit device routing may provide this;
+        unsupported backends must not silently fall back to global names.
+        """
+        scoped = copy.copy(self)
+        scoped.storage_strategy = self.storage_strategy.for_device(device_id)
+        scoped.bucket_instances = {}
+        return scoped
+
     def __repr__(self):
         return f"<Datastore object using {self.storage_strategy.__class__.__name__}>"
 
@@ -43,6 +55,11 @@ class Datastore:
                 )
                 raise KeyError
 
+        # A previously cached object is not proof that a name still resolves
+        # uniquely after another scoped handle or process changes the catalogue.
+        if not self.has_bucket(bucket_id):
+            del self.bucket_instances[bucket_id]
+            raise KeyError(bucket_id)
         return self.bucket_instances[bucket_id]
 
     def create_bucket(
