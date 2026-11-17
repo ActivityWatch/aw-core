@@ -132,6 +132,10 @@ class BucketModel(BaseModel):
             "client": self.client,
             "hostname": self.hostname,
             "data": json.loads(self.datastr) if self.datastr else {},
+            # The peewee backend predates device_id and has no such column
+            # (existing DBs would break on a schema change), so it always
+            # reports the default.
+            "device_id": "local",
         }
 
 
@@ -275,6 +279,7 @@ class PeeweeStorage(AbstractStorage):
         created: str,
         name: Optional[str] = None,
         data: Optional[Dict[str, Any]] = None,
+        device_id: str = "local",
     ):
         BucketModel.create(
             id=bucket_id,
