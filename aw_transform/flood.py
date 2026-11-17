@@ -18,9 +18,10 @@ def flood(events: List[Event], pulsetime: float = 5) -> List[Event]:
 
     Overlapping equal-data events merge. For overlapping differing-data events,
     final normalization gives the later event precedence so the result never
-    double-counts time. Zero-duration markers contained in earlier events are
-    skipped before the pairwise pass so they cannot block a short gap.
-    Standalone markers remain eligible to bridge nearby events.
+    double-counts time. Zero-duration markers inside the immediately preceding
+    retained event's half-open span are skipped before the pairwise pass so they
+    cannot block a short gap. Standalone and endpoint markers remain eligible to
+    bridge nearby events, even inside an older event superseded by a later one.
 
     See https://github.com/ActivityWatch/activitywatch/issues/124 for the data
     collection uncertainty that flooding is intended to handle.
