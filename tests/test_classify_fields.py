@@ -94,3 +94,14 @@ def test_legacy_regex_rules_unchanged():
     assert rule.fields is None
     assert rule.match(_event("mstsc.exe", "office"))
     assert not rule.match(_event("office", "home"))
+
+
+def test_empty_regex_or_select_keys_count_as_unset():
+    # Same rule as plain regex rules: an empty value means "not set". Editors may
+    # serialize regex="" next to fields; older servers also treat "" as no regex,
+    # so such a rule still matches nothing there.
+    for spec in (
+        {"fields": {"app": "mstsc"}, "regex": ""},
+        {"fields": {"app": "mstsc"}, "select_keys": []},
+    ):
+        assert Rule(spec).match(_event("mstsc.exe", "x"))
