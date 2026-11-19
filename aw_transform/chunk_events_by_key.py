@@ -24,6 +24,7 @@ def chunk_events_by_key(
     Events are processed in timestamp order without modifying the input list.
     Chunk durations sum event durations, excluding gaps; the pulse window is
     measured from the actual end of the chunk, not that summed duration.
+    Events missing the key are skipped.
 
     .. deprecated::
         Will be removed (ActivityWatch/activitywatch#1466). There is no
@@ -36,7 +37,7 @@ def chunk_events_by_key(
     chunk_end: Optional[datetime] = None
     for event in sorted(events, key=lambda e: e.timestamp):
         if key not in event.data:
-            break
+            continue
         event_end = event.timestamp + event.duration
         if (
             chunk_end is not None

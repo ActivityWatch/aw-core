@@ -499,6 +499,34 @@ def test_chunk_events_by_key_tracks_end_of_overlapping_events():
     assert chunks[0].data["subevents"] == events
 
 
+@pytest.mark.parametrize("order", [(0, 1, 2, 3, 4), (4, 3, 2, 1, 0), (2, 0, 4, 1, 3)])
+@pytest.mark.parametrize("leading_missing", [False, True])
+def test_chunk_events_by_key_skips_missing_keys(order, leading_missing):
+    t0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    events = [
+        Event(timestamp=t0, duration=10, data={}),
+        Event(timestamp=t0 + timedelta(seconds=10), duration=10, data={"app": "A"}),
+        Event(timestamp=t0 + timedelta(seconds=20), duration=1, data={}),
+        Event(timestamp=t0 + timedelta(seconds=23), duration=10, data={"app": "A"}),
+        Event(timestamp=t0 + timedelta(seconds=60), duration=10, data={"app": "B"}),
+    ]
+    supplied = [events[i] for i in order if leading_missing or i != 0]
+    before = [event.to_json_dict() for event in supplied]
+    with pytest.warns(DeprecationWarning):
+        chunks = chunk_events_by_key(supplied, "app", pulsetime=5)
+
+    assert [chunk.data["app"] for chunk in chunks] == ["A", "B"]
+    assert [chunk.duration for chunk in chunks] == [
+        timedelta(seconds=20),
+        timedelta(seconds=10),
+    ]
+    assert [chunk.data["subevents"] for chunk in chunks] == [
+        [events[1], events[3]],
+        [events[4]],
+    ]
+    assert [event.to_json_dict() for event in supplied] == before
+
+
 def _split(url):
     e = Event(data={"url": url}, timestamp=datetime.now(timezone.utc), duration=1)
     return split_url_events([e])[0].data

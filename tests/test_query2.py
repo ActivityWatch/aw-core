@@ -686,6 +686,48 @@ def test_query2_chunk_events_by_key_bucket_gaps(datastore, offsets, expected_siz
         assert result[0].timestamp == start
 
 
+@pytest.mark.parametrize("datastore", param_datastore_objects())
+def test_query2_chunk_events_by_key_skips_missing_keys(datastore):
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    with TempTestBucket(datastore) as bucket:
+        events = [
+            Event(timestamp=start, duration=10, data={}),
+            Event(
+                timestamp=start + timedelta(seconds=10), duration=10, data={"app": "A"}
+            ),
+            Event(timestamp=start + timedelta(seconds=20), duration=1, data={}),
+            Event(
+                timestamp=start + timedelta(seconds=23), duration=10, data={"app": "A"}
+            ),
+        ]
+        for event in events:
+            bucket.insert(event)
+        raw = query(
+            "test",
+            f'RETURN = query_bucket("{bucket.bucket_id}");',
+            start,
+            start + timedelta(hours=1),
+            datastore,
+        )
+        assert [event.timestamp for event in raw] == [
+            event.timestamp for event in reversed(events)
+        ]
+        chunks = query(
+            "test",
+            f'RETURN = chunk_events_by_key(query_bucket("{bucket.bucket_id}"), "app");',
+            start,
+            start + timedelta(hours=1),
+            datastore,
+        )
+        assert len(chunks) == 1
+        assert chunks[0].timestamp == events[1].timestamp
+        assert chunks[0].duration == timedelta(seconds=20)
+        assert [event.timestamp for event in chunks[0].data["subevents"]] == [
+            events[1].timestamp,
+            events[3].timestamp,
+        ]
+
+
 def test_query2_chunk_deprecation_logged_once(caplog):
     """The deprecation warning is logged once per process, not on every query"""
     import aw_query.functions as functions
