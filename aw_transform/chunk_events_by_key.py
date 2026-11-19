@@ -35,7 +35,9 @@ def chunk_events_by_key(
             break
         timediff = timedelta(seconds=999999999)  # FIXME: ugly but works
         if len(chunked_events) > 0:
-            timediff = event.timestamp - (events[-1].timestamp + events[-1].duration)
+            timediff = event.timestamp - (
+                chunked_events[-1].timestamp + chunked_events[-1].duration
+            )
         if (
             len(chunked_events) > 0
             and chunked_events[-1].data[key] == event.data[key]

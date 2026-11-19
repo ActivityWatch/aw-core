@@ -431,6 +431,30 @@ def test_chunk_events_by_key():
     assert result[1].data["subevents"][0] == e3
 
 
+def test_chunk_events_by_key_respects_pulsetime_gap():
+    """A gap larger than pulsetime must split chunks, not only for the last pair."""
+    t0 = datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+    events = [
+        Event(timestamp=t0, duration=timedelta(seconds=10), data={"app": "A"}),
+        Event(
+            timestamp=t0 + timedelta(hours=1),
+            duration=timedelta(seconds=10),
+            data={"app": "A"},
+        ),
+    ]
+
+    with pytest.warns(DeprecationWarning):
+        chunks = chunk_events_by_key(events, "app", pulsetime=5)
+    assert len(chunks) == 2
+
+    # Control: events inside the pulse window still merge.
+    events[1].timestamp = t0 + timedelta(seconds=10)
+    with pytest.warns(DeprecationWarning):
+        chunks = chunk_events_by_key(events, "app", pulsetime=5)
+    assert len(chunks) == 1
+    assert chunks[0].duration == timedelta(seconds=20)
+
+
 def _split(url):
     e = Event(data={"url": url}, timestamp=datetime.now(timezone.utc), duration=1)
     return split_url_events([e])[0].data
