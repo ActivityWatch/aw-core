@@ -455,6 +455,50 @@ def test_chunk_events_by_key_respects_pulsetime_gap():
     assert chunks[0].duration == timedelta(seconds=20)
 
 
+@pytest.mark.parametrize("order", [(0, 1, 2), (2, 1, 0), (1, 0, 2)])
+@pytest.mark.parametrize(
+    "offsets,expected_sizes",
+    [
+        ((0, 13, 26), [3]),  # Both gaps are 3s, despite summed duration being 20s.
+        ((0, 3600, 7200), [1, 1, 1]),
+        ((0, 13, 28), [2, 1]),  # A gap exactly equal to pulsetime still splits.
+    ],
+)
+def test_chunk_events_by_key_actual_gaps(order, offsets, expected_sizes):
+    t0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    events = [
+        Event(timestamp=t0 + timedelta(seconds=s), duration=10, data={"app": "A"})
+        for s in offsets
+    ]
+    supplied = [events[i] for i in order]
+    original = list(supplied)
+    with pytest.warns(DeprecationWarning):
+        chunks = chunk_events_by_key(supplied, "app", pulsetime=5)
+
+    assert [len(e.data["subevents"]) for e in chunks] == expected_sizes
+    assert [e.duration for e in chunks] == [
+        timedelta(seconds=10 * size) for size in expected_sizes
+    ]
+    assert [e for chunk in chunks for e in chunk.data["subevents"]] == events
+    assert supplied == original  # Sorting must not mutate the caller's list.
+    assert all(e.duration == timedelta(seconds=10) for e in events)
+
+
+def test_chunk_events_by_key_tracks_end_of_overlapping_events():
+    t0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    events = [
+        Event(timestamp=t0, duration=30, data={"app": "A"}),
+        Event(timestamp=t0 + timedelta(seconds=10), duration=1, data={"app": "A"}),
+        Event(timestamp=t0 + timedelta(seconds=33), duration=10, data={"app": "A"}),
+    ]
+    with pytest.warns(DeprecationWarning):
+        chunks = chunk_events_by_key(events, "app", pulsetime=5)
+    assert len(chunks) == 1
+    assert chunks[0].timestamp == t0
+    assert chunks[0].duration == timedelta(seconds=41)
+    assert chunks[0].data["subevents"] == events
+
+
 def _split(url):
     e = Event(data={"url": url}, timestamp=datetime.now(timezone.utc), duration=1)
     return split_url_events([e])[0].data

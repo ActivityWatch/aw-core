@@ -1,7 +1,7 @@
 import logging
 import warnings
-from datetime import timedelta
-from typing import List
+from datetime import datetime, timedelta
+from typing import List, Optional
 
 from aw_core.models import Event
 
@@ -21,6 +21,9 @@ def chunk_events_by_key(
     """
     "Chunks" adjacent events together which have the same value for a key, and stores the
     original events in the :code:`subevents` key of the new event.
+    Events are processed in timestamp order without modifying the input list.
+    Chunk durations sum event durations, excluding gaps; the pulse window is
+    measured from the actual end of the chunk, not that summed duration.
 
     .. deprecated::
         Will be removed (ActivityWatch/activitywatch#1466). There is no
@@ -30,27 +33,26 @@ def chunk_events_by_key(
     """
     warnings.warn(CHUNK_DEPRECATION, DeprecationWarning, stacklevel=2)
     chunked_events: List[Event] = []
-    for event in events:
+    chunk_end: Optional[datetime] = None
+    for event in sorted(events, key=lambda e: e.timestamp):
         if key not in event.data:
             break
-        timediff = timedelta(seconds=999999999)  # FIXME: ugly but works
-        if len(chunked_events) > 0:
-            timediff = event.timestamp - (
-                chunked_events[-1].timestamp + chunked_events[-1].duration
-            )
+        event_end = event.timestamp + event.duration
         if (
-            len(chunked_events) > 0
+            chunk_end is not None
             and chunked_events[-1].data[key] == event.data[key]
-            and timediff < timedelta(seconds=pulsetime)
+            and event.timestamp - chunk_end < timedelta(seconds=pulsetime)
         ):
             chunked_event = chunked_events[-1]
             chunked_event.duration += event.duration
             chunked_event.data["subevents"].append(event)
+            chunk_end = max(chunk_end, event_end)
         else:
             data = {key: event.data[key], "subevents": [event]}
             chunked_event = Event(
                 timestamp=event.timestamp, duration=event.duration, data=data
             )
             chunked_events.append(chunked_event)
+            chunk_end = event_end
 
     return chunked_events

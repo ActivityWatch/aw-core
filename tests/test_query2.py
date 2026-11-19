@@ -646,6 +646,46 @@ def test_query2_malformed_rules_are_query_errors(q):
         )
 
 
+@pytest.mark.parametrize("datastore", param_datastore_objects())
+@pytest.mark.parametrize(
+    "offsets,expected_sizes", [((0, 13, 26), [3]), ((0, 3600, 7200), [1, 1, 1])]
+)
+def test_query2_chunk_events_by_key_bucket_gaps(datastore, offsets, expected_sizes):
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    with TempTestBucket(datastore) as bucket:
+        for offset in offsets:
+            bucket.insert(
+                Event(
+                    timestamp=start + timedelta(seconds=offset),
+                    duration=10,
+                    data={"app": "A"},
+                )
+            )
+        # Exercise the real newest-first datastore -> query wrapper path.
+        raw = query(
+            "test",
+            f'RETURN = query_bucket("{bucket.bucket_id}");',
+            start,
+            start + timedelta(hours=3),
+            datastore,
+        )
+        assert [e.timestamp for e in raw] == [
+            start + timedelta(seconds=s) for s in reversed(offsets)
+        ]
+        result = query(
+            "test",
+            f'RETURN = chunk_events_by_key(query_bucket("{bucket.bucket_id}"), "app");',
+            start,
+            start + timedelta(hours=3),
+            datastore,
+        )
+        assert [len(e.data["subevents"]) for e in result] == expected_sizes
+        assert [e.duration for e in result] == [
+            timedelta(seconds=10 * size) for size in expected_sizes
+        ]
+        assert result[0].timestamp == start
+
+
 def test_query2_chunk_deprecation_logged_once(caplog):
     """The deprecation warning is logged once per process, not on every query"""
     import aw_query.functions as functions
