@@ -444,6 +444,102 @@ def test_chunk_events_by_key():
     assert result[1].data["subevents"][0] == e3
 
 
+def test_chunk_events_by_key_respects_pulsetime_gap():
+    """A gap larger than pulsetime must split chunks, not only for the last pair."""
+    t0 = datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+    events = [
+        Event(timestamp=t0, duration=timedelta(seconds=10), data={"app": "A"}),
+        Event(
+            timestamp=t0 + timedelta(hours=1),
+            duration=timedelta(seconds=10),
+            data={"app": "A"},
+        ),
+    ]
+
+    with pytest.warns(DeprecationWarning):
+        chunks = chunk_events_by_key(events, "app", pulsetime=5)
+    assert len(chunks) == 2
+
+    # Control: events inside the pulse window still merge.
+    events[1].timestamp = t0 + timedelta(seconds=10)
+    with pytest.warns(DeprecationWarning):
+        chunks = chunk_events_by_key(events, "app", pulsetime=5)
+    assert len(chunks) == 1
+    assert chunks[0].duration == timedelta(seconds=20)
+
+
+@pytest.mark.parametrize("order", [(0, 1, 2), (2, 1, 0), (1, 0, 2)])
+@pytest.mark.parametrize(
+    "offsets,expected_sizes",
+    [
+        ((0, 13, 26), [3]),  # Both gaps are 3s, despite summed duration being 20s.
+        ((0, 3600, 7200), [1, 1, 1]),
+        ((0, 13, 28), [2, 1]),  # A gap exactly equal to pulsetime still splits.
+    ],
+)
+def test_chunk_events_by_key_actual_gaps(order, offsets, expected_sizes):
+    t0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    events = [
+        Event(timestamp=t0 + timedelta(seconds=s), duration=10, data={"app": "A"})
+        for s in offsets
+    ]
+    supplied = [events[i] for i in order]
+    original = list(supplied)
+    with pytest.warns(DeprecationWarning):
+        chunks = chunk_events_by_key(supplied, "app", pulsetime=5)
+
+    assert [len(e.data["subevents"]) for e in chunks] == expected_sizes
+    assert [e.duration for e in chunks] == [
+        timedelta(seconds=10 * size) for size in expected_sizes
+    ]
+    assert [e for chunk in chunks for e in chunk.data["subevents"]] == events
+    assert supplied == original  # Sorting must not mutate the caller's list.
+    assert all(e.duration == timedelta(seconds=10) for e in events)
+
+
+def test_chunk_events_by_key_tracks_end_of_overlapping_events():
+    t0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    events = [
+        Event(timestamp=t0, duration=30, data={"app": "A"}),
+        Event(timestamp=t0 + timedelta(seconds=10), duration=1, data={"app": "A"}),
+        Event(timestamp=t0 + timedelta(seconds=33), duration=10, data={"app": "A"}),
+    ]
+    with pytest.warns(DeprecationWarning):
+        chunks = chunk_events_by_key(events, "app", pulsetime=5)
+    assert len(chunks) == 1
+    assert chunks[0].timestamp == t0
+    assert chunks[0].duration == timedelta(seconds=41)
+    assert chunks[0].data["subevents"] == events
+
+
+@pytest.mark.parametrize("order", [(0, 1, 2, 3, 4), (4, 3, 2, 1, 0), (2, 0, 4, 1, 3)])
+@pytest.mark.parametrize("leading_missing", [False, True])
+def test_chunk_events_by_key_skips_missing_keys(order, leading_missing):
+    t0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    events = [
+        Event(timestamp=t0, duration=10, data={}),
+        Event(timestamp=t0 + timedelta(seconds=10), duration=10, data={"app": "A"}),
+        Event(timestamp=t0 + timedelta(seconds=20), duration=1, data={}),
+        Event(timestamp=t0 + timedelta(seconds=23), duration=10, data={"app": "A"}),
+        Event(timestamp=t0 + timedelta(seconds=60), duration=10, data={"app": "B"}),
+    ]
+    supplied = [events[i] for i in order if leading_missing or i != 0]
+    before = [event.to_json_dict() for event in supplied]
+    with pytest.warns(DeprecationWarning):
+        chunks = chunk_events_by_key(supplied, "app", pulsetime=5)
+
+    assert [chunk.data["app"] for chunk in chunks] == ["A", "B"]
+    assert [chunk.duration for chunk in chunks] == [
+        timedelta(seconds=20),
+        timedelta(seconds=10),
+    ]
+    assert [chunk.data["subevents"] for chunk in chunks] == [
+        [events[1], events[3]],
+        [events[4]],
+    ]
+    assert [event.to_json_dict() for event in supplied] == before
+
+
 def _split(url):
     e = Event(data={"url": url}, timestamp=datetime.now(timezone.utc), duration=1)
     return split_url_events([e])[0].data
