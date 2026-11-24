@@ -399,3 +399,20 @@ def test_migration_keeps_source_event_id_high_water_mark(v1_db_path, v2_datastor
         "test-bucket", Event(timestamp=datetime.now(timezone.utc), data={})
     )
     assert new.id == 101
+
+
+def test_replacement_ids_come_after_source_high_water_mark(v1_db_path, v2_datastore):
+    with sqlite3.connect(v1_db_path) as source:
+        bucket = source.execute("SELECT * FROM buckets").fetchone()
+        source.execute("CREATE TABLE seq_probe (id INTEGER PRIMARY KEY AUTOINCREMENT)")
+        source.execute("INSERT INTO sqlite_sequence(name, seq) VALUES ('events', 100)")
+    v2_datastore.create_bucket(bucket[0], bucket[2], bucket[3], bucket[4], bucket[5])
+    v2_datastore.conn.execute(
+        "INSERT INTO events(id, bucketrow, starttime, endtime, datastr) "
+        "VALUES (2, 1, 0, 1, '{\"unrelated\": true}')"
+    )
+    v2_datastore.commit()
+    sqlite_v1_to_v2(v2_datastore, v1_db_path)
+
+    ids = sorted(e.id for e in v2_datastore.get_events("test-bucket", -1))
+    assert ids == [1, 2, 3, 101]
