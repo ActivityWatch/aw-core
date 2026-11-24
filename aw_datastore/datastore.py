@@ -1,4 +1,5 @@
 import logging
+import threading
 from datetime import datetime, timedelta, timezone
 from typing import (
     Callable,
@@ -24,6 +25,9 @@ class Datastore:
     ) -> None:
         self.logger = logger.getChild("Datastore")
         self.bucket_instances: Dict[str, Bucket] = dict()
+        # Serializes cache misses against deletes, so a lookup racing a delete
+        # cannot cache a handle for a bucket that is about to disappear.
+        self._bucket_lock = threading.RLock()
 
         self.storage_strategy = storage_strategy(testing=testing, **kwargs)
 
@@ -31,19 +35,23 @@ class Datastore:
         return f"<Datastore object using {self.storage_strategy.__class__.__name__}>"
 
     def __getitem__(self, bucket_id: str) -> "Bucket":
-        # If this bucket doesn't have a initialized object, create it
-        if bucket_id not in self.bucket_instances:
-            # If the bucket exists in the database, create an object representation of it
-            if self.has_bucket(bucket_id):
-                bucket = Bucket(self, bucket_id)
-                self.bucket_instances[bucket_id] = bucket
-            else:
-                self.logger.error(
-                    f"Cannot create a Bucket object for {bucket_id} because it doesn't exist in the database"
-                )
-                raise KeyError
+        bucket = self.bucket_instances.get(bucket_id)
+        if bucket is not None:
+            return bucket
+        with self._bucket_lock:
+            # If this bucket doesn't have a initialized object, create it
+            if bucket_id not in self.bucket_instances:
+                # If the bucket exists in the database, create an object representation of it
+                if self.has_bucket(bucket_id):
+                    bucket = Bucket(self, bucket_id)
+                    self.bucket_instances[bucket_id] = bucket
+                else:
+                    self.logger.error(
+                        f"Cannot create a Bucket object for {bucket_id} because it doesn't exist in the database"
+                    )
+                    raise KeyError
 
-        return self.bucket_instances[bucket_id]
+            return self.bucket_instances[bucket_id]
 
     def create_bucket(
         self,
@@ -68,9 +76,13 @@ class Datastore:
 
     def delete_bucket(self, bucket_id: str):
         self.logger.info(f"Deleting bucket '{bucket_id}'")
-        if bucket_id in self.bucket_instances:
-            del self.bucket_instances[bucket_id]
-        return self.storage_strategy.delete_bucket(bucket_id)
+        with self._bucket_lock:
+            try:
+                return self.storage_strategy.delete_bucket(bucket_id)
+            finally:
+                # Drop the handle only once storage no longer has the bucket;
+                # the lock keeps a concurrent miss from re-caching it meanwhile.
+                self.bucket_instances.pop(bucket_id, None)
 
     def has_bucket(self, bucket_id: str) -> bool:
         return self.storage_strategy.has_bucket(bucket_id)
