@@ -58,5 +58,8 @@ def test_negative_duration_events_are_dropped():
     # drops it, whether it's the event or the filter.
     assert filter_period_intersect([_e(5, -2)], [_e(0, 10)]) == []
     assert filter_period_intersect([_e(0, 10)], [_e(5, -2)]) == []
+    # Only the negative filter is dropped, not the whole filter list
+    result = filter_period_intersect([_e(0, 10)], [_e(5, -2), _e(6, 4)])
+    assert _spans(result) == [(6, 4)]
     result = filter_period_intersect([_e(0, 10), _e(5, -2)], [_e(0, 10)])
     assert _spans(result) == [(0, 10)]

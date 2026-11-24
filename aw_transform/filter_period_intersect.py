@@ -95,8 +95,9 @@ def filter_period_intersect(
 
     # A negative-duration event covers no time; passed through, it would
     # subtract time from any sum over the result. Drop it, as flood does.
-    events = sorted(e for e in events if e.duration >= timedelta(0))
-    filterevents = sorted(e for e in filterevents if e.duration >= timedelta(0))
+    zero = timedelta(0)
+    events = sorted(e for e in events if e.duration >= zero)
+    filterevents = sorted(e for e in filterevents if e.duration >= zero)
 
     return [
         _replace_event_period(e1, ip)
