@@ -383,3 +383,19 @@ def test_recovery_reassigns_only_ids_taken_in_destination(v1_db_path, v2_datasto
         "SELECT starttime FROM events WHERE id = 3"
     ).fetchone()[0]
     assert got3 == start3
+
+
+def test_migration_keeps_source_event_id_high_water_mark(v1_db_path, v2_datastore):
+    # v1 issued IDs up to 100 and later deleted 4..100: a new v2 event must not
+    # reuse an ID a caller may still hold.
+    with sqlite3.connect(v1_db_path) as source:
+        source.execute("CREATE TABLE seq_probe (id INTEGER PRIMARY KEY AUTOINCREMENT)")
+        source.execute("INSERT INTO sqlite_sequence(name, seq) VALUES ('events', 100)")
+    sqlite_v1_to_v2(v2_datastore, v1_db_path)
+
+    from aw_core.models import Event
+
+    new = v2_datastore.insert_one(
+        "test-bucket", Event(timestamp=datetime.now(timezone.utc), data={})
+    )
+    assert new.id == 101

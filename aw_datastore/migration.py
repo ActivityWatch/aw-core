@@ -166,6 +166,23 @@ def sqlite_v1_to_v2(datastore: AbstractStorage, v1_path: str) -> None:
                 "INSERT INTO events(bucketrow, starttime, endtime, datastr) VALUES (?, ?, ?, ?)",
                 deferred,
             )
+            # Carry the AUTOINCREMENT high-water mark: IDs of events deleted in v1
+            # were already issued, so v2 must not hand them out again.
+            try:
+                row = source.execute(
+                    "SELECT seq FROM sqlite_sequence WHERE name = 'events'"
+                ).fetchone()
+            except sqlite3.OperationalError:  # source never used AUTOINCREMENT
+                row = None
+            if row:
+                if not destination.execute(
+                    "UPDATE sqlite_sequence SET seq = MAX(seq, ?) WHERE name = 'events'",
+                    row,
+                ).rowcount:
+                    destination.execute(
+                        "INSERT INTO sqlite_sequence(name, seq) VALUES ('events', ?)",
+                        row,
+                    )
             # Completion commits alongside the data, never before it. Retaining
             # the source avoids unsafe main-file-only renames of WAL databases.
             destination.execute(
