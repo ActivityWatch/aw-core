@@ -31,6 +31,8 @@ class MemoryStorage(AbstractStorage):
         data=None,
         device_id: str = "local",
     ) -> None:
+        if bucket_id in self.db:
+            raise ValueError(f"Bucket already exists: {bucket_id}")
         if not name:
             name = bucket_id
         self._metadata[bucket_id] = {
