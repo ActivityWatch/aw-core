@@ -101,6 +101,10 @@ def sqlite_v1_to_v2(datastore: AbstractStorage, v1_path: str) -> None:
         # methods here: create_bucket/insert_many may commit midway through a copy.
         source.execute("BEGIN")
         with destination:
+            # Events whose source ID a recovered destination already holds. They
+            # get fresh IDs only after every other source ID is placed, so a
+            # replacement can never consume a later source event's ID.
+            deferred = []
             buckets = source.execute(
                 "SELECT rowid, id, name, type, client, hostname, created, datastr FROM buckets"
             ).fetchall()
@@ -148,15 +152,20 @@ def sqlite_v1_to_v2(datastore: AbstractStorage, v1_path: str) -> None:
                         existing[key] -= 1
                     else:
                         # Copy ID, integer microseconds and JSON verbatim: callers
-                        # address events by ID. Only an ID already taken in a
-                        # recovered destination gets a fresh one.
-                        taken = destination.execute(
+                        # address events by ID.
+                        if destination.execute(
                             "SELECT 1 FROM events WHERE id = ?", (source_id,)
-                        ).fetchone()
+                        ).fetchone():
+                            deferred.append((bucketrow, *event))
+                            continue
                         destination.execute(
                             "INSERT INTO events(id, bucketrow, starttime, endtime, datastr) VALUES (?, ?, ?, ?, ?)",
-                            (None if taken else source_id, bucketrow, *event),
+                            (source_id, bucketrow, *event),
                         )
+            destination.executemany(
+                "INSERT INTO events(bucketrow, starttime, endtime, datastr) VALUES (?, ?, ?, ?)",
+                deferred,
+            )
             # Completion commits alongside the data, never before it. Retaining
             # the source avoids unsafe main-file-only renames of WAL databases.
             destination.execute(

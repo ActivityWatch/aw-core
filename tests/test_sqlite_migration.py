@@ -374,3 +374,12 @@ def test_recovery_reassigns_only_ids_taken_in_destination(v1_db_path, v2_datasto
     ids = sorted(e.id for e in v2_datastore.get_events("test-bucket", -1))
     assert len(ids) == 4 and {1, 2, 3} <= set(ids)
     assert v2_datastore.get_event("test-bucket", 2).data == {"unrelated": True}
+    # The replacement ID for source event 2 must not consume source event 3's ID.
+    with sqlite3.connect(v1_db_path) as source:
+        start3 = source.execute("SELECT starttime FROM events WHERE id = 3").fetchone()[
+            0
+        ]
+    got3 = v2_datastore.conn.execute(
+        "SELECT starttime FROM events WHERE id = 3"
+    ).fetchone()[0]
+    assert got3 == start3
