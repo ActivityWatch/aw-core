@@ -111,14 +111,12 @@ class QString(QToken):
         if quotes_type != '"' and quotes_type != "'":
             return token, string
         token += quotes_type
-        prev_char = None
+        escaped = False
         for char in string[1:]:
             token += char
-            if (
-                char == quotes_type and prev_char != "\\"
-            ):  # escape quote_type with backslash
+            if char == quotes_type and not escaped:  # escape quote_type with backslash
                 break
-            prev_char = char
+            escaped = char == "\\" and not escaped
         if token[-1] != quotes_type or len(token) < 2:
             # Unclosed string?
             raise QueryParseException("Failed to parse string")
@@ -194,12 +192,12 @@ class QFunction(QToken):
         to_consume = 1
         single_quote = False
         double_quote = False
-        prev_char = None
+        escaped = False
         for char in string[i:]:
             i = i + 1
-            if char == "'" and prev_char != "\\" and not double_quote:
+            if char == "'" and not escaped and not double_quote:
                 single_quote = not single_quote
-            elif char == '"' and prev_char != "\\" and not single_quote:
+            elif char == '"' and not escaped and not single_quote:
                 double_quote = not double_quote
             elif single_quote or double_quote:
                 pass
@@ -211,7 +209,7 @@ class QFunction(QToken):
                 to_consume -= 1
             if to_consume == 0:
                 break
-            prev_char = char
+            escaped = char == "\\" and not escaped
         if to_consume != 0:
             return None, string
         return string[:i], string[i:]
@@ -263,12 +261,12 @@ class QDict(QToken):
         to_consume = 1
         single_quote = False
         double_quote = False
-        prev_char = None
+        escaped = False
         for char in string[i:]:
             i += 1
-            if char == "'" and prev_char != "\\" and not double_quote:
+            if char == "'" and not escaped and not double_quote:
                 single_quote = not single_quote
-            elif char == '"' and prev_char != "\\" and not single_quote:
+            elif char == '"' and not escaped and not single_quote:
                 double_quote = not double_quote
             elif single_quote or double_quote:
                 pass
@@ -278,7 +276,7 @@ class QDict(QToken):
                 to_consume = to_consume + 1
             if to_consume == 0:
                 break
-            prev_char = char
+            escaped = char == "\\" and not escaped
         if to_consume != 0:
             raise QueryParseException(f"Unclosed dict: {string}")
         return string[:i], string[i:]
@@ -320,12 +318,12 @@ class QList(QToken):
         to_consume = 1
         single_quote = False
         double_quote = False
-        prev_char = None
+        escaped = False
         for char in string[i:]:
             i += 1
-            if char == "'" and prev_char != "\\" and not double_quote:
+            if char == "'" and not escaped and not double_quote:
                 single_quote = not single_quote
-            elif char == '"' and prev_char != "\\" and not single_quote:
+            elif char == '"' and not escaped and not single_quote:
                 double_quote = not double_quote
             elif double_quote or single_quote:
                 pass
@@ -335,7 +333,7 @@ class QList(QToken):
                 to_consume = to_consume + 1
             if to_consume == 0:
                 break
-            prev_char = char
+            escaped = char == "\\" and not escaped
         if to_consume != 0:
             raise QueryParseException(f"Unclosed list: {string}")
         return string[:i], string[i:]
@@ -442,13 +440,13 @@ def _split_query_statements(query: str) -> List[str]:
     current = ""
     in_single_quote = False
     in_double_quote = False
-    prev_char = None
+    escaped = False
 
     for char in query:
-        if char == "'" and prev_char != "\\" and not in_double_quote:
+        if char == "'" and not escaped and not in_double_quote:
             in_single_quote = not in_single_quote
             current += char
-        elif char == '"' and prev_char != "\\" and not in_single_quote:
+        elif char == '"' and not escaped and not in_single_quote:
             in_double_quote = not in_double_quote
             current += char
         elif char == ";" and not in_single_quote and not in_double_quote:
@@ -456,7 +454,7 @@ def _split_query_statements(query: str) -> List[str]:
             current = ""
         else:
             current += char
-        prev_char = char
+        escaped = char == "\\" and not escaped
 
     if current:
         statements.append(current)
