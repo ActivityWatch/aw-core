@@ -50,3 +50,13 @@ def test_adjacent_filters():
     result = filter_period_intersect([_e(0, 10)], [_e(0, 6), _e(6, 4)])
     assert _spans(result) == [(0, 6), (6, 4)]
     assert sum(e.duration.total_seconds() for e in result) == 10
+
+
+def test_negative_duration_events_are_dropped():
+    # A negative-duration event covers no time. Passed through, it would
+    # subtract time from any sum over the result, so it's dropped like flood
+    # drops it, whether it's the event or the filter.
+    assert filter_period_intersect([_e(5, -2)], [_e(0, 10)]) == []
+    assert filter_period_intersect([_e(0, 10)], [_e(5, -2)]) == []
+    result = filter_period_intersect([_e(0, 10), _e(5, -2)], [_e(0, 10)])
+    assert _spans(result) == [(0, 10)]

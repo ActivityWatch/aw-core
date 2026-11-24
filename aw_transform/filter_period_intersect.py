@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 from typing import List, Iterable, Tuple
 
 from aw_core import Event
@@ -92,8 +93,10 @@ def filter_period_intersect(
     A JavaScript version used to exist in aw-webui but was removed in `this PR <https://github.com/ActivityWatch/aw-webui/pull/48>`_.
     """
 
-    events = sorted(events)
-    filterevents = sorted(filterevents)
+    # A negative-duration event covers no time; passed through, it would
+    # subtract time from any sum over the result. Drop it, as flood does.
+    events = sorted(e for e in events if e.duration >= timedelta(0))
+    filterevents = sorted(e for e in filterevents if e.duration >= timedelta(0))
 
     return [
         _replace_event_period(e1, ip)
