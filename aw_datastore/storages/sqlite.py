@@ -194,6 +194,10 @@ class SqliteStorage(AbstractStorage):
         for row in c.execute(
             "SELECT id, device_id, name, type, client, hostname, created, datastr FROM buckets"
         ):
+            # The legacy string-keyed API cannot represent cross-device collisions.
+            # Fail closed until callers use the device-scoped storage interface.
+            if row[0] in buckets:
+                raise ValueError(f"Ambiguous bucket id: {row[0]}")
             buckets[row[0]] = {
                 "id": row[0],
                 "device_id": row[1],
@@ -226,6 +230,8 @@ class SqliteStorage(AbstractStorage):
         try:
             buckets = {}
             for row in rows:
+                if row[0] in buckets:
+                    raise ValueError(f"Ambiguous bucket id: {row[0]}")
                 metadata = dict(
                     zip(
                         (

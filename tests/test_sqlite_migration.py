@@ -260,6 +260,45 @@ def test_schema_rebuild_rolls_back_after_copy(v1_db_path, monkeypatch):
         connection.close()
 
 
+@pytest.mark.parametrize("listing", ["buckets", "buckets_with_last_updated"])
+def test_bucket_listing_rejects_cross_device_name_collision(
+    v1_db_path, v2_datastore, listing
+):
+    v2_datastore.create_bucket(
+        "test-bucket",
+        "test.type",
+        "remote-client",
+        "remote-host",
+        "2026-01-01T00:00:00+00:00",
+        device_id="remote",
+    )
+    sqlite_v1_to_v2(v2_datastore, v1_db_path)
+
+    with pytest.raises(ValueError, match="Ambiguous bucket id: test-bucket"):
+        getattr(v2_datastore, listing)()
+
+
+@pytest.mark.parametrize("listing", ["buckets", "buckets_with_last_updated"])
+def test_bucket_listing_preserves_unambiguous_string_keys(v2_datastore, listing):
+    for bucket_id, device_id in [
+        ("local-bucket", "local"),
+        ("remote-bucket", "remote"),
+    ]:
+        v2_datastore.create_bucket(
+            bucket_id,
+            "test.type",
+            "test-client",
+            "test-host",
+            "2026-01-01T00:00:00+00:00",
+            device_id=device_id,
+        )
+
+    buckets = getattr(v2_datastore, listing)()
+    assert set(buckets) == {"local-bucket", "remote-bucket"}
+    assert buckets["local-bucket"]["device_id"] == "local"
+    assert buckets["remote-bucket"]["device_id"] == "remote"
+
+
 def test_migration_local_bucket_coexists_with_remote(v1_db_path, v2_datastore):
     v2_datastore.create_bucket(
         "test-bucket",
