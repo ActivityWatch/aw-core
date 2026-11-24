@@ -129,8 +129,10 @@ def test_same_bucket_update_with_competing_writer(storage, monkeypatch, batch):
         else:
             storage.insert_one("source", replacement)
         assert attempted
-        if not committed:
-            competing_insert()
+        # The writer is reserved before the ownership check, so the competitor
+        # must be locked out until the transaction ends.
+        assert not committed
+        competing_insert()
 
     assert storage.get_event("source", original.id).data == {"label": "updated"}
     assert storage.get_eventcount("source") == (3 if batch else 2)
