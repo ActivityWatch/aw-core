@@ -21,7 +21,14 @@ def regex_datastore():
         bucket_id="regex-test", type="test", client="test", hostname="test"
     )
     for index, data in enumerate(
-        [{"title": "Editor"}, {"title": "Browser"}, {"other": "Editor"}]
+        [
+            {"title": "Editor"},
+            {"title": "Browser"},
+            {"other": "Editor"},
+            {"title": None},
+            {"title": 42},
+            {"title": ["Editor"]},
+        ]
     ):
         bucket.insert(
             Event(
@@ -71,6 +78,15 @@ def test_transform_still_raises_regex_error():
         filter_keyvals_regex([], "title", "[")
 
 
-def test_query_wrapper_does_not_reclassify_event_data_type_errors():
+def test_query_wrapper_does_not_reclassify_event_data_type_errors(monkeypatch):
+    def raise_type_error(events, key, regex):
+        raise TypeError("unexpected event data")
+
+    monkeypatch.setattr("aw_query.functions.filter_keyvals_regex", raise_type_error)
     with pytest.raises(TypeError):
-        q2_filter_keyvals_regex(None, {}, [Event(data={"title": 42})], "title", ".*")
+        q2_filter_keyvals_regex(None, {}, [Event(data={"title": "x"})], "title", ".*")
+
+
+def test_query_filter_regex_skips_non_string_values(regex_datastore):
+    result = run_filter(regex_datastore, 'query_bucket("regex-test")', "Edit")
+    assert [event["data"]["title"] for event in result] == ["Editor"]

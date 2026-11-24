@@ -82,6 +82,19 @@ def test_filter_keyval_regex_keyerror():
     assert len(events_re) == 2
 
 
+def test_filter_keyval_regex_non_string_values():
+    # Non-string values (null titles, numbers, $category lists) never match,
+    # like aw-server-rust, instead of raising TypeError mid-query.
+    events = [
+        Event(data={"label": "aa"}),
+        Event(data={"label": None}),
+        Event(data={"label": 12}),
+        Event(data={"label": ["aa"]}),
+    ]
+    events_re = filter_keyvals_regex(events, "label", "aa|12")
+    assert [e.data["label"] for e in events_re] == ["aa"]
+
+
 def test_intersecting_eventpairs():
     td1h = timedelta(hours=1)
     now = datetime.now()

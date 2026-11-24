@@ -23,6 +23,8 @@ def filter_keyvals_regex(events: List[Event], key: str, regex: str) -> List[Even
     r = re.compile(regex)
 
     def predicate(event):
-        return key in event.data and bool(r.findall(event.data[key]))
+        value = event.data.get(key)
+        # Non-string values (null, numbers, lists) never match, as in aw-server-rust.
+        return isinstance(value, str) and bool(r.findall(value))
 
     return [e for e in events if predicate(e)]
