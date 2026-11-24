@@ -30,33 +30,48 @@ class _SlowDeleteStorage(MemoryStorage):
         super().delete_bucket(bucket_id)
 
 
-def test_lookup_during_delete_does_not_leave_zombie_bucket():
+@pytest.mark.parametrize("cached", [True, False], ids=["cached", "uncached"])
+def test_lookup_during_delete_does_not_leave_zombie_bucket(cached):
     ds = Datastore(storage_strategy=_SlowDeleteStorage, testing=True)
     storage = ds.storage_strategy
     ds.create_bucket("b", "test", "test", "test", created=datetime.now(timezone.utc))
+    if not cached:
+        ds.bucket_instances.clear()
 
     deleter = threading.Thread(target=ds.delete_bucket, args=("b",))
     deleter.start()
     assert storage.delete_started.wait(5)
 
+    lookup_started = threading.Event()
     lookup_result = []
 
     def lookup():
+        lookup_started.set()
         try:
-            ds["b"]
-            lookup_result.append("found")
+            bucket = ds["b"]
+            lookup_result.append(bucket.bucket_id)
         except KeyError:
             lookup_result.append("missing")
 
     looker = threading.Thread(target=lookup)
     looker.start()
-    # Give the lookup the chance to run while the delete is still in progress.
-    looker.join(0.2)
-    storage.release_delete.set()
-    deleter.join(5)
-    looker.join(5)
+    try:
+        assert lookup_started.wait(5)
+        if cached:
+            looker.join(5)
+            assert not looker.is_alive()
+        else:
+            # An uncached lookup must wait instead of returning a soon-stale handle.
+            looker.join(0.2)
+            assert looker.is_alive()
+            assert lookup_result == []
+    finally:
+        storage.release_delete.set()
+        deleter.join(5)
+        looker.join(5)
     assert not deleter.is_alive() and not looker.is_alive()
+    assert lookup_result == (["b"] if cached else ["missing"])
 
     assert "b" not in ds.buckets()
     with pytest.raises(KeyError):
-        ds["b"]
+        assert ds["b"] is not None
