@@ -91,13 +91,19 @@ def test_query2_signed_integer_literals(value):
 
 
 @pytest.mark.parametrize(
-    "literal", ["[1, 23", "[1, [2, 3]", '{"a": 12', '{"a": {"b": 1}']
+    "literal, message",
+    [
+        ("[1, 23", "Unclosed list"),
+        ("[1, [2, 3]", "Unclosed list"),
+        ('{"a": 12', "Unclosed dict"),
+        ('{"a": {"b": 1}', "Unclosed dict"),
+    ],
 )
-def test_query2_rejects_unclosed_collections(literal):
+def test_query2_rejects_unclosed_collections(literal, message):
     # An unclosed list/dict used to parse with its last character dropped,
     # silently returning e.g. [1, 2] for "[1, 23".
     start = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    with pytest.raises(QueryParseException):
+    with pytest.raises(QueryParseException, match=message):
         query("test", f"RETURN = {literal};", start, start, mock_ds)
 
 
