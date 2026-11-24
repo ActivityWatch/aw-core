@@ -43,6 +43,13 @@ CREATE_EVENTS_TABLE = """
     )
 """
 
+# Re-check the resolved bucket inside the INSERT: if another connection deleted
+# it after _bucketrow(), the subquery yields NULL and NOT NULL rejects the write.
+INSERT_EVENT = (
+    "INSERT INTO events(bucketrow, starttime, endtime, datastr) "
+    "VALUES ((SELECT rowid FROM buckets WHERE rowid = ?), ?, ?, ?)"
+)
+
 INDEX_BUCKETS_TABLE_ID = """
     CREATE INDEX IF NOT EXISTS event_index_id ON events(id);
 """
@@ -370,11 +377,7 @@ class SqliteStorage(AbstractStorage):
         starttime = event.timestamp.timestamp() * 1000000
         endtime = starttime + (event.duration.total_seconds() * 1000000)
         datastr = json.dumps(event.data)
-        c.execute(
-            "INSERT INTO events(bucketrow, starttime, endtime, datastr) "
-            + "VALUES (?, ?, ?, ?)",
-            [bucketrow, starttime, endtime, datastr],
-        )
+        c.execute(INSERT_EVENT, [bucketrow, starttime, endtime, datastr])
         event.id = c.lastrowid
         self.conditional_commit(1)
         return event
@@ -399,11 +402,7 @@ class SqliteStorage(AbstractStorage):
             endtime = starttime + (event.duration.total_seconds() * 1000000)
             datastr = json.dumps(event.data)
             event_rows.append((bucketrow, starttime, endtime, datastr))
-        query = (
-            "INSERT INTO events(bucketrow, starttime, endtime, datastr) "
-            + "VALUES (?, ?, ?, ?)"
-        )
-        self.conn.executemany(query, event_rows)
+        self.conn.executemany(INSERT_EVENT, event_rows)
         self.conditional_commit(len(event_rows))
 
     def replace_last(self, bucket_id, event):

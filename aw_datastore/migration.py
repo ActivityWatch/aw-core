@@ -139,19 +139,23 @@ def sqlite_v1_to_v2(datastore: AbstractStorage, v1_path: str) -> None:
                         (bucketrow,),
                     )
                 )
-                for event in source.execute(
-                    "SELECT starttime, endtime, datastr FROM events WHERE bucketrow = ? ORDER BY id",
+                for source_id, *event in source.execute(
+                    "SELECT id, starttime, endtime, datastr FROM events WHERE bucketrow = ? ORDER BY id",
                     (source_rowid,),
                 ):
                     key = event_key(event)
                     if existing[key]:
                         existing[key] -= 1
                     else:
-                        # Copy integer microseconds and JSON verbatim; new event
-                        # IDs avoid collisions with pre-existing destination rows.
+                        # Copy ID, integer microseconds and JSON verbatim: callers
+                        # address events by ID. Only an ID already taken in a
+                        # recovered destination gets a fresh one.
+                        taken = destination.execute(
+                            "SELECT 1 FROM events WHERE id = ?", (source_id,)
+                        ).fetchone()
                         destination.execute(
-                            "INSERT INTO events(bucketrow, starttime, endtime, datastr) VALUES (?, ?, ?, ?)",
-                            (bucketrow, *event),
+                            "INSERT INTO events(id, bucketrow, starttime, endtime, datastr) VALUES (?, ?, ?, ?, ?)",
+                            (None if taken else source_id, bucketrow, *event),
                         )
             # Completion commits alongside the data, never before it. Retaining
             # the source avoids unsafe main-file-only renames of WAL databases.

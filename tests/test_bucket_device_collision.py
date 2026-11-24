@@ -122,3 +122,22 @@ def test_peewee_rejects_device_id_it_cannot_store(tmp_path):
     assert "remote-only" not in store.buckets()
     create(store, "local-ok")
     assert store.get_metadata("local-ok")["device_id"] == "local"
+
+
+def test_insert_rejects_bucket_deleted_after_lookup(storage, monkeypatch):
+    # Another connection may delete the bucket between _bucketrow() and the
+    # INSERT; the write must fail rather than orphan the event.
+    import sqlite3
+
+    create(storage)
+    storage.commit()
+    resolve = storage._bucketrow
+
+    def racing(bucket_id):
+        row = resolve(bucket_id)
+        storage.conn.execute("DELETE FROM buckets WHERE rowid = ?", (row,))
+        return row
+
+    monkeypatch.setattr(storage, "_bucketrow", racing)
+    with pytest.raises(sqlite3.IntegrityError):
+        storage.insert_one("shared", event())

@@ -336,3 +336,41 @@ def test_detect_db_files_ignores_sqlite_sidecars(tmpdir, monkeypatch):
     from aw_datastore.migration import detect_db_files
 
     assert detect_db_files(str(tmpdir), "sqlite", 1) == ["sqlite.v1.db"]
+
+
+def test_migration_preserves_source_event_ids(v1_db_path, v2_datastore):
+    # Event IDs are table-wide; callers address events by ID (get_event,
+    # replace, delete), so the upgrade must not renumber them per bucket.
+    with sqlite3.connect(v1_db_path) as source:
+        source.execute(
+            "INSERT INTO buckets SELECT 'other', 'other', type, client, hostname, "
+            "created, datastr FROM buckets"
+        )
+        other = source.execute(
+            "SELECT rowid FROM buckets WHERE id = 'other'"
+        ).fetchone()[0]
+        source.execute(
+            "INSERT INTO events VALUES (7, ?, 0, 1000000, '{\"other\": true}')",
+            (other,),
+        )
+    sqlite_v1_to_v2(v2_datastore, v1_db_path)
+
+    assert [e.id for e in v2_datastore.get_events("test-bucket", -1)] == [3, 2, 1]
+    assert v2_datastore.get_event("other", 7).data == {"other": True}
+
+
+def test_recovery_reassigns_only_ids_taken_in_destination(v1_db_path, v2_datastore):
+    with sqlite3.connect(v1_db_path) as source:
+        bucket = source.execute("SELECT * FROM buckets").fetchone()
+    v2_datastore.create_bucket(bucket[0], bucket[2], bucket[3], bucket[4], bucket[5])
+    # An unrelated destination event already holds source event 2's ID.
+    v2_datastore.conn.execute(
+        "INSERT INTO events(id, bucketrow, starttime, endtime, datastr) "
+        "VALUES (2, 1, 0, 1, '{\"unrelated\": true}')"
+    )
+    v2_datastore.commit()
+    sqlite_v1_to_v2(v2_datastore, v1_db_path)
+
+    ids = sorted(e.id for e in v2_datastore.get_events("test-bucket", -1))
+    assert len(ids) == 4 and {1, 2, 3} <= set(ids)
+    assert v2_datastore.get_event("test-bucket", 2).data == {"unrelated": True}
