@@ -89,7 +89,8 @@ class Rule:
         elif not isinstance(fields, dict) or not fields:
             problem = "'fields' must be a non-empty mapping of field to pattern"
         elif not all(
-            isinstance(k, str) and isinstance(v, str) and v for k, v in fields.items()
+            isinstance(k, str) and k and isinstance(v, str) and v
+            for k, v in fields.items()
         ):
             problem = "'fields' keys and patterns must be non-empty strings"
         if problem is None:

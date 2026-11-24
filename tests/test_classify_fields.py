@@ -73,6 +73,7 @@ def test_ambiguous_or_invalid_fields_match_nothing(caplog):
         {"fields": {}},
         {"fields": ["app"]},
         {"fields": {"app": ""}},
+        {"fields": {"": "mstsc"}},
         {"fields": {"app": "("}},
     ]
     with caplog.at_level(logging.WARNING):
