@@ -281,6 +281,12 @@ class PeeweeStorage(AbstractStorage):
         data: Optional[Dict[str, Any]] = None,
         device_id: str = "local",
     ):
+        if device_id != "local":
+            # No device_id column in this legacy schema; refuse rather than
+            # silently relabel the bucket as local.
+            raise ValueError(
+                f"PeeweeStorage only supports device_id='local', got {device_id!r}"
+            )
         BucketModel.create(
             id=bucket_id,
             type=type_id,

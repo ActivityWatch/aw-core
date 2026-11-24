@@ -109,3 +109,16 @@ def test_replace_last_never_modifies_another_bucket_with_same_endtime(storage):
     storage.replace_last("shared", replacement)
     assert storage.get_event("other", other.id).data == {"test": 1}
     assert storage.get_events("shared", -1)[0].data == {"changed": True}
+
+
+def test_peewee_rejects_device_id_it_cannot_store(tmp_path):
+    # Peewee has no device_id column: a non-local identity must be refused,
+    # not accepted and then reported back as "local".
+    from aw_datastore.storages import PeeweeStorage
+
+    store = PeeweeStorage(testing=True, filepath=str(tmp_path / "peewee.db"))
+    with pytest.raises(ValueError, match="device_id"):
+        create(store, "remote-only", device_id="remote")
+    assert "remote-only" not in store.buckets()
+    create(store, "local-ok")
+    assert store.get_metadata("local-ok")["device_id"] == "local"

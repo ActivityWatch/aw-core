@@ -16,7 +16,11 @@ logger = logging.getLogger(__name__)
 def detect_db_files(
     data_dir: str, datastore_name: Optional[str] = None, version=None
 ) -> List[str]:
-    db_files = [filename for filename in os.listdir(data_dir)]
+    # Only main database files: SQLite sidecars (-wal, -shm, -journal) share the
+    # name and version components and must never be opened as a database.
+    db_files = [
+        filename for filename in os.listdir(data_dir) if filename.endswith(".db")
+    ]
     if datastore_name:
         db_files = [
             filename

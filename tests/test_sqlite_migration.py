@@ -319,3 +319,20 @@ def test_migration_local_bucket_coexists_with_remote(v1_db_path, v2_datastore):
         ).fetchone()[0]
         == 3
     )
+
+
+def test_detect_db_files_ignores_sqlite_sidecars(tmpdir, monkeypatch):
+    # os.listdir order is unspecified; a -wal/-shm sidecar listed first must
+    # never be selected as the v1 database to migrate.
+    names = [
+        "sqlite.v1.db-wal",
+        "sqlite.v1.db-shm",
+        "sqlite.v1.db",
+        "sqlite.v1.db-journal",
+    ]
+    for name in names:
+        open(os.path.join(str(tmpdir), name), "w").close()
+    monkeypatch.setattr(os, "listdir", lambda _: list(names))
+    from aw_datastore.migration import detect_db_files
+
+    assert detect_db_files(str(tmpdir), "sqlite", 1) == ["sqlite.v1.db"]
