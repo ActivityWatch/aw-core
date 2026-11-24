@@ -1113,10 +1113,13 @@ def test_query2_flood_with_pulsetime(datastore):
 @pytest.mark.parametrize(
     "literal, expected",
     [
-        (r'"C:\\"', "C:\\"),
-        (r'{"path": "C:\\"}', {"path": "C:\\"}),
-        (r'["C:\\", "x"]', ["C:\\", "x"]),
+        # Backslashes stay raw, as in aw-server-rust: only \" is unescaped.
+        (r'"C:\\"', r"C:\\"),
+        (r'"C:\\\\"', r"C:\\\\"),
+        (r'{"path": "C:\\"}', {"path": r"C:\\"}),
+        (r'["C:\\", "x"]', [r"C:\\", "x"]),
         (r'"say \"hi\""', 'say "hi"'),
+        (r'"a\\\"b"', r'a\\"b'),
     ],
 )
 def test_query2_string_ending_in_escaped_backslash(literal, expected):

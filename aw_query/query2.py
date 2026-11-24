@@ -100,8 +100,12 @@ class QString(QToken):
     @staticmethod
     def parse(string: str, namespace: dict) -> "QString":
         quotes_type = string[0]
-        string = string.replace("\\" + quotes_type, quotes_type)
+        # Strip the delimiting quotes first, then unescape quotes, as
+        # aw-server-rust's lexer does. Backslashes are otherwise kept raw:
+        # aw-webui sends category regexes unescaped, so "C:\\" must stay C:\\
+        # (a regex for one literal backslash), not lose its last backslash.
         string = string[1:-1]
+        string = string.replace("\\" + quotes_type, quotes_type)
         return QString(string)
 
     @staticmethod
