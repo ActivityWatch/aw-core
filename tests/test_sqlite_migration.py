@@ -416,3 +416,37 @@ def test_replacement_ids_come_after_source_high_water_mark(v1_db_path, v2_datast
 
     ids = sorted(e.id for e in v2_datastore.get_events("test-bucket", -1))
     assert ids == [1, 2, 3, 101]
+
+
+def test_completed_migration_survives_data_directory_move(
+    v1_db_path, v2_datastore, tmp_path, monkeypatch
+):
+    from pathlib import Path
+
+    from aw_datastore.storages import SqliteStorage
+
+    sqlite_v1_to_v2(v2_datastore, v1_db_path)
+    v2_datastore.conn.execute("DELETE FROM events WHERE id = 2")
+    v2_datastore.commit()
+    v2_datastore.conn.close()
+
+    moved = tmp_path / "relocated"
+    moved.mkdir()
+    for filename in ["sqlite-testing.v1.db", "sqlite-testing.v2.db"]:
+        (Path(v1_db_path).parent / filename).rename(moved / filename)
+    monkeypatch.setattr(
+        "aw_datastore.storages.sqlite.get_data_dir", lambda _: str(moved)
+    )
+    monkeypatch.setattr("aw_datastore.migration.get_data_dir", lambda _: str(moved))
+
+    reopened = SqliteStorage(testing=True)
+    try:
+        assert reopened.get_event("test-bucket", 2) is None
+        assert sorted(e.id for e in reopened.get_events("test-bucket", -1)) == [1, 3]
+        # Retain the original absolute path as provenance, not as the identity
+        # of this destination's one-time v1 -> v2 upgrade.
+        assert reopened.conn.execute(
+            "SELECT path FROM migrated_sources"
+        ).fetchall() == [(str(Path(v1_db_path).resolve()),)]
+    finally:
+        reopened.conn.close()

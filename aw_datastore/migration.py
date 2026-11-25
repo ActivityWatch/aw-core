@@ -89,9 +89,11 @@ def sqlite_v1_to_v2(datastore: AbstractStorage, v1_path: str) -> None:
     destination.execute(
         "CREATE TABLE IF NOT EXISTS migrated_sources (path TEXT PRIMARY KEY)"
     )
-    if destination.execute(
-        "SELECT 1 FROM migrated_sources WHERE path = ?", (source_path,)
-    ).fetchone():
+    # A destination upgrades from v1 once. The recorded path is provenance,
+    # not source identity: moving both databases must not replay the copy and
+    # resurrect events subsequently deleted in v2. This also recognizes
+    # completion records written by earlier revisions of the migration.
+    if destination.execute("SELECT 1 FROM migrated_sources LIMIT 1").fetchone():
         return
 
     logger.info(f"Migrating SQLite v1 → v2: {v1_path}")
