@@ -292,9 +292,13 @@ class SqliteStorage(AbstractStorage):
         data: Optional[dict] = None,
         device_id: str = "local",
     ):
+        # The schema allows one id per device, but the string-keyed API cannot
+        # address such a pair: refuse it until device-scoped addressing exists.
+        # A single statement, so another connection cannot insert in between.
         cursor = self.conn.execute(
             "INSERT INTO buckets(id, device_id, name, type, client, hostname, created, datastr) "
-            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "SELECT ?, ?, ?, ?, ?, ?, ?, ? "
+            "WHERE NOT EXISTS (SELECT 1 FROM buckets WHERE id = ?)",
             [
                 bucket_id,
                 device_id,
@@ -304,9 +308,13 @@ class SqliteStorage(AbstractStorage):
                 hostname,
                 created,
                 json.dumps(data or {}),
+                bucket_id,
             ],
         )
+        # Commit even when refused, to release the write lock.
         self.commit()
+        if cursor.rowcount != 1:
+            raise sqlite3.IntegrityError(f"Bucket already exists: {bucket_id}")
         return self._metadata_for_row(cursor.lastrowid)
 
     def update_bucket(

@@ -1,3 +1,4 @@
+import sqlite3
 from datetime import datetime, timezone
 
 import pytest
@@ -85,7 +86,40 @@ def test_ambiguous_bucket_fails_without_changing_either_device(storage, operatio
 
 def test_create_returns_metadata_of_exact_device(storage):
     assert create(storage)["device_id"] == "local"
-    assert create(storage, device_id="remote")["device_id"] == "remote"
+    assert create(storage, "other", device_id="remote")["device_id"] == "remote"
+
+
+@pytest.mark.parametrize(
+    "first, second",
+    [("local", "remote"), ("remote", "local"), ("local", "local")],
+)
+def test_create_refuses_id_already_used_by_any_device(storage, first, second):
+    # A second row with the same id would make both buckets unaddressable and
+    # break every listing, so it must be refused before it is written.
+    create(storage, device_id=first)
+    storage.insert_one("shared", event())
+    with pytest.raises(sqlite3.IntegrityError, match="shared"):
+        create(storage, device_id=second)
+    assert not storage.conn.in_transaction
+    assert storage.get_metadata("shared")["device_id"] == first
+    assert set(storage.buckets()) == {"shared"}
+    assert set(storage.buckets_with_last_updated()) == {"shared"}
+    storage.insert_one("shared", event())
+    assert storage.get_eventcount("shared") == 2
+
+
+def test_create_refuses_id_committed_by_another_connection(tmp_path):
+    path = str(tmp_path / "shared.db")
+    first = SqliteStorage(testing=True, filepath=path)
+    second = SqliteStorage(testing=True, filepath=path)
+    try:
+        create(first, device_id="remote")
+        with pytest.raises(sqlite3.IntegrityError, match="shared"):
+            create(second)
+        assert second.get_metadata("shared")["device_id"] == "remote"
+    finally:
+        first.conn.close()
+        second.conn.close()
 
 
 @pytest.mark.parametrize("device_id", ["local", "remote"])
@@ -127,8 +161,6 @@ def test_peewee_rejects_device_id_it_cannot_store(tmp_path):
 def test_insert_rejects_bucket_deleted_after_lookup(storage, monkeypatch):
     # Another connection may delete the bucket between _bucketrow() and the
     # INSERT; the write must fail rather than orphan the event.
-    import sqlite3
-
     create(storage)
     storage.commit()
     resolve = storage._bucketrow
