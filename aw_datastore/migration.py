@@ -47,7 +47,16 @@ def check_for_migration(datastore: AbstractStorage, migrate_peewee: bool = True)
         sqlite_v1_files = detect_db_files(data_dir, sqlite_name, 1)
         if len(sqlite_v1_files) > 0:
             v1_path = os.path.join(data_dir, sqlite_v1_files[0])
-            sqlite_v1_to_v2(datastore, v1_path)
+            try:
+                sqlite_v1_to_v2(datastore, v1_path)
+            except (sqlite3.Error, ValueError, TypeError):
+                # An unreadable, locked or corrupt source must not stop the
+                # server from starting. The copy rolled back without a
+                # completion record, so the next startup tries again.
+                logger.exception(
+                    f"SQLite v1 → v2 migration failed, starting without the data "
+                    f"in {v1_path}. It will be retried on the next startup."
+                )
         else:
             peewee_type = "peewee-sqlite"
             peewee_name = peewee_type + suffix

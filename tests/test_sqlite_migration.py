@@ -143,21 +143,17 @@ def test_wal_source_remains_readable(v1_db_path, v2_datastore):
 def test_migration_recovers_hot_source_journal(v1_db_path, v2_datastore):
     # Abrupt exit after dirty pages spill leaves a real hot rollback journal,
     # not a mocked read failure. None of the child's changes were committed.
+    crashing_writer = (
+        "import os, sqlite3, sys; "
+        "conn = sqlite3.connect(sys.argv[1]); "
+        "conn.execute('PRAGMA journal_mode=DELETE'); "
+        "conn.execute('PRAGMA cache_size=1'); "
+        "conn.execute('BEGIN IMMEDIATE'); "
+        "conn.execute(\"UPDATE events SET datastr = ?\", ('x' * 131072,)); "
+        "os._exit(0)"
+    )
     subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            "import os, sqlite3, sys; "
-            "conn = sqlite3.connect(sys.argv[1]); "
-            "conn.execute('PRAGMA journal_mode=DELETE'); "
-            "conn.execute('PRAGMA cache_size=1'); "
-            "conn.execute('BEGIN IMMEDIATE'); "
-            "conn.execute(\"UPDATE events SET datastr = ?\", ('x' * 131072,)); "
-            "os._exit(0)",
-            v1_db_path,
-        ],
-        check=True,
-        timeout=30,
+        [sys.executable, "-c", crashing_writer, v1_db_path], check=True, timeout=30
     )
     assert os.path.getsize(v1_db_path + "-journal") > 512
 
@@ -184,6 +180,43 @@ def test_startup_retries_existing_v2(v1_db_path, v2_datastore, monkeypatch):
         "aw_datastore.migration.get_data_dir", lambda _: os.path.dirname(v1_db_path)
     )
     v2_datastore.conn.close()
+    reopened = SqliteStorage(testing=True)
+    try:
+        assert len(reopened.get_events("test-bucket", -1)) == 3
+    finally:
+        reopened.conn.close()
+
+
+@pytest.mark.parametrize("damage", ["not-a-database", "bad-event-json"])
+def test_startup_survives_uncopyable_source_and_retries(
+    v1_db_path, tmpdir, monkeypatch, caplog, damage
+):
+    from aw_datastore.storages import SqliteStorage
+
+    data_dir = os.path.dirname(v1_db_path)
+    monkeypatch.setattr("aw_datastore.storages.sqlite.get_data_dir", lambda _: data_dir)
+    monkeypatch.setattr("aw_datastore.migration.get_data_dir", lambda _: data_dir)
+    with open(v1_db_path, "rb") as f:
+        intact = f.read()
+    if damage == "not-a-database":
+        with open(v1_db_path, "wb") as f:
+            f.write(b"not a database" * 100)
+    else:
+        # The last row fails, after earlier rows have already been copied.
+        with sqlite3.connect(v1_db_path) as source:
+            source.execute("UPDATE events SET datastr = '{' WHERE id = 3")
+        source.close()
+
+    storage = SqliteStorage(testing=True)
+    try:
+        assert not storage.buckets()
+        assert not storage.conn.execute("SELECT * FROM migrated_sources").fetchall()
+        assert "migration failed" in caplog.text
+    finally:
+        storage.conn.close()
+
+    with open(v1_db_path, "wb") as f:
+        f.write(intact)
     reopened = SqliteStorage(testing=True)
     try:
         assert len(reopened.get_events("test-bucket", -1)) == 3
