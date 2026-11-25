@@ -81,7 +81,7 @@ def peewee_v2_to_sqlite_v1(datastore):
 
 
 def sqlite_v1_to_v2(datastore: AbstractStorage, v1_path: str) -> None:
-    """Copy v1 atomically, retaining the source (including its WAL) untouched."""
+    """Copy v1 atomically, retaining the source and its associated sidecars."""
     if not isinstance(datastore, SqliteStorage):
         raise TypeError("SQLite v1 migration requires SqliteStorage")
     destination = datastore.conn
@@ -97,8 +97,12 @@ def sqlite_v1_to_v2(datastore: AbstractStorage, v1_path: str) -> None:
         return
 
     logger.info(f"Migrating SQLite v1 → v2: {v1_path}")
-    source = sqlite3.connect(Path(source_path).as_uri() + "?mode=ro", uri=True)
+    # SQLite may need to recover a hot journal after a crash. Allow that
+    # internal recovery, but forbid application writes and never create a
+    # missing source database. Keep the original path and sidecars together.
+    source = sqlite3.connect(Path(source_path).as_uri() + "?mode=rw", uri=True)
     try:
+        source.execute("PRAGMA query_only=ON")
         # One source snapshot and one destination transaction. Do not call storage
         # methods here: create_bucket/insert_many may commit midway through a copy.
         source.execute("BEGIN")

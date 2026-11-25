@@ -1,5 +1,7 @@
 import os
 import sqlite3
+import subprocess
+import sys
 from datetime import datetime, timezone
 
 import pytest
@@ -136,6 +138,39 @@ def test_wal_source_remains_readable(v1_db_path, v2_datastore):
             assert backup.execute("SELECT count(*) FROM events").fetchone()[0] == 4
     finally:
         source.close()
+
+
+def test_migration_recovers_hot_source_journal(v1_db_path, v2_datastore):
+    # Abrupt exit after dirty pages spill leaves a real hot rollback journal,
+    # not a mocked read failure. None of the child's changes were committed.
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import os, sqlite3, sys; "
+            "conn = sqlite3.connect(sys.argv[1]); "
+            "conn.execute('PRAGMA journal_mode=DELETE'); "
+            "conn.execute('PRAGMA cache_size=1'); "
+            "conn.execute('BEGIN IMMEDIATE'); "
+            "conn.execute(\"UPDATE events SET datastr = ?\", ('x' * 131072,)); "
+            "os._exit(0)",
+            v1_db_path,
+        ],
+        check=True,
+        timeout=30,
+    )
+    assert os.path.getsize(v1_db_path + "-journal") > 512
+
+    sqlite_v1_to_v2(v2_datastore, v1_db_path)
+
+    events = v2_datastore.get_events("test-bucket", -1)
+    assert sorted(event.id for event in events) == [1, 2, 3]
+    assert all(event.data == {} for event in events)
+    with sqlite3.connect(v1_db_path) as source:
+        assert source.execute("PRAGMA integrity_check").fetchone() == ("ok",)
+        assert source.execute(
+            "SELECT id, datastr FROM events ORDER BY id"
+        ).fetchall() == [(1, "{}"), (2, "{}"), (3, "{}")]
 
 
 def test_startup_retries_existing_v2(v1_db_path, v2_datastore, monkeypatch):
