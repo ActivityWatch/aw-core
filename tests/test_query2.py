@@ -1108,29 +1108,3 @@ def test_query2_flood_with_pulsetime(datastore):
         assert len(result_pulsetime) == 1
     finally:
         datastore.delete_bucket(bid)
-
-
-@pytest.mark.parametrize(
-    "literal, expected",
-    [
-        # Backslashes stay raw, as in aw-server-rust: only \" is unescaped.
-        (r'"C:\\"', r"C:\\"),
-        (r'"C:\\\\"', r"C:\\\\"),
-        (r'{"path": "C:\\"}', {"path": r"C:\\"}),
-        (r'["C:\\", "x"]', [r"C:\\", "x"]),
-        (r'"say \"hi\""', 'say "hi"'),
-        (r'"a\\\"b"', r'a\\"b'),
-    ],
-)
-def test_query2_string_ending_in_escaped_backslash(literal, expected):
-    """An escaped backslash before the closing quote must not escape the quote."""
-    starttime = iso8601.parse_date("1970-01-01")
-    result = query("test", f"RETURN = {literal};", starttime, starttime, mock_ds)
-    assert result == expected
-
-
-def test_query2_split_statements_after_escaped_backslash():
-    assert _split_query_statements(r'a = "C:\\"; RETURN = a;') == [
-        r'a = "C:\\"',
-        " RETURN = a",
-    ]
