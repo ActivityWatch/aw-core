@@ -103,7 +103,14 @@ def test_replace_does_not_select_event_first(store):
         assert bucket.replace(original.id, event(1))
     finally:
         conn.set_trace_callback(None)
-    assert not any(s.lstrip().upper().startswith("SELECT") for s in statements)
+    selects = [s for s in statements if s.lstrip().upper().startswith("SELECT")]
+    if storage.sid == "sqlite":
+        # Resolve bucket identity to reject cross-device ambiguity, but never
+        # fetch an event before its UPDATE (the heartbeat performance contract).
+        assert len(selects) == 1
+        assert selects[0].startswith("SELECT rowid FROM buckets WHERE id = ")
+    else:
+        assert not selects
     assert sum(s.lstrip().upper().startswith("UPDATE") for s in statements) == 1
 
 
