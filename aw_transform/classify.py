@@ -40,6 +40,9 @@ def _parse_optional_priority(rules: Dict[str, Any]) -> Optional[int]:
 class Rule:
     regex: Optional[Pattern]
     select_keys: Optional[List[str]]
+    # Per-field patterns, all of which must match (``{"app": "...", "title": "..."}``).
+    # Each pattern uses the same unanchored ``search`` as ``regex``.
+    fields: Optional[Dict[str, Pattern]]
     ignore_case: bool
     priority: Optional[int]
 
@@ -47,6 +50,13 @@ class Rule:
         self.select_keys = rules.get("select_keys", None)
         self.ignore_case = rules.get("ignore_case", False)
         self.priority = _parse_optional_priority(rules)
+        self.fields = None
+        if "fields" in rules:
+            # A fields rule carries no ``regex``, so servers that predate it
+            # match nothing for it instead of misclassifying events.
+            self.regex = None
+            self.fields = self._compile_fields(rules)
+            return
 
         # NOTE: Also checks that the regex isn't an empty string (which would erroneously match everything)
         regex_str = rules.get("regex", None)
@@ -71,7 +81,34 @@ class Rule:
         else:
             self.regex = None
 
+    def _compile_fields(self, rules: Dict[str, Any]) -> Optional[Dict[str, Pattern]]:
+        fields = rules["fields"]
+        problem = None
+        if rules.get("regex") or rules.get("select_keys"):
+            problem = "'fields' cannot be combined with 'regex' or 'select_keys'"
+        elif not isinstance(fields, dict) or not fields:
+            problem = "'fields' must be a non-empty mapping of field to pattern"
+        elif not all(
+            isinstance(k, str) and k and isinstance(v, str) and v
+            for k, v in fields.items()
+        ):
+            problem = "'fields' keys and patterns must be non-empty strings"
+        if problem is None:
+            flags = (re.IGNORECASE if self.ignore_case else 0) | re.UNICODE
+            try:
+                return {k: re.compile(v, flags) for k, v in fields.items()}
+            except re.error as e:
+                problem = f"invalid pattern ({e})"
+        logger.warning(
+            "Invalid 'fields' in category/tag rule %r: %s; this rule will match nothing.",
+            fields,
+            problem,
+        )
+        return None
+
     def match(self, e: Event) -> bool:
+        if self.fields is not None:
+            return _fields_match(e.data, self.fields)
         if self.select_keys:
             values = [e.data.get(key, None) for key in self.select_keys]
         else:
@@ -81,6 +118,14 @@ class Rule:
                 if isinstance(val, str) and self.regex.search(val):
                     return True
         return False
+
+
+def _fields_match(data: Dict[str, Any], fields: Dict[str, Pattern]) -> bool:
+    for key, pattern in fields.items():
+        val = data.get(key)
+        if not isinstance(val, str) or not pattern.search(val):
+            return False
+    return True
 
 
 def compile_rules(
@@ -119,11 +164,14 @@ def _data_key(e: Event) -> Tuple[str, bool]:
 
 
 _Search = Callable[[str], Any]
-_Step = Tuple[Any, _Search, Optional[Tuple[str, ...]]]
+# (class, regex.search, select_keys, fields); ``fields`` set means search is unused.
+_Step = Tuple[
+    Any, Optional[_Search], Optional[Tuple[str, ...]], Optional[Dict[str, Pattern]]
+]
 
 
 def _plan(classes: List[Tuple[Any, Rule]], for_category: bool) -> List[_Step]:
-    """Precompute (class, regex.search, select_keys) steps for matching.
+    """Precompute (class, regex.search, select_keys, fields) steps for matching.
 
     For categories the steps are ordered by (rank, position) descending, so the
     first match is exactly what :func:`_pick_category` would pick from all
@@ -133,15 +181,17 @@ def _plan(classes: List[Tuple[Any, Rule]], for_category: bool) -> List[_Step]:
     steps = [
         (i, cls, rule)
         for i, (cls, rule) in enumerate(classes)
-        if rule.regex is not None and (cls or not for_category)
+        if (rule.regex is not None or rule.fields is not None)
+        and (cls or not for_category)
     ]
     if for_category:
         steps.sort(key=lambda s: (_effective_rank(s[1], s[2]), s[0]), reverse=True)
     return [
         (
             cls,
-            rule.regex.search,  # type: ignore[union-attr]
+            rule.regex.search if rule.regex is not None else None,
             tuple(rule.select_keys) if rule.select_keys else None,
+            rule.fields,
         )
         for _, cls, rule in steps
     ]
@@ -168,7 +218,14 @@ def _matching(data: Dict[str, Any], plan: List[_Step], first_only: bool) -> list
     all_values = [v for v in data.values() if isinstance(v, str)]
     selected: Dict[Tuple[str, ...], List[str]] = {}
     found = []
-    for cls, search, keys in plan:
+    for cls, search, keys, fields in plan:
+        if fields is not None:
+            if _fields_match(data, fields):
+                found.append(cls)
+                if first_only:
+                    return found
+            continue
+        assert search is not None
         if keys is None:
             values = all_values
         else:
