@@ -279,6 +279,8 @@ class QDict(QToken):
             if to_consume == 0:
                 break
             prev_char = char
+        if to_consume != 0:
+            raise QueryParseException(f"Unclosed dict: {string}")
         return string[:i], string[i:]
 
 
@@ -334,6 +336,8 @@ class QList(QToken):
             if to_consume == 0:
                 break
             prev_char = char
+        if to_consume != 0:
+            raise QueryParseException(f"Unclosed list: {string}")
         return string[:i], string[i:]
 
 
